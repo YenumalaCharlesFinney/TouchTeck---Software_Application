@@ -79,7 +79,7 @@ export default function Scoreboard({
     if (!event) { setQualifyingTimesMap({}); return; }
     db.qualifyingTimes
       .where('stroke').equals(event.stroke)
-      .filter((qt: QualifyingTime) => qt.gender === event!.gender && qt.distance === event!.distance)
+      .filter((qt: QualifyingTime) => qt.meetId === event!.meetId && qt.gender === event!.gender && qt.distance === event!.distance)
       .toArray()
       .then((times: QualifyingTime[]) => {
         const map: {[ageGroup: string]: number} = {};
@@ -97,6 +97,18 @@ export default function Scoreboard({
   }
   const [flashFinish, setFlashFinish] = useState<FlashInfo | null>(null);
   const prevFinalTimesRef = useRef<{[lane: number]: number}>({});
+  const FLASH_DURATION_MS = 5000;
+
+  // Self-clear the flash banner on its own timer instead of relying on a future render.
+  // Once the race clock stops, elapsedTime stops changing and nothing else re-renders
+  // this component, so without an explicit timeout the banner freezes on screen forever.
+  useEffect(() => {
+    if (!flashFinish) return;
+    const remaining = FLASH_DURATION_MS - (Date.now() - flashFinish.triggeredAt);
+    if (remaining <= 0) { setFlashFinish(null); return; }
+    const id = setTimeout(() => setFlashFinish(null), remaining);
+    return () => clearTimeout(id);
+  }, [flashFinish]);
 
   // Detect new finishes and store flash with a timestamp.
   // When multiple finishes occur, pick the latest finish time.
@@ -140,9 +152,8 @@ export default function Scoreboard({
     }
   }, [lanes, timerStatus, onRaceComplete]);
 
-  // Flash is active only within 5 seconds of the triggeredAt timestamp.
-  // Evaluated on every render — no timeout or cleanup required.
-  const FLASH_DURATION_MS = 5000;
+  // Flash is active only within 5 seconds of the triggeredAt timestamp (the effect above
+  // also self-clears flashFinish via setTimeout so this stays correct even without a re-render).
   const isFlashActive = flashFinish != null &&
     (Date.now() - flashFinish.triggeredAt) < FLASH_DURATION_MS;
 

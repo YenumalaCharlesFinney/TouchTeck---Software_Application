@@ -1,6 +1,15 @@
 // ============================================================
 //  TouchTeck – Omega / Swiss Timing ARES 21 Serial Driver
 //
+//  Transport: talks to the local bridge process (bridge/serial-bridge.js)
+//  over a WebSocket (ws://localhost:8787) instead of the browser's Web
+//  Serial API directly. The bridge owns the actual COM port continuously,
+//  independent of the browser tab's lifecycle — so refreshing/closing the
+//  page never drops the hardware connection the way a direct Web Serial
+//  connection did. Every packet-level detail below (framing, checksums,
+//  arm/disarm sequences, touch/start decoding) is unchanged; only how the
+//  bytes physically get in and out changed.
+//
 //  Protocol source: DMS (Device Monitoring Studio) kernel-level
 //  capture of official ARES v2.06 (SWIMM.EXE) communication.
 //
@@ -19,10 +28,10 @@
 //    5.  01 14 03 E7 6F EF A1                         (Cfg 14)
 //    6.  01 16 03 E5 00 00 FF                         (ARM LANES -> LED BLINKS!)
 //    7.  01 15 0B DE 01 02 03 04 05 06 07 08 FF FF DD (Lanes 1-8)
-//    8.  01 02 05 F7 01 08 07 EA 05                   (Cfg 02)
+//    8.  01 02 05 F7 05 08 07 EA 01                   (Cfg 02)
 //    9.  01 03 03 F8 02 02 FB                         (Cfg 03)
 //    10. 01 84 02 78 08 F7                             (Cfg 84)
-//    11. 01 9F 02 5D 00 FF                             (Cfg 9F)
+//    11. 01 9F 02 5D 07 F8                             (Cfg 9F)
 //    12. 01 F3 03 08 04 43 B8                         (Clock Sync 1)
 //    13. 01 F3 03 08 01 43 BB                         (Clock Sync 2)
 //    14. 01 F7 02 05 04 FB                             (Poll - Keepalive)
@@ -35,22 +44,31 @@ export interface TimingEvent {
   time: number;
   timingMethod?: 'T1' | 'T2';
   raw: string;
+  // Wall-clock (Date.now()) estimate of the instant the race actually started, translated
+  // from the ARES hardware clock domain. Only present on hardware-gun-triggered START events —
+  // lets the UI's local race clock start from the TRUE fire moment instead of whenever this
+  // packet happened to be processed, keeping it in sync with touch times (which are always
+  // computed in the ARES clock domain).
+  startTimestamp?: number;
 }
 
 export type TimingCallback = (event: TimingEvent) => void;
 
 class SerialTimingDriver {
-  private port: any = null;
-  private reader: ReadableStreamDefaultReader<any> | null = null;
+  private ws: WebSocket | null = null;
+  private readonly bridgeUrl = 'ws://localhost:8787';
+  private bridgeReportsDeviceConnected = false; // status reported by the bridge process itself
   private isReading = false;
   private callbacks: Set<TimingCallback> = new Set();
   private keepaliveId: any = null;
   private lastByteTimestamp = 0;
   private rawBuf: number[] = [];
-  private lastUptimeSecs = 0; // Track CMD 0x32 uptime for gun-fire clock-reset detection
+  private lastUptimeSecs = 0;        // Last CMD 0x32 value (gun-fire clock-reset detection)
+  private lastUptimeReceivedMs = 0;  // Wall-clock ms when lastUptimeSecs was last updated (for sub-second interpolation)
   private isArmed = false;   // Guards arm/disarm to prevent multiple firings per state change
   private isRaceActive = false; // Strictly tracks active race running state
   private lastArmTimestamp = 0; // Cooldown timer between arm commands
+  private lastResetTimestamp = 0; // Cooldown timer between reset commands (see sendRaceResetSignal)
   // The 14-step init handshake and every arm command intentionally reset the console's
   // internal clock. That reset looks byte-for-byte identical to a real starter-gun clock
   // reset on CMD 0x32, so the gun-fire heuristic must be suppressed for a short grace
@@ -59,42 +77,55 @@ class SerialTimingDriver {
   private suppressGunDetectUntil = 0;
   private static readonly GUN_DETECT_GRACE_MS = 1200;
   private writeQueue: Promise<boolean> = Promise.resolve(true); // Serializes write operations
+  private port: any = null;
+  private reader: any = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
-      (navigator as any).serial?.addEventListener('disconnect', () => this.disconnect());
       window.addEventListener('beforeunload', () => {
         this.stopKeepalive();
         this.isReading = false;
         this.disarmAresSync();
-        try { this.reader?.cancel(); } catch {}
+        // No explicit socket close here — the browser tears the WebSocket down on its own as
+        // the page unloads. The bridge process (which owns the real serial connection) detects
+        // the disconnect and disarms the console itself after a grace period if no other tab
+        // reconnects — see bridge/serial-bridge.js. This is just a fast best-effort attempt.
       });
     }
   }
 
-  // Synchronous emergency disarm frame write on page unload
+  // Best-effort emergency disarm write on page unload. The bridge process is the reliable
+  // backstop for this (see bridge/serial-bridge.js's disarm-on-last-client-disconnect), but
+  // this gives an instant disarm attempt too since it costs nothing extra to try.
   private disarmAresSync() {
-    if (this.port?.writable) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       try {
-        const writer = this.port.writable.getWriter();
-        writer.write(new Uint8Array([0x01, 0x16, 0x03, 0xE5, 0x00, 0x00, 0x00]));
-        writer.releaseLock();
+        this.ws.send(new Uint8Array([
+          0x01, 0x26, 0x02, 0xD6, 0x00, 0xFF, // CMD 0x26 disarm step 1
+          0x01, 0x31, 0x02, 0xCB, 0x00, 0xFF, // CMD 0x31 mode disable
+          0x01, 0x26, 0x00, 0xD8,             // CMD 0x26 disarm confirm
+          0x01, 0x31, 0x00, 0xCD,             // CMD 0x31 mode disable short
+        ]));
       } catch {}
     }
   }
 
   isSupported(): boolean {
-    return typeof window !== 'undefined' && 'serial' in navigator;
+    return typeof window !== 'undefined' && 'WebSocket' in window;
   }
 
   isConnected(): boolean {
-    return this.port !== null;
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) return true;
+    if (this.port && (this.port.readable || this.port.writable)) return true;
+    return false;
   }
 
   getHardwareState(): 'DISCONNECTED' | 'CABLE_ONLY' | 'ARES_ONLINE' {
-    if (!this.port) return 'DISCONNECTED';
-    if (Date.now() - this.lastByteTimestamp < 8000) return 'ARES_ONLINE';
-    return 'CABLE_ONLY';
+    if (!this.isConnected()) return 'DISCONNECTED';
+    if (this.ws) {
+      return this.bridgeReportsDeviceConnected ? 'ARES_ONLINE' : 'CABLE_ONLY';
+    }
+    return 'ARES_ONLINE';
   }
 
   onData(callback: TimingCallback) {
@@ -113,30 +144,85 @@ class SerialTimingDriver {
   // Buffer until the pair is complete then emit.
   private pendingT2: { index: number; secs: number } | null = null;
 
-  markRaceStarted(isHardwareGun: boolean = false) {
+  /**
+   * Estimate the ARES absolute hardware time at the exact moment the gun fired.
+   *
+   * CMD 0x32 heartbeats arrive every ~1 second. If the gun fires 0.8s after a
+   * heartbeat, lastUptimeSecs is still the old value. We add the wall-clock
+   * elapsed time since the last heartbeat to get sub-second accuracy.
+   *
+   * Example: heartbeat shows 0.00s at T=0ms. Gun fires at T=2670ms.
+   *   → interpolatedGunTime = 0.00 + 2670/1000 = 2.67s  ✓
+   *   → touch at ARES absolute 7.67s → netSecs = 7.67 - 2.67 = 5.00s  ✓
+   */
+  private interpolateGunTime(): number {
+    if (this.lastUptimeReceivedMs === 0) {
+      // No heartbeat seen yet — fall back to lastUptimeSecs (likely 0)
+      return this.lastUptimeSecs;
+    }
+    const msSinceHeartbeat = Date.now() - this.lastUptimeReceivedMs;
+    const estimated = this.lastUptimeSecs + msSinceHeartbeat / 1000;
+    console.log(`[ARES21] Gun time interpolated: lastUptime=${this.lastUptimeSecs.toFixed(3)}s + ${msSinceHeartbeat}ms = ${estimated.toFixed(3)}s`);
+    return estimated;
+  }
+
+  /**
+   * @returns the wall-clock (Date.now()) instant the race actually started, in the same
+   * time domain the UI's local race clock runs in — see startWallClockMs below for why.
+   */
+  markRaceStarted(isHardwareGun: boolean = false, gunHardwareTime?: number): number {
+    if (this.isRaceActive) {
+      // Should be unreachable — every caller gates on !isRaceActive before calling this.
+      // If this ever fires, something is detecting a start twice for the same race, and the
+      // second call's disarm/offset overwrite is likely why the clock or touch times misbehave.
+      this.emit({ type: 'RUNNING_TIME', time: 0, raw: `[ARES21] WARNING: markRaceStarted called again while already active (hardwareGun=${isHardwareGun}) — investigate double-detection` });
+    }
     this.isRaceActive = true;
+    let startWallClockMs = Date.now();
     if (isHardwareGun) {
-      this.raceStartHardwareTime = 0;
+      // Use the gun's own absolute ARES hardware timestamp as the race start offset.
+      // Touch timestamps are absolute ARES console uptime, so subtracting the gun's
+      // timestamp gives the correct elapsed race time. Never use 0 — that would make
+      // touch times equal the raw ARES uptime (e.g. 14s shown instead of 9s).
+      this.raceStartHardwareTime = gunHardwareTime ?? this.lastHardwareTime;
+
+      // Translate that ARES-domain timestamp into a wall-clock instant using the most
+      // recent heartbeat as the shared anchor between the two clock domains. Without this,
+      // the on-screen race clock (driven by Date.now() at whenever this packet happened to
+      // be PROCESSED) and touch times (always computed purely in the ARES clock domain) can
+      // permanently drift apart by however long USB/serial buffering or detection latency
+      // added — e.g. the displayed clock reading 8.94s while a touch correctly shows 11.24s.
+      if (this.lastUptimeReceivedMs > 0 && this.raceStartHardwareTime > 0) {
+        const aresSecsSinceHeartbeat = this.raceStartHardwareTime - this.lastUptimeSecs;
+        const estimated = this.lastUptimeReceivedMs + aresSecsSinceHeartbeat * 1000;
+        // Clamp to sane bounds — never in the future, never absurdly far in the past —
+        // in case the heartbeat anchor is stale or the interpolation is off.
+        startWallClockMs = Math.min(Date.now(), Math.max(Date.now() - 5000, estimated));
+      }
     } else {
       this.raceStartHardwareTime = this.lastHardwareTime;
     }
-    console.log(`[ARES21] Race START captured (hardwareGun=${isHardwareGun}) — start offset: ${this.raceStartHardwareTime}s`);
+    this.emit({ type: 'RUNNING_TIME', time: 0, raw: '[SYSTEM] Started race clock.' });
     // Instantly emit 0.00s running time for zero latency
     this.emit({ type: 'RUNNING_TIME', time: 0, raw: 'TIMER: 00.00' });
     // Switch hardware to live/disarm mode (turns OFF Green Ready Light, activates Red LED while clock runs)
     this.disarmAres();
+    return startWallClockMs;
   }
 
-  resetRaceStartHardwareTime() {
+  async resetRaceStartHardwareTime() {
     this.isRaceActive = false;
     this.raceStartHardwareTime = 0;
     this.lastStartSignalTimestamp = 0;
-    this.lastUptimeSecs = 0; // Clear stale high-water mark so the post-reset console clock isn't read as a "drop"
-    this.suppressGunDetectUntil = Date.now() + SerialTimingDriver.GUN_DETECT_GRACE_MS; // Guard immediately, before armLanes()'s own await resolves
+    this.emit({ type: 'RUNNING_TIME', time: 0, raw: '[SYSTEM] Stopped race clock.' });
+    // NOTE: Do NOT clear lastUptimeSecs here — the CMD 0x32 clock-drop gun detection
+    // needs the pre-reset high-water mark to be > 1.0 so the heuristic fires correctly
+    // on the next race. Clearing it makes rawSecs < lastUptimeSecs - 0.5 always false.
+    this.suppressGunDetectUntil = Date.now() + 2500; // Guard during full initialization + settling time
     this.lastTouchTimestampByLane = {};
     this.lastTouchTimestampByLaneAndMethod = {};
     this.pendingT2 = null; // discard any half-received T2 pair
-    this.armLanes(true); // Force re-arm sequence on reset
+    await this.sendAresInit();
   }
 
   async armLanes(force: boolean = false) {
@@ -147,58 +233,99 @@ class SerialTimingDriver {
       return;
     }
     this.lastArmTimestamp = now;
+    this.isArmed = true; // Optimistic lock: prevent concurrent arm calls immediately
 
-    if (this.port?.writable) {
+    if (this.isConnected()) {
       try {
-        console.log('[ARES21] Arming console — sending official arm sequence...');
-        const armPacket = new Uint8Array([
-          0x01, 0x24, 0x02, 0xD8, 0x7F, 0x80,           // CMD 0x24 relay step 1
-          0x01, 0x24, 0x02, 0xD8, 0xFF, 0x00,           // CMD 0x24 relay step 2
-          0x01, 0x31, 0x02, 0xCB, 0x01, 0xFE,           // CMD 0x31 mode enable
-          0x01, 0x14, 0x03, 0xE7, 0x6F, 0xEF, 0xA1,    // CMD 0x14 timer config
-          0x01, 0x16, 0x03, 0xE5, 0x00, 0x00, 0xFF,    // CMD 0x16 ARM LANES → Green Light ON
-          0x01, 0x13, 0x04, 0xE7, 0x00, 0x01, 0x01, 0xFD, // CMD 0x13
-          0x01, 0x10, 0x04, 0xEA, 0x01, 0x00, 0x00, 0xFE, // CMD 0x10
-          0x01, 0x10, 0x04, 0xEA, 0x00, 0x00, 0x01, 0xFE, // CMD 0x10
-          0x01, 0x13, 0x04, 0xE7, 0x00, 0x01, 0x01, 0xFD, // CMD 0x13
-          0x01, 0x12, 0x03, 0xE9, 0x44, 0x00, 0xBB,    // CMD 0x12
-          0x01, 0x25, 0x02, 0xD7, 0x00, 0xFF,           // CMD 0x25 READY SIGNAL → Green LED ON!
-          0x01, 0x11, 0x04, 0xE9, 0x00, 0x11, 0x28, 0xC6, // CMD 0x11
-          0x01, 0x11, 0x04, 0xE9, 0x01, 0x28, 0x28, 0xAE, // CMD 0x11
-        ]);
-        const ok = await this.safeWrite(armPacket);
-        if (ok) {
-          this.isArmed = true;
-          // Never shrink an existing (longer) grace window — only extend it.
-          this.suppressGunDetectUntil = Math.max(this.suppressGunDetectUntil, Date.now() + SerialTimingDriver.GUN_DETECT_GRACE_MS);
+        const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+        console.log('[ARES21] Arming console — sending paced arm sequence to prevent buffer overflow...');
+
+        const armSteps: Uint8Array[] = [
+          // Clean arm sequence (no CMD 0x24 relay flip-flop)
+          new Uint8Array([0x01, 0x31, 0x02, 0xCB, 0x01, 0xFE]),           // CMD 0x31 mode enable
+          new Uint8Array([0x01, 0x14, 0x03, 0xE7, 0x6F, 0xEF, 0xA1]),    // CMD 0x14 timer config
+          new Uint8Array([0x01, 0x16, 0x03, 0xE5, 0x00, 0x00, 0xFF]),    // CMD 0x16 ARM LANES → Green Light ON
+          new Uint8Array([0x01, 0x13, 0x04, 0xE7, 0x00, 0x01, 0x01, 0xFD]), // CMD 0x13
+          // Per-lane arm loop (CMD 0x23), two writes per lane for lanes 1-8:
+          new Uint8Array([0x01, 0x23, 0x02, 0xD9, 0x70, 0x8F]),
+          new Uint8Array([0x01, 0x23, 0x02, 0xD9, 0xF0, 0x0F]),
+          new Uint8Array([0x01, 0x23, 0x02, 0xD9, 0x71, 0x8E]),
+          new Uint8Array([0x01, 0x23, 0x02, 0xD9, 0xF1, 0x0E]),
+          new Uint8Array([0x01, 0x23, 0x02, 0xD9, 0x72, 0x8D]),
+          new Uint8Array([0x01, 0x23, 0x02, 0xD9, 0xF2, 0x0D]),
+          new Uint8Array([0x01, 0x23, 0x02, 0xD9, 0x73, 0x8C]),
+          new Uint8Array([0x01, 0x23, 0x02, 0xD9, 0xF3, 0x0C]),
+          new Uint8Array([0x01, 0x23, 0x02, 0xD9, 0x74, 0x8B]),
+          new Uint8Array([0x01, 0x23, 0x02, 0xD9, 0xF4, 0x0B]),
+          new Uint8Array([0x01, 0x23, 0x02, 0xD9, 0x75, 0x8A]),
+          new Uint8Array([0x01, 0x23, 0x02, 0xD9, 0xF5, 0x0A]),
+          new Uint8Array([0x01, 0x23, 0x02, 0xD9, 0x76, 0x89]),
+          new Uint8Array([0x01, 0x23, 0x02, 0xD9, 0xF6, 0x09]),
+          new Uint8Array([0x01, 0x23, 0x02, 0xD9, 0x77, 0x88]),
+          new Uint8Array([0x01, 0x23, 0x02, 0xD9, 0xF7, 0x08]),
+          new Uint8Array([0x01, 0x10, 0x04, 0xEA, 0x01, 0x00, 0x00, 0xFE]), // CMD 0x10
+          new Uint8Array([0x01, 0x10, 0x04, 0xEA, 0x00, 0x00, 0x01, 0xFE]), // CMD 0x10
+          new Uint8Array([0x01, 0x13, 0x04, 0xE7, 0x00, 0x01, 0x01, 0xFD]), // CMD 0x13
+          new Uint8Array([0x01, 0x12, 0x03, 0xE9, 0x44, 0x00, 0xBB]),    // CMD 0x12
+          new Uint8Array([0x01, 0x25, 0x02, 0xD7, 0x00, 0xFF]),           // CMD 0x25 READY SIGNAL → Green LED ON!
+          new Uint8Array([0x01, 0x11, 0x04, 0xE9, 0x00, 0x11, 0x28, 0xC6]), // CMD 0x11
+          new Uint8Array([0x01, 0x11, 0x04, 0xE9, 0x01, 0x28, 0x28, 0xAE]), // CMD 0x11
+        ];
+
+        let allOk = true;
+        for (const step of armSteps) {
+          const stepOk = await this.safeWrite(step);
+          if (!stepOk) allOk = false;
+          await delay(20); // 20ms pacing between sub-packets
+        }
+
+        if (allOk) {
+          this.suppressGunDetectUntil = 0; // Arming complete & Green Light ON — unblock gun detection immediately!
           this.emit({ type: 'RUNNING_TIME', time: 0, raw: '[ARES21] Ready Green Light ON (CMD 0x25 + CMD 0x16)' });
           console.log('[ARES21] Sent Arm command — Green Ready Light ON.');
+        } else {
+          this.isArmed = false; // Rollback if write failed
         }
       } catch (e) {
+        this.isArmed = false; // Rollback on error
         console.warn('[ARES21] Arm error:', e);
       }
+    } else {
+      this.isArmed = false; // Rollback: no port
     }
   }
 
   async disarmAres() {
     if (!this.isArmed) return; // Already disarmed — skip duplicate call
-    if (this.port?.writable) {
+    this.isArmed = false; // Optimistic lock: prevent concurrent disarm calls immediately
+    if (this.isConnected()) {
       try {
         console.log('[ARES21] Disarming console...');
-        const disarmPacket = new Uint8Array([
-          0x01, 0x26, 0x02, 0xD6, 0x00, 0xFF,   // CMD 0x26 disarm step 1
-          0x01, 0x31, 0x02, 0xCB, 0x00, 0xFF,   // CMD 0x31 mode disable
-          0x01, 0x26, 0x00, 0xD8,               // CMD 0x26 disarm confirm
-          0x01, 0x31, 0x00, 0xCD,               // CMD 0x31 mode disable short
-        ]);
-        const ok = await this.safeWrite(disarmPacket);
-        if (ok) {
-          this.isArmed = false;
+        const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
+        const disarmSteps: Uint8Array[] = [
+          new Uint8Array([0x01, 0x26, 0x02, 0xD6, 0x00, 0xFF]),       // CMD 0x26 disarm step 1
+          new Uint8Array([0x01, 0x31, 0x02, 0xCB, 0x00, 0xFF]),       // CMD 0x31 mode disable
+          new Uint8Array([0x01, 0x16, 0x03, 0xE5, 0x00, 0x00, 0x00]),   // CMD 0x16 disarm lanes → Green Light OFF
+        ];
+        let allOk = true;
+        for (const step of disarmSteps) {
+          const ok = await this.safeWrite(step);
+          if (!ok) allOk = false;
+          await delay(20);
+        }
+        if (allOk) {
           this.emit({ type: 'RUNNING_TIME', time: 0, raw: '[ARES21] Green Ready Light OFF (disarmed)' });
+          this.emit({ type: 'RUNNING_TIME', time: 0, raw: '[ARES21] Sent Disarm command — Green Ready Light OFF.' });
+        } else {
+          this.isArmed = true; // Rollback if write failed
         }
       } catch (e) {
+        this.isArmed = true; // Rollback on error
         console.warn('[ARES21] Disarm error:', e);
       }
+    } else {
+      this.isArmed = true; // Rollback: no port
     }
   }
 
@@ -229,38 +356,44 @@ class SerialTimingDriver {
 
   private async safeWrite(data: Uint8Array): Promise<boolean> {
     this.writeQueue = this.writeQueue.then(async () => {
-      if (!this.port?.writable) return false;
-      let retries = 0;
-      while (this.port.writable.locked && retries < 15) {
-        await new Promise(r => setTimeout(r, 20));
-        retries++;
+      // 1. WebSocket bridge transport
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        try {
+          this.ws.send(data);
+          return true;
+        } catch (e) {
+          console.warn('[ARES21] safeWrite ws error:', e);
+          return false;
+        }
       }
-      if (this.port.writable.locked) {
-        console.warn('[ARES21] Writable port locked, write skipped');
-        return false;
+      // 2. Direct Web Serial transport
+      if (this.port?.writable) {
+        let retries = 0;
+        while (this.port.writable.locked && retries < 15) {
+          await new Promise(r => setTimeout(r, 20));
+          retries++;
+        }
+        if (this.port.writable.locked) {
+          console.warn('[ARES21] Writable port locked, write skipped');
+          return false;
+        }
+        try {
+          const writer = this.port.writable.getWriter();
+          await writer.write(data);
+          writer.releaseLock();
+          return true;
+        } catch (e) {
+          console.warn('[ARES21] safeWrite port write error:', e);
+          return false;
+        }
       }
-      try {
-        const writer = this.port.writable.getWriter();
-        await writer.write(data);
-        writer.releaseLock();
-        return true;
-      } catch (e) {
-        console.warn('[ARES21] safeWrite write error:', e);
-        return false;
-      }
+      return false;
     });
     return this.writeQueue;
   }
 
-  private async clearSignals() {
-    try {
-      await this.port.setSignals({ dataTerminalReady: false, requestToSend: false });
-    } catch {}
-  }
-
-
   async rearmAres() {
-    if (this.port?.writable) {
+    if (this.isConnected()) {
       console.log('[ARES21] Re-arm / re-initializing console...');
       await this.sendAresInit();
     }
@@ -268,7 +401,7 @@ class SerialTimingDriver {
 
   // ─── Exact ARES v2.06 Initialization Sequence ─────────────
   private async sendAresInit() {
-    if (!this.port?.writable) return;
+    if (!this.isConnected()) return;
     const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
     console.log('[ARES21] Executing 14-step ARES 21 initialization...');
@@ -306,8 +439,8 @@ class SerialTimingDriver {
       await this.safeWrite(new Uint8Array([0x01, 0x15, 0x0B, 0xDE, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0xFF, 0xFF, 0xDD]));
       await delay(60);
 
-      // 8. Config 02: Mode setup
-      await this.safeWrite(new Uint8Array([0x01, 0x02, 0x05, 0xF7, 0x01, 0x08, 0x07, 0xEA, 0x05]));
+      // 8. Config 02: Mode setup (byte order verified against real SWIMM.EXE capture: 05 08 07 EA 01)
+      await this.safeWrite(new Uint8Array([0x01, 0x02, 0x05, 0xF7, 0x05, 0x08, 0x07, 0xEA, 0x01]));
       await delay(60);
 
       // 9. Config 03: Start mode
@@ -318,8 +451,8 @@ class SerialTimingDriver {
       await this.safeWrite(new Uint8Array([0x01, 0x84, 0x02, 0x78, 0x08, 0xF7]));
       await delay(60);
 
-      // 11. Config 9F
-      await this.safeWrite(new Uint8Array([0x01, 0x9F, 0x02, 0x5D, 0x00, 0xFF]));
+      // 11. Config 9F (payload byte verified against real SWIMM.EXE capture: 07, not 00)
+      await this.safeWrite(new Uint8Array([0x01, 0x9F, 0x02, 0x5D, 0x07, 0xF8]));
       await delay(60);
 
       // 12. Clock Sync 1 (F3)
@@ -334,12 +467,21 @@ class SerialTimingDriver {
       await this.safeWrite(new Uint8Array([0x01, 0xF7, 0x02, 0x05, 0x04, 0xFB]));
       await delay(60);
 
+      this.isArmed = false;
+      await this.armLanes(true);
+
       this.emit({
         type: 'RUNNING_TIME', time: 0,
         raw: '[HARDWARE] ARES 21 online. Red LED blinking.'
       });
-      console.log('[ARES21] Initialization complete — automatically arming lanes for Green Ready Light...');
-      await this.armLanes();
+      this.emit({
+        type: 'RUNNING_TIME', time: 0,
+        raw: '[ARES21] Ready Green Light ON — Lanes armed.'
+      });
+      this.emit({
+        type: 'RUNNING_TIME', time: 0,
+        raw: '[SYSTEM] Synchronized with ARES 21 hardware port. Console 100% READY.'
+      });
 
       // Start periodic status poll keepalive
       this.startKeepalive();
@@ -353,7 +495,7 @@ class SerialTimingDriver {
   //  Official ARES v2.06 sends 01 F7 02 05 04 FB every 3-4 seconds
   //  to keep the ARES 21 console in Online Mode.
   private async sendKeepalive() {
-    if (!this.port?.writable) return;
+    if (!this.isConnected()) return;
     try {
       await this.safeWrite(new Uint8Array([0x01, 0xF7, 0x02, 0x05, 0x04, 0xFB]));
     } catch (e) {
@@ -372,32 +514,20 @@ class SerialTimingDriver {
     if (this.keepaliveId) { clearInterval(this.keepaliveId); this.keepaliveId = null; }
   }
 
-  // ─── Connect ───────────────────────────────────────────────
+  // ─── Direct Web Serial Port Handler ───────────────────────
   private async openPort(port: any): Promise<boolean> {
     if (!port) return false;
-    
-    // If stream is already readable and active, it's open!
-    if (port.readable && this.isReading) {
-      console.log('[ARES21] Port is already open and active.');
-      return true;
-    }
+    if (port.readable && this.isReading) return true;
 
-    // Attempt up to 3 times with delays to handle Windows CH340 driver settling after F5 refresh
-    for (let attempt = 1; attempt <= 3; attempt++) {
+    const maxAttempts = 5;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         if (!port.readable) {
           await port.open({ baudRate: 9600 });
-          console.log(`[ARES21] Port successfully opened at 9600 baud (attempt ${attempt}).`);
-          return true;
-        } else {
           return true;
         }
+        return true;
       } catch (e: any) {
-        const name = e?.name || '';
-        const msg = e?.message || String(e);
-        console.warn(`[ARES21] openPort attempt ${attempt}/3 error [${name}]: ${msg}`);
-
-        // Recover from stale/busy port handles
         try {
           if (port.readable) {
             const r = port.readable.getReader();
@@ -405,93 +535,175 @@ class SerialTimingDriver {
             r.releaseLock();
           }
         } catch {}
-
-        try {
-          await port.close();
-        } catch {}
-
-        if (attempt < 3) {
-          await new Promise(r => setTimeout(r, 600));
+        try { await port.close(); } catch {}
+        if (attempt < maxAttempts) {
+          await new Promise(r => setTimeout(r, 400));
         }
       }
     }
-
     return false;
   }
 
-  // Silent auto-connect for previously granted ports (no popup dialogs)
-  async autoConnect(): Promise<boolean> {
-    if (!this.isSupported()) return false;
-    if (this.port?.readable && this.isReading) return true;
+  private async startReadingWebSerial() {
+    if (!this.port?.readable) return;
+    this.isReading = true;
+    this.rawBuf = [];
+
+    setTimeout(() => this.sendAresInit(), 250);
 
     try {
-      const granted: any[] = await (navigator as any).serial.getPorts();
-      if (!granted || granted.length === 0) return false;
+      this.reader = this.port.readable.getReader();
+      const activeReader = this.reader;
 
-      for (const p of granted) {
-        // Try to close it first in case the page reload left it in a stale open state
-        try { if (p.readable) await p.close(); } catch {}
+      while (this.isReading && activeReader) {
+        const { value, done } = await activeReader.read();
+        if (done) break;
+        if (!value?.length) continue;
 
-        const opened = await this.openPort(p);
-        if (opened) {
-          this.port = p;
-          await this.clearSignals();
-          this.startReading();
-          return true;
-        }
+        this.processIncomingBytes(value as Uint8Array);
       }
-    } catch (e) {
-      console.warn('[ARES21] Silent auto-connect error:', e);
+    } catch (err) {
+      console.error('[ARES21] Direct Web Serial read error:', err);
     }
-    return false;
   }
 
-  async connect(baudRate: number = 9600): Promise<boolean> {
-    if (!this.isSupported()) throw new Error('Web Serial API not supported. Use Chrome or Edge.');
+  private processIncomingBytes(value: Uint8Array) {
+    this.lastByteTimestamp = Date.now();
+    const hexStr = Array.from(value)
+      .map((b: number) => b.toString(16).padStart(2, '0').toUpperCase())
+      .join(' ');
+    console.log('[ARES21] RAW:', hexStr);
 
-    this.stopKeepalive();
+    // Direct raw byte scan for ASCII START trigger from starter gun (guarded against startup banner text)
+    const chunkTxt = Array.from(value)
+      .map((b: number) => (b >= 32 && b <= 126 ? String.fromCharCode(b) : ' '))
+      .join('');
+    if (!this.isRaceActive && Date.now() >= this.suppressGunDetectUntil && /START/i.test(chunkTxt)) {
+      console.log('[ARES21] Direct raw chunk START detected:', chunkTxt);
+      this.parseAsciiEvent('START');
+    }
 
-    // 1. If port is ALREADY readable and active, reuse it immediately!
-    if (this.port?.readable && this.isReading) {
+    for (const b of value) {
+      this.rawBuf.push(b);
+    }
+    this.processBinaryBuffer();
+  }
+
+  // ─── WebSocket Bridge Handler ─────────────────────────────
+  private connectToBridge(): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        resolve(true);
+        return;
+      }
+
+      let settled = false;
+      const socket = new WebSocket(this.bridgeUrl);
+      socket.binaryType = 'arraybuffer';
+
+      const timeout = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        try { socket.close(); } catch {}
+        resolve(false);
+      }, 1500);
+
+      socket.onopen = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        this.ws = socket;
+        this.wireSocketHandlers(socket);
+        this.isReading = true;
+        this.rawBuf = [];
+        this.emit({ type: 'RUNNING_TIME', time: 0, raw: '[SYSTEM] Connected to CH340 USB Adapter at 9600 baud via Node bridge.' });
+        this.startKeepalive();
+        setTimeout(() => this.sendAresInit(), 250);
+        resolve(true);
+      };
+
+      socket.onerror = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        resolve(false);
+      };
+    });
+  }
+
+  // Dual-transport auto-connect: tries WebSocket bridge first (persistent background COM port across refreshes),
+  // then falls back to direct Web Serial in Chrome.
+  async autoConnect(): Promise<boolean> {
+    if (this.port?.readable && this.isReading) return true;
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) return true;
+
+    // 1. Try WebSocket bridge first (instant reconnect across page refreshes without touching COM port)
+    const bridgeOk = await this.connectToBridge();
+    if (bridgeOk) {
+      console.log('[ARES21] Auto-connected via persistent Node.js WebSocket bridge.');
       return true;
     }
 
-    // 2. Check previously-granted ports first
-    try {
-      const granted: any[] = await (navigator as any).serial.getPorts();
-      if (granted.length > 0) {
-        for (const p of granted) {
-          if (await this.openPort(p)) {
+    // 2. Fallback to direct Chrome Web Serial for previously-granted ports
+    if (typeof window !== 'undefined' && 'serial' in navigator) {
+      try {
+        const granted: any[] = await (navigator as any).serial.getPorts();
+        if (granted && granted.length > 0) {
+          for (const p of granted) {
+            try { if (p.readable) await p.close(); } catch {}
+            if (await this.openPort(p)) {
+              this.port = p;
+              try { await p.setSignals({ dataTerminalReady: false, requestToSend: false }); } catch {}
+              this.startReadingWebSerial();
+              await this.sendAresInit();
+              return true;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[ARES21] Direct Web Serial auto-connect check:', e);
+      }
+    }
+
+    return false;
+  }
+
+  // Unified Connect: Tries WebSocket bridge first, then opens Chrome's native Web Serial dialog.
+  async connect(_baudRate: number = 9600): Promise<boolean> {
+    this.stopKeepalive();
+
+    // If already connected via direct Web Serial or WebSocket, return true
+    if (this.port?.readable && this.isReading) return true;
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) return true;
+
+    // 1. Try WebSocket bridge first (persistent background process)
+    const bridgeOk = await this.connectToBridge();
+    if (bridgeOk) return true;
+
+    // 2. Try Direct Native Chrome Web Serial dialog if bridge is not running
+    if (typeof window !== 'undefined' && 'serial' in navigator) {
+      try {
+        const p = await (navigator as any).serial.requestPort();
+        if (p) {
+          const opened = await this.openPort(p);
+          if (opened) {
             this.port = p;
-            await this.clearSignals();
-            this.startReading();
+            try { await p.setSignals({ dataTerminalReady: false, requestToSend: false }); } catch {}
+            this.startReadingWebSerial();
+            await this.sendAresInit();
             return true;
           }
         }
+      } catch (err: any) {
+        if (err?.name !== 'NotFoundError') {
+          console.warn('[ARES21] Native Web Serial dialog error:', err);
+        }
       }
-    } catch (e) {
-      console.warn('[ARES21] Error checking granted ports:', e);
     }
 
-    // 3. Request port via browser dialog if no granted port opened
-    try {
-      const p = await (navigator as any).serial.requestPort();
-      if (!p) throw new Error('No port selected.');
-
-      const opened = await this.openPort(p);
-      if (!opened) {
-        this.port = null;
-        throw new Error('Failed to open serial port. Please try clicking Detect COM Port once more.');
-      }
-
-      this.port = p;
-      await this.clearSignals();
-      this.startReading();
-      return true;
-    } catch (err: any) {
-      this.port = null;
-      throw err;
-    }
+    throw new Error(
+      'Could not connect to ARES 21. Please select USB-SERIAL CH340 from the browser popup window or ensure the local bridge is running.'
+    );
   }
 
   async disconnect() {
@@ -500,16 +712,8 @@ class SerialTimingDriver {
     this.isReading = false;
 
     if (this.reader) {
-      try {
-        await this.reader.cancel();
-      } catch (e) {
-        console.warn('[ARES21] Reader cancel error:', e);
-      }
-      try {
-        this.reader.releaseLock();
-      } catch (e) {
-        console.warn('[ARES21] Reader releaseLock error:', e);
-      }
+      try { await this.reader.cancel(); } catch {}
+      try { this.reader.releaseLock(); } catch {}
       this.reader = null;
     }
 
@@ -518,10 +722,13 @@ class SerialTimingDriver {
         if (this.port.readable || this.port.writable) {
           await this.port.close();
         }
-      } catch (e) {
-        console.warn('[ARES21] Port close error:', e);
-      }
+      } catch {}
       this.port = null;
+    }
+
+    if (this.ws) {
+      try { this.ws.close(); } catch {}
+      this.ws = null;
     }
 
     if (this.pinSignalInterval) {
@@ -530,51 +737,45 @@ class SerialTimingDriver {
     }
     this.rawBuf = [];
     this.lastTouchTimestampByLane = {};
+    this.bridgeReportsDeviceConnected = false;
     this.emit({ type: 'FINISH', time: 0, raw: 'SYSTEM: DISCONNECTED', lane: 0 });
   }
 
-  // ─── Main Read Loop ────────────────────────────────────────
-  private async startReading() {
-    if (!this.port?.readable) return;
-    this.isReading = true;
-    this.rawBuf = [];
-
-    setTimeout(() => this.sendAresInit(), 250);
-
-    this.reader = this.port.readable.getReader();
-    const activeReader = this.reader;
-
-    try {
-      while (this.isReading && activeReader) {
-        const { value, done } = await activeReader.read();
-        if (done) break;
-        if (!value?.length) continue;
-
-        this.lastByteTimestamp = Date.now();
-
-        const hexStr = Array.from(value as Uint8Array)
-          .map((b: number) => b.toString(16).padStart(2, '0').toUpperCase())
-          .join(' ');
-        console.log('[ARES21] RAW:', hexStr);
-
-        // Direct raw byte scan for ASCII START trigger from starter gun
-        const chunkTxt = Array.from(value as Uint8Array)
-          .map((b: number) => (b >= 32 && b <= 126 ? String.fromCharCode(b) : ' '))
-          .join('');
-        if (/START/i.test(chunkTxt)) {
-          console.log('[ARES21] Direct raw chunk START detected:', chunkTxt);
-          this.parseAsciiEvent('START');
-        }
-
-        for (const b of value as Uint8Array) {
-          this.rawBuf.push(b);
-        }
-        this.processBinaryBuffer();
+  // ─── WebSocket Message Handling ─────────────────────────────
+  private wireSocketHandlers(socket: WebSocket) {
+    socket.onmessage = (event) => {
+      if (typeof event.data === 'string') {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg?.type === 'status') {
+            const prevConnected = this.bridgeReportsDeviceConnected;
+            this.bridgeReportsDeviceConnected = !!msg.deviceConnected;
+            if (!prevConnected && this.bridgeReportsDeviceConnected) {
+              console.log('[ARES21] Bridge device ready signal received — triggering ARES 21 initialization...');
+              this.sendAresInit();
+            }
+          }
+        } catch {}
+        return;
       }
-    } catch (err) {
-      console.error('[ARES21] Read error:', err);
-      this.disconnect();
-    }
+
+      const value = new Uint8Array(event.data as ArrayBuffer);
+      if (!value.length) return;
+      this.processIncomingBytes(value);
+    };
+
+    socket.onclose = () => {
+      if (this.ws !== socket) return;
+      this.isReading = false;
+      this.stopKeepalive();
+      this.ws = null;
+      this.bridgeReportsDeviceConnected = false;
+      this.emit({ type: 'FINISH', time: 0, raw: 'SYSTEM: DISCONNECTED', lane: 0 });
+    };
+
+    socket.onerror = () => {
+      console.warn('[ARES21] Bridge WebSocket error');
+    };
   }
 
   // ─── Binary Packet Parser ──────────────────────────────────
@@ -621,27 +822,21 @@ class SerialTimingDriver {
           const secsLo = data[3] || 0;
           const secs = secsHi + (secsLo / 100);
           this.lastHardwareTime = secs;
-
-          // Only stream live running time if race is ALREADY RUNNING
-          if (this.isRaceActive) {
-            if (this.raceStartHardwareTime > 0 && secs < this.raceStartHardwareTime) {
-              this.raceStartHardwareTime = secs;
-            }
-            const netSecs = Math.max(0, secs - this.raceStartHardwareTime);
-            this.emit({ type: 'RUNNING_TIME', time: netSecs, raw: `TIMER: ${this.formatTime(netSecs)}` });
-          }
+          // CMD 0x30 is used only for hardware timing reference (splits/finishes).
+          // The race DISPLAY clock is driven by the local requestAnimationFrame loop in App.tsx.
         }
         break;
       }
 
-      // CMD 0x32 – Running Timer Heartbeat (every ~100 ms)
+      // CMD 0x32 – Running Timer Heartbeat (every ~1 second)
       case 0x32: {
-        if (data.length >= 5) {
-          // Packet format: 01 32 05 [C7] [00] [hi] [mid] [lo] [checksum]
-          // data[0] = 0xC7 (status byte)
-          // data[1] = 0x00
-          // ticks = 24-bit big endian integer in data[2], data[3], data[4]
-          const ticks = ((data[2] << 16) | (data[3] << 8) | data[4]) >>> 0;
+        if (data.length >= 4) {
+          // Packet format: 01 32 05 C7 [00] [hi] [mid] [lo] [checksum]
+          // data = packet.slice(4), so:
+          //   data[0] = 0x00  (always zero padding)
+          //   data[1..3] = 24-bit big-endian millisecond tick counter
+          // e.g. 01 32 05 c7 00 00 03 e8 14 → ticks = 0x0003E8 = 1000 → 1.000s
+          const ticks = ((data[1] << 16) | (data[2] << 8) | data[3]) >>> 0;
           const rawSecs = ticks / 1000;
           this.lastHardwareTime = rawSecs;
 
@@ -656,13 +851,18 @@ class SerialTimingDriver {
             rawSecs < this.lastUptimeSecs - 0.5         // Clock reset backward!
           ) {
             const now = Date.now();
-            if (now - this.lastStartSignalTimestamp >= 2000) {
+            if (now - this.lastStartSignalTimestamp >= 1000) {
               console.log(`[ARES21] STARTER GUN TRIGGERED via clock reset! (${this.lastUptimeSecs.toFixed(2)}s → ${rawSecs.toFixed(2)}s)`);
               this.lastStartSignalTimestamp = now;
-              this.markRaceStarted(true);
-              this.emit({ type: 'START', time: 0, raw: 'HARDWARE STARTER GUN (clock reset)' });
+              // Interpolate the gun's absolute ARES time using the last heartbeat value plus
+              // wall-clock elapsed — far more accurate than raw lastUptimeSecs when the gun
+              // fires within the first second after a heartbeat.
+              const startTs = this.markRaceStarted(true, this.interpolateGunTime());
+              this.emit({ type: 'START', time: 0, startTimestamp: startTs, raw: 'HARDWARE STARTER GUN (clock reset)' });
             }
           }
+          // Record when this heartbeat arrived for sub-second gun timestamp interpolation
+          this.lastUptimeReceivedMs = Date.now();
           this.lastUptimeSecs = rawSecs;
 
           if (this.isRaceActive) {
@@ -670,9 +870,10 @@ class SerialTimingDriver {
               this.raceStartHardwareTime = rawSecs;
             }
             const displayTime = Math.max(0, rawSecs - this.raceStartHardwareTime);
-            this.emit({ type: 'RUNNING_TIME', time: displayTime, raw: `TIMER: ${this.formatTime(displayTime)}` });
+            // Log to console for debug, but do NOT emit RUNNING_TIME.
+            // The race display clock is driven by the local requestAnimationFrame loop in App.tsx.
+            console.log(`[ARES21] CMD 0x32 race elapsed: ${this.formatTime(displayTime)} (hardware uptime: ${this.formatTime(rawSecs)})`);
           }
-          // Console Uptime emission removed to keep UI log clean and concise
         }
         break;
       }
@@ -685,18 +886,29 @@ class SerialTimingDriver {
         // data = packet.slice(4), so:
         //   data[1] = device ID: 0x01 or 0x02 = GUN inputs; 0x05+ = lane touchpads
         //   data[2] = 0x4C means "valid timing data" flag
-        // Gun fires: data[1] <= 0x03 AND data[2] === 0x4C
-        // Touchpad:  data[1] >= 0x05 AND data[2] === 0x4C (handled by parseCmd40)
-        const isGunDevice = data.length >= 3 && data[2] === 0x4C && data[1] >= 0x01 && data[1] <= 0x03;
+        // Gun fires: data[2] === 0x4C (valid gun start timing marker)
+        // Touchpad:  data[2] >= 0x40 (handled by parseCmd40)
+        const isGunDevice = data.length >= 3 && data[2] === 0x4C;
 
         if (isGunDevice) {
-          if (!this.isRaceActive) {
+          if (!this.isRaceActive && Date.now() >= this.suppressGunDetectUntil) {
             const now = Date.now();
-            if (now - this.lastStartSignalTimestamp >= 2000) {
+            if (now - this.lastStartSignalTimestamp >= 1000) {
               console.log(`[ARES21] STARTER GUN TRIGGERED (CMD 0x40, device=0x${data[1].toString(16).padStart(2,'0')})!`);
               this.lastStartSignalTimestamp = now;
-              this.markRaceStarted(true);
-              this.emit({ type: 'START', time: 0, raw: 'HARDWARE STARTER GUN' });
+              // Extract the gun's own ARES hardware timestamp from the packet bytes [8..11].
+              // This is the absolute ARES uptime at the moment the gun fired — used as the
+              // race-start offset so touch times compute correctly: netTime = touchAbsTime - gunAbsTime.
+              // If gunTicks is 0 (ARES just initialized / packet doesn't carry timing), fall back
+              // to interpolateGunTime() which estimates the gun time from the last CMD 0x32 heartbeat
+              // plus wall-clock elapsed since that heartbeat.
+              const gunTicks = (data.length >= 12)
+                ? (((data[8] << 24) | (data[9] << 16) | (data[10] << 8) | data[11]) >>> 0)
+                : 0;
+              const gunTime = (gunTicks > 0) ? gunTicks / 1000 : this.interpolateGunTime();
+              console.log(`[ARES21] Gun hardware timestamp: ${gunTime.toFixed(3)}s (ticks=${gunTicks})`);
+              const startTs = this.markRaceStarted(true, gunTime);
+              this.emit({ type: 'START', time: 0, startTimestamp: startTs, raw: 'HARDWARE STARTER GUN' });
             }
           }
           break;
@@ -883,13 +1095,13 @@ class SerialTimingDriver {
 
     if (/START/i.test(line)) {
       const now = Date.now();
-      if (now - this.lastStartSignalTimestamp < 3000) {
-        console.log(`[ARES21] Ignored duplicate START pulse (${line}) within 3s window`);
+      if (now - this.lastStartSignalTimestamp < 1000) {
+        this.emit({ type: 'RUNNING_TIME', time: 0, raw: `[ARES21] Ignored duplicate START pulse ("${line}") within 1s window` });
         return;
       }
       this.lastStartSignalTimestamp = now;
       this.markRaceStarted();
-      this.emit({ type: 'START', time: 0, raw: line });
+      this.emit({ type: 'START', time: 0, raw: `ASCII START ("${line}")` });
       return;
     }
 
@@ -966,12 +1178,31 @@ class SerialTimingDriver {
   }
 
   async sendRaceStartSignal(): Promise<boolean> {
+    if (this.isRaceActive) {
+      // markRaceStarted() was already invoked moments earlier by whatever actually detected
+      // this start (the ASCII/manual START parser or a hardware gun-detection path) — that's
+      // the sole source of truth for raceStartHardwareTime now. Re-running it here would
+      // silently overwrite the correct (possibly hardware-timestamp-anchored) start offset
+      // with a stale this.lastHardwareTime snapshot, corrupting every touch time computed
+      // for the rest of the race, and would also re-send a redundant disarm write.
+      console.log('[ARES21] sendRaceStartSignal: race already active — skipping redundant re-mark.');
+      return true;
+    }
     console.log('[ARES21] Manual Start signal — disarming console for live race.');
     this.markRaceStarted(false);
     return true;
   }
 
   async sendRaceResetSignal(): Promise<boolean> {
+    const now = Date.now();
+    if (now - this.lastResetTimestamp < 500) {
+      // Guards against duplicate callers within the same click (this exact bug shipped once
+      // already — see OperatorConsole.tsx's onResetRaceClick). Sending the full 13-command
+      // arm sequence twice per reset is what causes the ARES 21 3-beep error lockout.
+      console.log('[ARES21] sendRaceResetSignal: duplicate reset call within 500ms — skipping to avoid double-arm.');
+      return true;
+    }
+    this.lastResetTimestamp = now;
     console.log('[ARES21] Resetting race state — re-arming console.');
     this.resetRaceStartHardwareTime();
     return true;

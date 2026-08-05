@@ -18,6 +18,10 @@ import { ScoreboardDisplayConfig, DEFAULT_SCOREBOARD_CONFIG } from './types';
 
 type TabId = 'home' | 'scoreboard' | 'operator' | 'system-check' | 'meet-setup' | 'swimmer-registry' | 'qualifying' | 'results';
 
+// T1/T2 timing arbitration: how long a T2 (backup hand button) touch waits for a T1
+// (touchpad) touch to arrive and override it before being confirmed as official.
+const T1_OVERRIDE_WINDOW_MS = 2000;
+
 interface Swimmer {
   id?: number;
   name: string;
@@ -248,6 +252,8 @@ export default function App() {
   const isSimulatingRef = useRef<boolean>(isSimulating);
   const bothEndsRef = useRef<boolean>(bothEnds);
   const isFinalsRef = useRef<boolean>(isFinals);
+  const elapsedTimeRef = useRef<number>(0);
+  const scoreboardConfigRef = useRef<ScoreboardDisplayConfig>(scoreboardConfig);
 
   // T1 vs T2 Timing Arbitration Refs
   const pendingT2TimeoutsRef = useRef<{ [lane: number]: { time: number; timestamp: number; timeoutId: any } }>({});
@@ -264,6 +270,8 @@ export default function App() {
   useEffect(() => { isSimulatingRef.current = isSimulating; }, [isSimulating]);
   useEffect(() => { bothEndsRef.current = bothEnds; }, [bothEnds]);
   useEffect(() => { isFinalsRef.current = isFinals; }, [isFinals]);
+  useEffect(() => { elapsedTimeRef.current = elapsedTime; }, [elapsedTime]);
+  useEffect(() => { scoreboardConfigRef.current = scoreboardConfig; }, [scoreboardConfig]);
 
   // Clear arbitration memory on heat or event change
   useEffect(() => {
@@ -376,7 +384,7 @@ export default function App() {
               action: 'STATE_SYNC',
               payload: {
                 startTime: timerStartRef.current,
-                elapsedTime: elapsedTime,
+                elapsedTime: elapsedTimeRef.current,
                 timerStatus: timerStatusRef.current,
                 lanes: lanesRef.current,
                 activeMeetId: activeMeetIdRef.current,
@@ -386,7 +394,7 @@ export default function App() {
                 isTestMode: isTestModeRef.current,
                 isSimulating: isSimulatingRef.current,
                 bothEnds: bothEndsRef.current,
-                scoreboardConfig
+                scoreboardConfig: scoreboardConfigRef.current
               }
             });
           }
@@ -567,14 +575,29 @@ export default function App() {
     initDb();
   }, []);
 
-  // Silent hardware auto-connect on mount (uses previously granted port, no popup dialog)
+  // Silent hardware auto-connect on mount (uses previously granted port, no popup dialog).
+  // After a hard refresh (Ctrl+R/F5), Windows doesn't always release the previous page's COM
+  // port handle immediately — openPort() already retries internally for ~8.5s, but on a slow
+  // system that can still not be enough. Keep retrying in the background for a while longer
+  // rather than silently giving up and leaving the operator stuck on "NO USB CABLE".
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const mode = localStorage.getItem('touchteck_connection_mode');
     if (mode === 'HARDWARE') {
-      serialDriver.autoConnect().then(success => {
-        if (success) setSerialStatus('CONNECTED');
-      }).catch(() => {});
+      let cancelled = false;
+      const attempt = async (retriesLeft: number) => {
+        const success = await serialDriver.autoConnect().catch(() => false);
+        if (cancelled) return;
+        if (success) {
+          setSerialStatus('CONNECTED');
+          setIsSimulating(false);
+          isSimulatingRef.current = false;
+        } else if (retriesLeft > 0) {
+          setTimeout(() => attempt(retriesLeft - 1), 3000);
+        }
+      };
+      attempt(4); // up to 5 total tries, ~15s of extra background retry beyond openPort's own budget
+      return () => { cancelled = true; };
     } else if (mode === 'SIMULATOR') {
       setIsSimulating(true);
       setSerialStatus('SIMULATOR');
@@ -601,6 +624,21 @@ export default function App() {
       return () => clearInterval(interval);
     }
   }, [isSimulating]);
+
+  // Warn before an accidental refresh/close while real hardware is connected — a browser
+  // refresh can leave the ARES 21 mid-connection (see serialDriver's disarm-on-unload fix).
+  // This can only prompt the browser's native "Leave site?" confirmation; it cannot block the
+  // refresh outright — no website can do that, by design. Skipped in Simulator mode since
+  // there's no physical console connection to protect.
+  useEffect(() => {
+    if (serialStatus !== 'CONNECTED') return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [serialStatus]);
 
   // Load lane structure whenever Meet, Event, Heat, BothEnds, isFinals, or dbSeeded config changes
   useEffect(() => {
@@ -643,9 +681,11 @@ export default function App() {
     if (!ev) return createDefaultLanes();
 
     if (isFinalsMode) {
-      // FINALS STAGE: Get top 8 swimmers from recorded preliminary heat results
+      // FINALS STAGE: Get top 8 swimmers from recorded preliminary heat results.
+      // Must exclude 'Finals' stage results — otherwise re-entering Finals after saving once
+      // re-seeds lanes from the just-recorded Finals times instead of only the prelim heats.
       const results = await db.results.where('eventId').equals(numEventId).toArray();
-      const validResults = results.filter(r => r.status === 'OK' && r.finalTime > 0 && r.swimmerId);
+      const validResults = results.filter(r => (r.stage || 'Heats') === 'Heats' && r.status === 'OK' && r.finalTime > 0 && r.swimmerId);
 
       // Map each swimmer to their best preliminary time
       const bestTimesMap = new Map<number, number>();
@@ -683,7 +723,7 @@ export default function App() {
           if (swimmer) {
             try {
               const qtRecord = await db.qualifyingTimes
-                .filter(q => q.distance === ev.distance && q.stroke === ev.stroke && q.gender === ev.gender && q.ageGroup === ev.ageGroup)
+                .filter(q => q.meetId === ev.meetId && q.distance === ev.distance && q.stroke === ev.stroke && q.gender === ev.gender && q.ageGroup === ev.ageGroup)
                 .first();
               qTime = qtRecord?.time;
             } catch (e) {
@@ -722,7 +762,7 @@ export default function App() {
           if (swimmer) {
             try {
               const qtRecord = await db.qualifyingTimes
-                .filter(q => q.distance === ev.distance && q.stroke === ev.stroke && q.gender === ev.gender && q.ageGroup === ev.ageGroup)
+                .filter(q => q.meetId === ev.meetId && q.distance === ev.distance && q.stroke === ev.stroke && q.gender === ev.gender && q.ageGroup === ev.ageGroup)
                 .first();
               qTime = qtRecord?.time;
             } catch (e) {
@@ -849,8 +889,12 @@ export default function App() {
   };
 
   // Timing Operations: Start (Synchronous for immediate start execution)
-  const triggerStart = () => {
-    const startTime = Date.now();
+  const triggerStart = (startTimeOverride?: number) => {
+    // Hardware-gun starts pass a backdated wall-clock timestamp (translated from the ARES
+    // hardware clock domain) so the local race clock begins at the TRUE fire moment instead
+    // of whenever this event happened to be received — keeping it in sync with touch times.
+    const now = Date.now();
+    const startTime = (startTimeOverride && startTimeOverride > 0 && startTimeOverride <= now) ? startTimeOverride : now;
     timerStartRef.current = startTime;
     timerStatusRef.current = 'RUNNING';
     setTimerStatus('RUNNING');
@@ -878,7 +922,10 @@ export default function App() {
 
     setLanes(newLanes);
     startTick(startTime);
-    serialDriver.markRaceStarted(false);
+    // NOTE: For hardware gun starts, markRaceStarted(true) was already called by
+    // the serial driver before this triggerStart() runs. sendRaceStartSignal()
+    // handles marking for manual UI starts. Do NOT call markRaceStarted here
+    // to avoid double-disarm which causes ARES 21 3-beep error lock.
     serialDriver.sendRaceStartSignal();
 
     if (typeof window !== 'undefined') {
@@ -1037,7 +1084,7 @@ export default function App() {
           setStarterChecked(true);
         } else {
           if (timerStatusRef.current !== 'RUNNING') {
-            triggerStart();
+            triggerStart(event.startTimestamp);
           } else {
             console.log('[ARES21] Hardware START signal received while race already RUNNING — keeping active race clock.');
           }
@@ -1045,18 +1092,20 @@ export default function App() {
       } else if (event.type === 'RUNNING_TIME') {
         if (event.time === 0) {
           // Many unrelated diagnostic packets (status-poll ACKs, keepalives, arm/disarm
-          // confirmations) share this same "RUNNING_TIME time=0" event shape. Only treat it
-          // as a real clock reset while a race isn't actively running, otherwise a routine
-          // keepalive ACK arriving mid-race would snap the visible clock back to 00.00.
-          if (timerStatusRef.current !== 'RUNNING') {
+          // confirmations) share this same "RUNNING_TIME time=0" event shape. Only reset the
+          // display clock when in READY state — never when FINISHED (that would snap the
+          // frozen final time back to 00:00.00) and never when RUNNING (would clear live clock).
+          if (timerStatusRef.current === 'READY') {
             timerStartRef.current = Date.now();
             setElapsedTime(0);
           }
         } else if (event.time > 0 && timerStatusRef.current === 'RUNNING') {
           // Prevent 1-second visual snapping/flicker: requestAnimationFrame handles smooth 60 FPS rendering.
-          // Only adjust timer start if hardware drift exceeds 0.5s.
+          // Only adjust timer start if hardware drift is between 0.5s and 10s.
+          // Ignore very large drifts (corrupted packets) to prevent clock snapping to 42+ minutes.
           const currentLocal = (Date.now() - timerStartRef.current) / 1000;
-          if (Math.abs(currentLocal - event.time) > 0.5) {
+          const drift = Math.abs(currentLocal - event.time);
+          if (drift > 0.5 && drift < 10) {
             timerStartRef.current = Date.now() - (event.time * 1000);
           }
         }
@@ -1068,6 +1117,18 @@ export default function App() {
         const now = Date.now();
         const lastTouch = lastTouchByLaneRef.current[laneNum];
 
+        // ── Compute Sanity-Checked Touch Time ──────────────────────
+        // If raw hardware event.time is distorted or un-subtracted (e.g. 239.79s when live clock is 5.95s),
+        // synchronize touchTime with the active live race clock (Date.now() - timerStartRef.current).
+        let touchTime = event.time;
+        if (timerStatusRef.current === 'RUNNING' && timerStartRef.current > 0) {
+          const currentRaceElapsed = (now - timerStartRef.current) / 1000;
+          if (Math.abs(touchTime - currentRaceElapsed) > 10.0) {
+            console.warn(`[ARES21] Touch time (${touchTime.toFixed(2)}s) drifted from active race clock (${currentRaceElapsed.toFixed(2)}s) — syncing to live race clock.`);
+            touchTime = Number(currentRaceElapsed.toFixed(2));
+          }
+        }
+
         // ── Arbitration Rule 1: T1 touchpad hit arrived ──
         let isT2PendingWindowActive = false;
         if (timingMethod === 'T1') {
@@ -1076,15 +1137,15 @@ export default function App() {
             isT2PendingWindowActive = true;
             clearTimeout(pendingT2TimeoutsRef.current[laneNum].timeoutId);
             delete pendingT2TimeoutsRef.current[laneNum];
-            console.log(`[Arbitration] T1 touchpad hit (${event.time}s) arrived within 2s window for Lane ${laneNum} — overriding T2!`);
+            console.log(`[Arbitration] T1 touchpad hit (${touchTime}s) arrived within 2s window for Lane ${laneNum} — overriding T2!`);
           }
-          lastTouchByLaneRef.current[laneNum] = { method: 'T1', time: event.time, timestamp: now };
+          lastTouchByLaneRef.current[laneNum] = { method: 'T1', time: touchTime, timestamp: now };
         }
 
         // ── Arbitration Rule 2: T2 hand button arrived when T1 was ALREADY recorded first ──
         if (timingMethod === 'T2') {
-          if (lastTouch && lastTouch.method === 'T1' && (now - lastTouch.timestamp < 2500)) {
-            console.log(`[Arbitration] Ignored T2 hit (${event.time}s) on Lane ${laneNum} because T1 touchpad hit was already recorded first in current heat`);
+          if (lastTouch && lastTouch.method === 'T1' && (now - lastTouch.timestamp < T1_OVERRIDE_WINDOW_MS)) {
+            console.log(`[Arbitration] Ignored T2 hit (${touchTime}s) on Lane ${laneNum} because T1 touchpad hit was already recorded first in current heat`);
             return;
           }
 
@@ -1094,10 +1155,10 @@ export default function App() {
           }
           const timeoutId = setTimeout(() => {
             delete pendingT2TimeoutsRef.current[laneNum];
-            console.log(`[Arbitration] 2s window expired on Lane ${laneNum} — T2 time ${event.time}s confirmed as official`);
-          }, 2000);
-          pendingT2TimeoutsRef.current[laneNum] = { time: event.time, timestamp: now, timeoutId };
-          lastTouchByLaneRef.current[laneNum] = { method: 'T2', time: event.time, timestamp: now };
+            console.log(`[Arbitration] 2s window expired on Lane ${laneNum} — T2 time ${touchTime}s confirmed as official`);
+          }, T1_OVERRIDE_WINDOW_MS);
+          pendingT2TimeoutsRef.current[laneNum] = { time: touchTime, timestamp: now, timeoutId };
+          lastTouchByLaneRef.current[laneNum] = { method: 'T2', time: touchTime, timestamp: now };
         }
 
         if (activeTabRef.current === 'system-check') {
@@ -1119,21 +1180,21 @@ export default function App() {
                 if (l.finalTime > 0 && l.timingMethod === 'T2') {
                   // T1 OVERRIDES T2 ONLY IF T1 arrived WITHIN the 2-second window!
                   if (timingMethod === 'T1' && isT2PendingWindowActive) {
-                    console.log(`[Arbitration] T1 touchpad hit (${event.time}s) OVERRODE T2 finish (${l.finalTime}s) on Lane ${laneNum} (within 2s window)`);
+                    console.log(`[Arbitration] T1 touchpad hit (${touchTime}s) OVERRODE T2 finish (${l.finalTime}s) on Lane ${laneNum} (within 2s window)`);
                     const updatedSplits = [...l.splits];
                     if (updatedSplits.length > 0) {
-                      updatedSplits[updatedSplits.length - 1] = event.time;
+                      updatedSplits[updatedSplits.length - 1] = touchTime;
                     }
                     return {
                       ...l,
-                      finalTime: event.time,
+                      finalTime: touchTime,
                       splits: updatedSplits,
                       timingMethod: 'T1' as const,
                       isRunning: false
                     };
                   }
                   // Otherwise, 2s window expired -> T2 is confirmed official, ignore late T1 hit!
-                  console.log(`[Arbitration] Late T1 hit (${event.time}s) ignored on Lane ${laneNum} because T2 2-second window expired`);
+                  console.log(`[Arbitration] Late T1 hit (${touchTime}s) ignored on Lane ${laneNum} because T2 2-second window expired`);
                   return l;
                 }
 
@@ -1148,12 +1209,12 @@ export default function App() {
                 // If previous split was T2 and T1 arrives now: T1 OVERRIDES T2 split ONLY IF within 2s window!
                 if (l.timingMethod === 'T2' && resolvedTimingMethod === 'T1' && updatedSplits.length > 0) {
                   if (isT2PendingWindowActive) {
-                    updatedSplits[updatedSplits.length - 1] = event.time;
-                    console.log(`[Arbitration] T1 touchpad split (${event.time}s) OVERRODE T2 split on Lane ${laneNum} (within 2s window)`);
+                    updatedSplits[updatedSplits.length - 1] = touchTime;
+                    console.log(`[Arbitration] T1 touchpad split (${touchTime}s) OVERRODE T2 split on Lane ${laneNum} (within 2s window)`);
                   }
                 } else {
-                  if (!updatedSplits.includes(event.time)) {
-                    updatedSplits.push(event.time);
+                  if (!updatedSplits.includes(touchTime)) {
+                    updatedSplits.push(touchTime);
                   }
                 }
 
@@ -1162,10 +1223,10 @@ export default function App() {
                 return {
                   ...l,
                   splits: updatedSplits,
-                  finalTime: isFinal ? event.time : l.finalTime,
+                  finalTime: isFinal ? touchTime : l.finalTime,
                   timingMethod: finalMethod,
                   isRunning: !isFinal,
-                  lastSplitTime: isFinal ? undefined : event.time,
+                  lastSplitTime: isFinal ? undefined : touchTime,
                   lastSplitTimestamp: isFinal ? undefined : Date.now()
                 };
               }
@@ -1287,21 +1348,24 @@ export default function App() {
             </button>
           </div>
 
-          <div className="header-status-pill shrink-0" style={{
-            borderColor: serialStatus === 'CONNECTED' ? '#22c55e' : serialStatus === 'SIMULATOR' ? '#06b6d4' : '#ef4444'
-          }}>
-            <span className={`status-dot ${
-              serialStatus === 'CONNECTED' 
-                ? 'connected' 
-                : serialStatus === 'SIMULATOR' 
-                  ? 'simulating' 
-                  : 'disconnected'
-            }`} />
-            <span style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              {serialStatus === 'CONNECTED' && 'COM PORT CONNECTED'}
-              {serialStatus === 'SIMULATOR' && 'SIMULATING TIMERS'}
-              {serialStatus === 'DISCONNECTED' && 'NO USB CABLE'}
-            </span>
+          {/* Centered Single Header Status Pill */}
+          <div className="flex items-center justify-center shrink-0">
+            <div className="header-status-pill shrink-0" style={{
+              borderColor: (serialStatus === 'CONNECTED' || serialDriver.isConnected()) ? '#22c55e' : serialStatus === 'SIMULATOR' ? '#06b6d4' : '#ef4444'
+            }}>
+              <span className={`status-dot ${
+                (serialStatus === 'CONNECTED' || serialDriver.isConnected())
+                  ? 'connected' 
+                  : serialStatus === 'SIMULATOR' 
+                    ? 'simulating' 
+                    : 'disconnected'
+              }`} />
+              <span style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                {(serialStatus === 'CONNECTED' || serialDriver.isConnected()) && 'COM PORT CONNECTED'}
+                {serialStatus === 'SIMULATOR' && !serialDriver.isConnected() && 'SIMULATING TIMERS'}
+                {serialStatus === 'DISCONNECTED' && !serialDriver.isConnected() && 'NO USB CABLE'}
+              </span>
+            </div>
           </div>
 
           {/* Interactive Profile & Auth Menu */}
@@ -1378,20 +1442,20 @@ export default function App() {
                       </span>
                     </div>
 
-                    {/* Security Access Row */}
+                    {/* Session Status Row */}
                     <div
                       className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-950 border border-slate-800/90 hover:border-emerald-500/50 transition-all shadow-md whitespace-nowrap group"
                       style={{ paddingLeft: '16px', paddingRight: '16px', paddingTop: '10px', paddingBottom: '10px', minHeight: '46px', boxSizing: 'border-box' }}
                     >
                       <div className="flex items-center gap-2.5 shrink-0">
                         <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" />
-                        <span className="text-slate-200 font-extrabold text-xs tracking-wide">Security Access:</span>
+                        <span className="text-slate-200 font-extrabold text-xs tracking-wide">Session:</span>
                       </div>
                       <span
                         className="text-emerald-300 font-black text-xs flex items-center gap-1.5 shrink-0 bg-emerald-500/15 rounded-xl border border-emerald-500/40 shadow-[0_0_10px_rgba(52,211,153,0.2)]"
                         style={{ paddingLeft: '14px', paddingRight: '14px', paddingTop: '4px', paddingBottom: '4px' }}
                       >
-                        ● Verified
+                        ● Active
                       </span>
                     </div>
 
@@ -1476,8 +1540,9 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'operator' && (
+        <div style={{ display: activeTab === 'operator' ? 'block' : 'none' }}>
           <OperatorConsole
+            serialStatus={serialStatus}
             isSimulating={isSimulating}
             setIsSimulating={setIsSimulating}
             activeMeetId={activeMeetId}
@@ -1503,7 +1568,7 @@ export default function App() {
             setIsTestMode={setIsTestMode}
             setShowTestModeConfirm={setShowTestModeConfirm}
           />
-        )}
+        </div>
 
         {activeTab === 'system-check' && (
           <SystemCheck

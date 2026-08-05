@@ -57,12 +57,7 @@ export default function LandingPage({
     }
     return 'operator@touchteck.com';
   });
-  const [passwordInput, setPasswordInput] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('touchteck_saved_password') || '';
-    }
-    return '';
-  });
+  const [passwordInput, setPasswordInput] = useState('');
   const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
   const [rememberMe, setRememberMe] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -114,14 +109,12 @@ export default function LandingPage({
       return;
     }
 
-    // Auto-Save / Remember Credentials to LocalStorage
+    // Remember the email for convenience only — the password is never persisted.
     if (rememberMe) {
       localStorage.setItem('touchteck_saved_email', emailInput);
-      localStorage.setItem('touchteck_saved_password', passwordInput);
       localStorage.setItem('touchteck_remember_me', 'true');
     } else {
       localStorage.removeItem('touchteck_saved_email');
-      localStorage.removeItem('touchteck_saved_password');
       localStorage.setItem('touchteck_remember_me', 'false');
     }
 

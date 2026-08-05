@@ -193,6 +193,7 @@ export default function ResultsExport({ activeMeetId }: ResultsExportProps) {
       const qt = await db.qualifyingTimes
         .where('[distance+stroke+gender+ageGroup]')
         .equals([event.distance, event.stroke, event.gender, event.ageGroup])
+        .and(q => q.meetId === event.meetId)
         .first();
 
       const finalTime = r.finalTime || 0;

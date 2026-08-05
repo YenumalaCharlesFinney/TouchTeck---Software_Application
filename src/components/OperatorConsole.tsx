@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { db, Meet, Event } from '../db';
 import { serialDriver, simulator, TimingEvent } from '../serialDriver';
 import { ScoreboardDisplayConfig, DEFAULT_SCOREBOARD_CONFIG, ScoreboardResolution } from '../types';
-import { Terminal, Cpu, Play, Square, RotateCcw, Save, ShieldAlert, Radio, HelpCircle, CheckCircle2, Plus, Activity } from 'lucide-react';
+import { Terminal, Cpu, Play, Square, RotateCcw, Save, ShieldAlert, Radio, HelpCircle, CheckCircle2, Plus, Activity, ShieldCheck, Power, Copy, Check } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import CustomSelect from './CustomSelect';
 
@@ -52,9 +52,11 @@ interface OperatorConsoleProps {
   isTestMode?: boolean;
   setIsTestMode?: (val: boolean) => void;
   setShowTestModeConfirm?: (val: boolean) => void;
+  serialStatus?: 'DISCONNECTED' | 'CONNECTED' | 'SIMULATOR';
 }
 
 export default function OperatorConsole({
+  serialStatus,
   isSimulating,
   setIsSimulating,
   activeMeetId,
@@ -115,14 +117,16 @@ export default function OperatorConsole({
   };
   const [isConnected, setIsConnected] = useState(false);
   const [consoleLogs, setConsoleLogs] = useState<string[]>([]);
-  const [onlyImportantLogs, setOnlyImportantLogs] = useState(true);
-  const [isCopied, setIsCopied] = useState(false);
-
-  const [simRunning, setSimRunning] = useState(false);
+  const [onlyImportantLogs, setOnlyImportantLogs] = useState<boolean>(true); // Default to filtered mode for readability
   const [showSimConfirm, setShowSimConfirm] = useState(false);
   const [showUsbModal, setShowUsbModal] = useState(false);
-  const [showSimOffModal, setShowSimOffModal] = useState(false);
+  const [showSimOffModal, setShowSimOffModal] = useState<boolean>(false);
   const [usbErrorMsg, setUsbErrorMsg] = useState<string | null>(null);
+  const [simRunning, setSimRunning] = useState<boolean>(false);
+  const [isCopied, setIsCopied] = useState<boolean>(false);
+
+  const isHardwareConnected = isConnected || serialStatus === 'CONNECTED' || serialDriver.isConnected();
+  const isSessionActive = isSimulating || isHardwareConnected;
 
   const consoleBottomRef = useRef<HTMLDivElement>(null);
   const consoleContainerRef = useRef<HTMLDivElement>(null);
@@ -177,12 +181,11 @@ export default function OperatorConsole({
 
   const onStartRaceClick = () => {
     if (isConnected || isTestMode) {
+      // handleManualStart → triggerStart → sendRaceStartSignal → markRaceStarted(false) → disarmAres.
+      // Do NOT additionally call sendSerialData('START') or injectRawLine('START') —
+      // those triggered extra markRaceStarted() calls causing triple disarm → ARES 21 3-beep lockout.
       handleManualStart();
-      if (isConnected) {
-        serialDriver.sendSerialData('START');
-        serialDriver.injectRawLine('START');
-        setConsoleLogs(prev => [...prev, '[HARDWARE] Sent START command to ARES 21 console via Serial.']);
-      }
+      setConsoleLogs(prev => [...prev, '[HARDWARE] Sent START command to ARES 21 console via Serial.']);
     } else if (isSimulating) {
       setSimRunning(true);
       const swimmerLanes = lanes.filter(l => l.swimmer).map(l => l.laneNumber);
@@ -208,9 +211,10 @@ export default function OperatorConsole({
       simulator.stop();
       simulator.reset();
     }
-    if (isConnected) {
-      serialDriver.sendRaceResetSignal();
-    }
+    // Do NOT also call serialDriver.sendRaceResetSignal() here — handleResetTimer() (below)
+    // already does that. Calling it twice sends the full 13-command arm sequence to the
+    // physical console twice per Reset click, which is what causes the ARES 21 3-beep
+    // error lockout after a couple of reset cycles.
     setSimRunning(false);
     handleResetTimer();
     setConsoleLogs(prev => [...prev, '[SYSTEM] Reset race timer to READY.']);
@@ -278,43 +282,20 @@ export default function OperatorConsole({
   };
 
   const handleSimulatorButtonClick = async () => {
-    if (isSimulating || isConnected) {
+    if (isSimulating) {
       setShowSimConfirm(true);
       return;
     }
-
-    setConsoleLogs(prev => [...prev, '[SYSTEM] Auto-detecting USB serial port...']);
-
-    // Try SILENT auto-connect using previously granted ports — NO browser dialog popup
-    try {
-      const silentSuccess = await serialDriver.autoConnect();
-      if (silentSuccess) {
-        setIsConnected(true);
-        setIsSimulating(false);
-        setShowUsbModal(false);
-        setUsbErrorMsg(null);
-        setConsoleLogs(prev => [...prev, `[SYSTEM] Auto-reconnected to ARES 21 hardware at ${baudRate} baud.`]);
-        return;
-      }
-    } catch (e) {
-      // silent connect failed — port busy or not available
-    }
-
-    // No hardware found → go straight to Simulator (no popup dialog)
     setIsSimulating(true);
-    setConsoleLogs(prev => [...prev, '[SYSTEM] No hardware detected. Simulator Mode ENABLED. Use "Connect USB" button to pair hardware.']);
+    setConsoleLogs(prev => [...prev, '[SYSTEM] Simulator Mode ENABLED.']);
   };
 
   const handleConfirmStopSim = async () => {
     setShowSimConfirm(false);
-    if (isConnected) {
-      await serialDriver.disconnect();
-      setIsConnected(false);
-    }
     setIsSimulating(false);
     simulator.stop();
     setSimRunning(false);
-    setConsoleLogs(prev => [...prev, '[SYSTEM] Simulator & Hardware session ended. Returned to idle state.']);
+    setConsoleLogs(prev => [...prev, '[SYSTEM] Simulator Mode DISABLED.']);
   };
 
   const formatLogForDisplay = (log: string): string | null => {
@@ -547,58 +528,69 @@ export default function OperatorConsole({
               STARTER
             </div>
 
-            {/* Green LED — ON only when connected AND armed/ready */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
-              <div style={{
-                width: '28px',
-                height: '28px',
-                borderRadius: '50%',
-                backgroundColor: (isConnected && timerStatus === 'READY') ? '#22c55e' : '#1a3320',
-                border: `2px solid ${(isConnected && timerStatus === 'READY') ? '#4ade80' : '#2d4a32'}`,
-                boxShadow: (isConnected && timerStatus === 'READY')
-                  ? '0 0 12px #22c55e, 0 0 24px rgba(34,197,94,0.5), inset 0 1px 3px rgba(255,255,255,0.3)'
-                  : 'inset 0 2px 4px rgba(0,0,0,0.5)',
-                transition: 'all 0.2s ease',
-              }} />
-              <span style={{
-                fontSize: '0.6rem',
-                fontWeight: 700,
-                color: (isConnected && timerStatus === 'READY') ? '#4ade80' : 'rgba(255,255,255,0.25)',
-                letterSpacing: '0.05em'
-              }}>GREEN</span>
-            </div>
+            {/* Starter LED Indicators */}
+            {(() => {
+              const isHardwareConnected = isConnected || serialStatus === 'CONNECTED' || serialDriver.isConnected();
+              const isGreenOn = timerStatus !== 'RUNNING';
+              const isRedOn = timerStatus === 'RUNNING';
 
-            {/* Red LED — ON when disconnected (default), OR when race is RUNNING */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
-              <div style={{
-                width: '28px',
-                height: '28px',
-                borderRadius: '50%',
-                backgroundColor: (!isConnected || timerStatus === 'RUNNING') ? '#ef4444' : '#331a1a',
-                border: `2px solid ${(!isConnected || timerStatus === 'RUNNING') ? '#f87171' : '#4a2d2d'}`,
-                boxShadow: (!isConnected || timerStatus === 'RUNNING')
-                  ? '0 0 12px #ef4444, 0 0 24px rgba(239,68,68,0.5), inset 0 1px 3px rgba(255,255,255,0.3)'
-                  : 'inset 0 2px 4px rgba(0,0,0,0.5)',
-                transition: 'all 0.2s ease',
-              }} />
-              <span style={{
-                fontSize: '0.6rem',
-                fontWeight: 700,
-                color: (!isConnected || timerStatus === 'RUNNING') ? '#f87171' : 'rgba(255,255,255,0.25)',
-                letterSpacing: '0.05em'
-              }}>RED</span>
-            </div>
+              return (
+                <>
+                  {/* Green LED — ON by default when ready / not running */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
+                    <div style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '50%',
+                      backgroundColor: isGreenOn ? '#22c55e' : '#1a3320',
+                      border: `2px solid ${isGreenOn ? '#4ade80' : '#2d4a32'}`,
+                      boxShadow: isGreenOn
+                        ? '0 0 12px #22c55e, 0 0 24px rgba(34,197,94,0.5), inset 0 1px 3px rgba(255,255,255,0.3)'
+                        : 'inset 0 2px 4px rgba(0,0,0,0.5)',
+                      transition: 'all 0.2s ease',
+                    }} />
+                    <span style={{
+                      fontSize: '0.6rem',
+                      fontWeight: 700,
+                      color: isGreenOn ? '#4ade80' : 'rgba(255,255,255,0.25)',
+                      letterSpacing: '0.05em'
+                    }}>GREEN</span>
+                  </div>
 
-            {/* Live dot */}
-            <div style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor: isConnected ? '#06b6d4' : '#f59e0b',
-              boxShadow: isConnected ? '0 0 6px #06b6d4' : '0 0 6px #f59e0b',
-              alignSelf: 'center',
-              marginBottom: '1.2rem'
-            }} />
+                  {/* Red LED — ON when race is RUNNING */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
+                    <div style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '50%',
+                      backgroundColor: isRedOn ? '#ef4444' : '#331a1a',
+                      border: `2px solid ${isRedOn ? '#f87171' : '#4a2d2d'}`,
+                      boxShadow: isRedOn
+                        ? '0 0 12px #ef4444, 0 0 24px rgba(239,68,68,0.5), inset 0 1px 3px rgba(255,255,255,0.3)'
+                        : 'inset 0 2px 4px rgba(0,0,0,0.5)',
+                      transition: 'all 0.2s ease',
+                    }} />
+                    <span style={{
+                      fontSize: '0.6rem',
+                      fontWeight: 700,
+                      color: isRedOn ? '#f87171' : 'rgba(255,255,255,0.25)',
+                      letterSpacing: '0.05em'
+                    }}>RED</span>
+                  </div>
+
+                  {/* Live dot */}
+                  <div style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: isHardwareConnected ? '#06b6d4' : '#f59e0b',
+                    boxShadow: isHardwareConnected ? '0 0 6px #06b6d4' : '0 0 6px #f59e0b',
+                    alignSelf: 'center',
+                    marginBottom: '1.2rem'
+                  }} />
+                </>
+              );
+            })()}
           </div>
         </div>
 
@@ -922,11 +914,11 @@ export default function OperatorConsole({
               )}
 
               <button 
-                className={`btn ${isSimulating || isConnected ? 'btn-danger' : 'btn-success'}`} 
+                className={`btn ${isSimulating ? 'btn-danger' : 'btn-success'}`} 
                 style={{ flex: 1, fontWeight: 700 }} 
                 onClick={handleSimulatorButtonClick}
               >
-                {isSimulating || isConnected ? 'Stop Simulator' : 'Simulator'}
+                {isSimulating ? 'Stop Simulator' : 'Simulator'}
               </button>
             </div>
           </div>
@@ -976,7 +968,7 @@ export default function OperatorConsole({
         )}
 
         {/* Raw Log Console */}
-        <div className="glass-card" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div className="glass-card">
           <div className="flex justify-between items-center mb-2" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>
             <h4 className="settings-header" style={{ borderBottom: 'none', marginBottom: 0, paddingBottom: 0 }}>
               <Terminal size={14} /> Raw Serial Feed
@@ -994,7 +986,17 @@ export default function OperatorConsole({
                 }}
                 title="Copy Raw Serial Feed Logs to Clipboard"
               >
-                {isCopied ? '✓ Copied' : '📋 Copy'}
+                {isCopied ? (
+                  <>
+                    <Check size={12} style={{ color: '#4ade80' }} />
+                    <span style={{ color: '#4ade80', fontWeight: 700 }}>Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={12} />
+                    <span>Copy</span>
+                  </>
+                )}
               </button>
               <button className="btn btn-secondary" style={{ padding: '0.12rem 0.5rem', fontSize: '0.72rem' }} onClick={clearConsole}>
                 Clear
@@ -1012,7 +1014,7 @@ export default function OperatorConsole({
               padding: '0.5rem', 
               borderRadius: '6px', 
               border: '1px solid var(--border-color)', 
-              height: '190px', 
+              height: '260px', 
               overflowY: 'auto',
               whiteSpace: 'pre-wrap'
             }}
@@ -1020,9 +1022,34 @@ export default function OperatorConsole({
             {displayedLogs.length === 0 ? (
               <span style={{ color: 'var(--text-muted)' }}>Idle. Waiting for timing console...</span>
             ) : (
-              displayedLogs.map((log, idx) => (
-                <div key={idx}>{log}</div>
-              ))
+              displayedLogs.map((log, idx) => {
+                const isRaceStateLog = log.includes('Started race clock') || log.includes('Stopped race clock') || log.includes('RACE STARTED') || log.includes('RACE STOPPED') || log.includes('RACE FINISHED') || log.includes('[RACE]');
+                const isSyncReadyLog = log.includes('100% READY') || log.includes('Synchronized with ARES');
+                const isTouchLog = log.includes('[TOUCHPAD') || log.includes('TOUCH (');
+                
+                let textColor = '#a7f3d0';
+                let fontWeight = 400;
+                let textShadow = 'none';
+
+                if (isRaceStateLog) {
+                  textColor = '#ef4444'; // Bright Glowing Red / Rose
+                  fontWeight = 900;
+                  textShadow = '0 0 12px rgba(239, 68, 68, 0.7)';
+                } else if (isSyncReadyLog) {
+                  textColor = '#fbbf24'; // Vibrant Amber / Orange-Yellow
+                  fontWeight = 800;
+                  textShadow = '0 0 10px rgba(251, 191, 36, 0.6)';
+                } else if (isTouchLog) {
+                  textColor = '#38bdf8'; // Cyan
+                  fontWeight = 600;
+                }
+
+                return (
+                  <div key={idx} style={{ color: textColor, fontWeight, textShadow, padding: '1px 0' }}>
+                    {log}
+                  </div>
+                );
+              })
             )}
           </div>
 
@@ -1045,8 +1072,8 @@ export default function OperatorConsole({
             </span>
           </div>
 
-          {/* T1 & T2 Protocol Legend Note & Hardware Control Buttons */}
-          <div style={{ marginTop: '0.65rem', paddingTop: '0.5rem', borderTop: '1px dashed rgba(255,255,255,0.08)' }}>
+          {/* T1 & T2 Protocol Legend Note & Hardware Control Buttons at Bottom */}
+          <div style={{ marginTop: 'auto', paddingTop: '0.65rem', borderTop: '1px dashed rgba(255,255,255,0.08)' }}>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
               <span style={{ fontWeight: 700, color: 'var(--accent-cyan)' }}>T1</span>
               <span>= Swimmer Touchpad Hit</span>
@@ -1055,50 +1082,76 @@ export default function OperatorConsole({
               <span>= Timekeeper Backup Button / Manual Force</span>
             </div>
 
-            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Professional Hardware Start Light Controls Side-by-Side at Bottom */}
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', width: '100%', marginTop: 'auto' }}>
               <button
                 type="button"
-                className="btn btn-secondary"
-                style={{ fontSize: '0.72rem', padding: '0.25rem 0.65rem', color: '#4ade80', border: '1px solid rgba(74,222,128,0.4)', background: 'rgba(74,222,128,0.12)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                className="btn"
+                style={{
+                  flex: 1,
+                  height: '38px',
+                  fontSize: '0.72rem',
+                  padding: '0 0.5rem',
+                  whiteSpace: 'nowrap',
+                  color: '#4ade80',
+                  border: '1px solid rgba(74, 222, 128, 0.4)',
+                  background: 'rgba(74, 222, 128, 0.08)',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.35rem',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
+                }}
                 onClick={async () => {
-                  if (isConnected) {
-                    await serialDriver.armLanes();
+                  const isHw = isConnected || serialStatus === 'CONNECTED' || serialDriver.isConnected();
+                  if (isHw) {
+                    await serialDriver.armLanes(true);
                     setConsoleLogs(prev => [...prev, '[ARES21] Sent Arm command (CMD 0x16) — Green Ready Light ON.']);
                   }
                 }}
                 title="Turn ON Omega StartTime Green Ready Light"
               >
-                🟢 Green Light ON
+                <ShieldCheck size={14} style={{ color: '#4ade80', flexShrink: 0 }} />
+                <span style={{ whiteSpace: 'nowrap' }}>Arm Start Light</span>
               </button>
 
               <button
                 type="button"
-                className="btn btn-secondary"
-                style={{ fontSize: '0.72rem', padding: '0.25rem 0.65rem', color: '#f87171', border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.12)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                className="btn"
+                style={{
+                  flex: 1,
+                  height: '38px',
+                  fontSize: '0.72rem',
+                  padding: '0 0.5rem',
+                  whiteSpace: 'nowrap',
+                  color: '#f87171',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  background: 'rgba(239, 68, 68, 0.08)',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.35rem',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
+                }}
                 onClick={async () => {
-                  if (isConnected) {
+                  const isHw = isConnected || serialStatus === 'CONNECTED' || serialDriver.isConnected();
+                  if (isHw) {
                     await serialDriver.disarmAres();
                     setConsoleLogs(prev => [...prev, '[ARES21] Sent Disarm command — Green Ready Light OFF.']);
                   }
                 }}
                 title="Turn OFF Omega StartTime Green Ready Light"
               >
-                🔴 Green Light OFF
-              </button>
-
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ fontSize: '0.72rem', padding: '0.25rem 0.65rem', color: 'var(--accent-amber)', border: '1px solid rgba(245,158,11,0.4)', background: 'rgba(245,158,11,0.12)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                onClick={async () => {
-                  if (isConnected) {
-                    await serialDriver.rearmAres();
-                    setConsoleLogs(prev => [...prev, '[ARES21] Sent re-arm / re-initialize commands to console.']);
-                  }
-                }}
-                title="Re-initialize ARES 21 Console"
-              >
-                ⚡ Re-Arm ARES
+                <Power size={14} style={{ color: '#f87171', flexShrink: 0 }} />
+                <span style={{ whiteSpace: 'nowrap' }}>Disarm Start Light</span>
               </button>
             </div>
           </div>
