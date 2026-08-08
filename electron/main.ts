@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain } from 'electron';
 import { fork, ChildProcess } from 'node:child_process';
 import path from 'node:path';
 import log from 'electron-log/main';
@@ -49,8 +49,10 @@ function setAppMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-function createWindow() {
-  mainWindow = new BrowserWindow({
+function createWindow(initialTab?: string) {
+  const isSecondary = Boolean(initialTab);
+
+  const win = new BrowserWindow({
     width: 1440,
     height: 900,
     minWidth: 1100,
@@ -65,34 +67,65 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // A scoreboard on a second screen is usually the unfocused window.
+      // Without this Chromium throttles it to a crawl, which would stall the
+      // very display the crowd is watching.
+      backgroundThrottling: false,
     },
   });
 
-  mainWindow.once('ready-to-show', () => {
-    mainWindow?.show();
+  if (!isSecondary) mainWindow = win;
+
+  win.once('ready-to-show', () => win.show());
+
+  win.webContents.on('before-input-event', (_event, input) => {
+    if (input.key === 'F12') win.webContents.toggleDevTools();
   });
 
-  mainWindow.webContents.on('before-input-event', (_event, input) => {
-    if (input.key === 'F12') {
-      mainWindow?.webContents.toggleDevTools();
-    }
-  });
+  // The tab is carried in the hash — a query string would not survive
+  // loadFile, and the hash is available to the renderer before first paint.
+  const hash = initialTab ? `tab=${initialTab}` : '';
 
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
+    win.loadURL(`http://localhost:5173${hash ? '#' + hash : ''}`);
+    if (!isSecondary) win.webContents.openDevTools({ mode: 'detach' });
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    win.loadFile(path.join(__dirname, '../dist/index.html'), hash ? { hash } : undefined);
   }
 
-  mainWindow.on('closed', () => {
-    mainWindow = null;
+  win.on('closed', () => {
+    if (win === mainWindow) mainWindow = null;
+  });
+
+  return win;
+}
+
+/* Every window runs the same app against the same database. Timing state is
+   already broadcast between contexts on a BroadcastChannel, but that channel is
+   scoped to an origin and the packaged app is served from file://, so windows
+   cannot be relied on to hear each other directly. Relaying through the main
+   process makes the sync explicit and origin-independent. */
+function wireWindowIpc() {
+  ipcMain.handle('touchteck:open-tab-window', (_event, tabId: unknown) => {
+    if (typeof tabId !== 'string' || !/^[a-z-]+$/.test(tabId)) return false;
+    createWindow(tabId);
+    return true;
+  });
+
+  ipcMain.on('touchteck:sync', (event, message) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      // don't echo back to the window that sent it
+      if (win.webContents.id === event.sender.id) continue;
+      if (win.isDestroyed()) continue;
+      win.webContents.send('touchteck:sync', message);
+    }
   });
 }
 
 app.whenReady().then(() => {
   setAppMenu();
   startBridge();
+  wireWindowIpc();
   createWindow();
 
   app.on('activate', () => {

@@ -1,7 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { db, Meet, Event, QualifyingTime } from '../db';
 import { Award, Timer, Check } from 'lucide-react';
 import { ScoreboardDisplayConfig, DEFAULT_SCOREBOARD_CONFIG } from '../types';
+
+/* Board zoom, driven by Ctrl +/- and remembered per machine. Bounded so a
+   stray key press can't shrink the board to nothing or blow it off-screen. */
+const ZOOM_KEY = 'touchteck_scoreboard_zoom';
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 2.5;
+const ZOOM_STEP = 0.1;
 
 interface Swimmer {
   id?: number;
@@ -51,6 +59,74 @@ export default function Scoreboard({
   const config = displayConfig || DEFAULT_SCOREBOARD_CONFIG;
   const [meet, setMeet] = useState<Meet | null>(null);
   const [event, setEvent] = useState<Event | null>(null);
+
+  /* Ctrl +/- scales the board to whatever screen it has been thrown onto, and
+     Ctrl+0 puts it back. Saved per machine, so a display keeps its size across
+     restarts — including a scoreboard opened in its own window. */
+  const [zoom, setZoom] = useState<number>(() => {
+    const saved = parseFloat(localStorage.getItem(ZOOM_KEY) || '');
+    return Number.isFinite(saved) && saved >= ZOOM_MIN && saved <= ZOOM_MAX ? saved : 1;
+  });
+  const [zoomShown, setZoomShown] = useState(false);
+  const zoomToastRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem(ZOOM_KEY, String(zoom));
+  }, [zoom]);
+
+  useEffect(() => {
+    const flash = () => {
+      setZoomShown(true);
+      if (zoomToastRef.current) window.clearTimeout(zoomToastRef.current);
+      zoomToastRef.current = window.setTimeout(() => setZoomShown(false), 1200);
+    };
+
+    const clamp = (z: number) =>
+      Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z * 100) / 100));
+
+    const bump = (delta: number) => {
+      setZoom((z) => clamp(z + delta));
+      flash();
+    };
+
+    const typingInField = () => {
+      const el = document.activeElement as HTMLElement | null;
+      return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
+    };
+
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      if (typingInField()) return;
+
+      // '=' is the unshifted '+' on most layouts, and the numpad reports codes
+      if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd') {
+        e.preventDefault();
+        bump(ZOOM_STEP);
+      } else if (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract') {
+        e.preventDefault();
+        bump(-ZOOM_STEP);
+      } else if (e.key === '0' || e.code === 'Numpad0') {
+        e.preventDefault();
+        setZoom(1);
+        flash();
+      }
+    };
+
+    // Ctrl + wheel is the other reflex people have for this
+    const onWheel = (e: WheelEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      bump(e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP);
+    };
+
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('wheel', onWheel);
+      if (zoomToastRef.current) window.clearTimeout(zoomToastRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     loadEventDetails();
@@ -256,15 +332,18 @@ export default function Scoreboard({
   const laneGap = isSquare ? '0.35rem' : isBar ? '0.45rem' : '0.6rem';
 
   return (
-    <div 
-      className="flex flex-col gap-4" 
-      style={{ 
+    <div
+      className="flex flex-col gap-4"
+      style={{
         width: '100%',
         maxWidth: calculatedMaxWidth,
         aspectRatio: calculatedAspectRatio,
         margin: '0 auto',
         padding: '0 1.25rem',
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        // `zoom` rather than a transform, so the board reflows at the new size
+        // instead of being scaled and clipped by its container
+        zoom
       }}
     >
       
@@ -515,6 +594,36 @@ export default function Scoreboard({
           );
         })}
       </div>
+
+      {/* Brief readout so a zoom key press is visibly acknowledged. Portalled
+          to <body> because `zoom` on this container would otherwise scale and
+          mis-place it — a "fixed" child of a zoomed element is positioned
+          against that element, not the viewport. */}
+      {zoomShown && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '28px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 3000,
+            padding: '0.5rem 1rem',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.8rem',
+            fontWeight: 700,
+            letterSpacing: '0.12em',
+            color: '#fff500',
+            background: 'rgba(3, 5, 10, 0.88)',
+            border: '1px solid rgba(255, 245, 0, 0.35)',
+            borderRadius: '999px',
+            backdropFilter: 'blur(12px)',
+            pointerEvents: 'none'
+          }}
+        >
+          {Math.round(zoom * 100)}%
+        </div>,
+        document.body
+      )}
 
     </div>
   );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { seedDatabase, db } from './db';
 import SwimmerManager from './components/SwimmerManager';
 import MeetManager from './components/MeetManager';
@@ -10,7 +10,7 @@ import AppBackdrop from './components/AppBackdrop';
 import SystemCheck from './components/SystemCheck';
 import Home3D from './components/Home3D';
 import AnimatedLogo from './components/AnimatedLogo';
-import { Timer, Users, Calendar, Award, BarChart3, Radio, Tv, ShieldCheck, CheckCircle2, AlertCircle, RotateCcw, FileText, Home, LogOut, User, ChevronDown, ChevronLeft, ChevronRight, LogIn, Cpu, Database, Sparkles, Maximize2, Minimize2 } from 'lucide-react';
+import { Timer, Users, Calendar, Award, BarChart3, Radio, Tv, ShieldCheck, CheckCircle2, AlertCircle, RotateCcw, FileText, Home, LogOut, User, ChevronDown, ChevronLeft, ChevronRight, LogIn, Cpu, Database, Sparkles, Maximize2, Minimize2, ExternalLink } from 'lucide-react';
 import { serialDriver, simulator, TimingEvent } from './serialDriver';
 import { playBeeps, playStarterHorn, playTouchpadChime } from './audioUtility';
 import ConfirmationModal from './components/ConfirmationModal';
@@ -128,11 +128,41 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<TabId>(() => {
     if (typeof window !== 'undefined') {
+      // A window opened from "Open in new window" starts on that tab and must
+      // win over the remembered one, or it would open on the wrong screen.
+      const opened = window.touchteckApp?.initialTab;
+      if (opened) return opened as TabId;
+
       const saved = sessionStorage.getItem('touchteck_active_tab');
       if (saved) return saved as TabId;
     }
     return 'home';
   });
+
+  // Secondary windows keep their own remembered tab, so reopening the main
+  // window later doesn't land on the scoreboard the operator sent to a screen.
+  const isSecondaryWindow = typeof window !== 'undefined' && Boolean(window.touchteckApp?.initialTab);
+
+  const openTabInNewWindow = useCallback((tabId: TabId) => {
+    window.touchteckApp?.openTabWindow(tabId);
+  }, []);
+
+  // Right-click menu on a nav tab. Only meaningful inside the desktop app.
+  const [tabMenu, setTabMenu] = useState<{ tab: TabId; x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    if (!tabMenu) return;
+    const dismiss = () => setTabMenu(null);
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setTabMenu(null); };
+    window.addEventListener('pointerdown', dismiss);
+    window.addEventListener('resize', dismiss);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', dismiss);
+      window.removeEventListener('resize', dismiss);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [tabMenu]);
 
   // The `ui-premium` class ships on <body> in index.html, so the skin is in
   // place before React mounts and portalled modals inherit it too. Nothing
@@ -144,11 +174,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && !isSecondaryWindow) {
       sessionStorage.setItem('touchteck_active_tab', activeTab);
-      window.scrollTo(0, 0);
     }
-  }, [activeTab]);
+    if (typeof window !== 'undefined') window.scrollTo(0, 0);
+  }, [activeTab, isSecondaryWindow]);
 
   const [dbSeeded, setDbSeeded] = useState(false);
   
@@ -298,12 +328,22 @@ export default function App() {
   const intervalIdRef = useRef<number | null>(null);
 
   const broadcastSyncMessage = (action: string, payload: any) => {
+    const message = { action, payload, senderTab: activeTabRef.current };
+
     if (syncChannelRef.current) {
       try {
-        syncChannelRef.current.postMessage({ action, payload, senderTab: activeTabRef.current });
+        syncChannelRef.current.postMessage(message);
       } catch (e) {
         console.error('BroadcastChannel error:', e);
       }
+    }
+
+    // Also relay through the main process, which is what actually reaches
+    // other windows — a BroadcastChannel does not cross windows on file://.
+    try {
+      window.touchteckApp?.sendSync(message);
+    } catch (e) {
+      console.error('IPC sync error:', e);
     }
   };
 
@@ -314,9 +354,9 @@ export default function App() {
       const channel = new BroadcastChannel('touchteck_timing_sync');
       syncChannelRef.current = channel;
 
-      channel.onmessage = (event) => {
-        if (!event.data) return;
-        const { action, payload } = event.data;
+      const handleSyncMessage = (data: any) => {
+        if (!data) return;
+        const { action, payload } = data;
 
         isIncomingSyncRef.current = true;
         setTimeout(() => { isIncomingSyncRef.current = false; }, 100);
@@ -392,10 +432,8 @@ export default function App() {
             }
           }
         } else if (action === 'REQUEST_INITIAL_SYNC') {
-          if (syncChannelRef.current && activeEventIdRef.current && activeTabRef.current === 'operator') {
-            syncChannelRef.current.postMessage({
-              action: 'STATE_SYNC',
-              payload: {
+          if (activeEventIdRef.current && activeTabRef.current === 'operator') {
+            broadcastSyncMessage('STATE_SYNC', {
                 startTime: timerStartRef.current,
                 elapsedTime: elapsedTimeRef.current,
                 timerStatus: timerStatusRef.current,
@@ -408,11 +446,15 @@ export default function App() {
                 isSimulating: isSimulatingRef.current,
                 bothEnds: bothEndsRef.current,
                 scoreboardConfig: scoreboardConfigRef.current
-              }
             });
           }
         }
       };
+
+      channel.onmessage = (event) => handleSyncMessage(event.data);
+
+      // Windows opened from a tab reach us via the main process relay.
+      const offIpcSync = window.touchteckApp?.onSync(handleSyncMessage);
 
       // Listen for window storage events for immediate cross-window sync
       const handleStorageChange = (e: StorageEvent) => {
@@ -427,11 +469,13 @@ export default function App() {
       };
       window.addEventListener('storage', handleStorageChange);
 
-      // Request initial sync state from existing open tabs
-      channel.postMessage({ action: 'REQUEST_INITIAL_SYNC', payload: {} });
+      // Ask whoever is already running for the current state. A window opened
+      // mid-race has to catch up, not start from a blank board.
+      broadcastSyncMessage('REQUEST_INITIAL_SYNC', {});
 
       return () => {
         channel.close();
+        offIpcSync?.();
         window.removeEventListener('storage', handleStorageChange);
       };
     }
@@ -1315,10 +1359,28 @@ export default function App() {
 
   return (
     <div className={`app-container ${isFullscreen ? 'fullscreen-active' : ''}`}>
-      {/* The home look, carried behind every tab. Never interactive, never on
-          top — see AppBackdrop. Hidden in fullscreen, where the scoreboard
-          needs the screen to itself. */}
-      {!isFullscreen && <AppBackdrop />}
+      {/* The home look, carried behind every tab including fullscreen. Never
+          interactive, never on top — see AppBackdrop. */}
+      <AppBackdrop dimmed={isFullscreen} />
+
+      {/* right-click a tab to send it to its own window */}
+      {tabMenu && (
+        <div
+          className="tab-context-menu"
+          style={{ left: tabMenu.x, top: tabMenu.y }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => {
+              openTabInNewWindow(tabMenu.tab);
+              setTabMenu(null);
+            }}
+          >
+            <ExternalLink size={13} />
+            Open in new window
+          </button>
+        </div>
+      )}
 
       {/* Top Header — hidden when in fullscreen mode */}
       {!isFullscreen && (
@@ -1330,11 +1392,16 @@ export default function App() {
         {/* Full Desktop Nav Tabs (lg+ screens) */}
         <nav className="nav-tabs nav-tabs-desktop">
           {navigationTabs.map(tab => (
-            <button 
+            <button
               key={tab.id}
               className={`nav-tab ${activeTab === tab.id ? 'active' : ''}`}
               onClick={() => setActiveTab(tab.id)}
-              title={tab.label}
+              onContextMenu={(e) => {
+                if (!window.touchteckApp) return;
+                e.preventDefault();
+                setTabMenu({ tab: tab.id, x: e.clientX, y: e.clientY });
+              }}
+              title={`${tab.label} — right-click to open in its own window`}
             >
               {React.createElement(tab.icon, { size: 15, className: 'shrink-0' })}
               <span>{tab.label}</span>

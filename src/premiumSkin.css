@@ -402,6 +402,44 @@ body.ui-premium .modal-panel-anim {
   box-shadow: 0 0 0 2px rgba(255, 245, 0, 0.55);
 }
 
+/* right-click menu on a nav tab */
+.tab-context-menu {
+  position: fixed;
+  z-index: 2000;
+  min-width: 200px;
+  padding: 0.3rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015)),
+    rgba(10, 14, 24, 0.97);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+}
+
+.tab-context-menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 130ms ease, color 130ms ease;
+}
+
+.tab-context-menu button:hover,
+.tab-context-menu button:focus-visible {
+  color: #fff;
+  background: rgba(6, 182, 212, 0.16);
+}
+
 /* the home look, carried behind the working screens */
 .app-backdrop {
   position: fixed;
@@ -411,6 +449,12 @@ body.ui-premium .modal-panel-anim {
   pointer-events: none;
   /* faded hard, so panels and numbers stay the brightest thing on screen */
   opacity: 0.16;
+}
+
+/* fullscreen scoreboard is read from across a hall — the backdrop stays, but
+   quieter still so it can't compete with the times */
+.app-backdrop.is-dimmed {
+  opacity: 0.09;
 }
 
 /* the shell has no background of its own, so it needs a stacking context that

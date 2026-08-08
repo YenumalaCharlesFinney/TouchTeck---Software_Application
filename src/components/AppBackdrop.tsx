@@ -18,12 +18,16 @@ import { getStoredLook } from './home3d/looks';
    cost frames while a race is being timed.
    ============================================================ */
 
-export default function AppBackdrop() {
+export default function AppBackdrop({ dimmed = false }: { dimmed?: boolean }) {
   const look = getStoredLook();
+
+  // On the fullscreen scoreboard the times have to carry across a hall, so the
+  // backdrop runs there too but at roughly half strength.
+  const className = `app-backdrop${dimmed ? ' is-dimmed' : ''}`;
 
   if (look.kind === 'canvas') {
     return (
-      <div className="app-backdrop" aria-hidden="true">
+      <div className={className} aria-hidden="true">
         <CanvasBackground mode={look.mode} interactive={false} />
       </div>
     );
@@ -32,7 +36,7 @@ export default function AppBackdrop() {
   const preset = POOL_PRESETS.find((p) => p.id === look.preset) ?? POOL_PRESETS[0];
 
   return (
-    <div className="app-backdrop" aria-hidden="true">
+    <div className={className} aria-hidden="true">
       <Suspense fallback={null}>
         <LaneWater preset={preset} backdrop />
       </Suspense>
