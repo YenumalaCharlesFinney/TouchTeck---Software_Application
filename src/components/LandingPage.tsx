@@ -27,7 +27,8 @@ import {
   User,
   ShieldCheck,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Quote
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -74,16 +75,39 @@ export default function LandingPage({
   // Hero Full-Bleed Wallpaper Carousel State
   const [heroBgIdx, setHeroBgIdx] = useState(0);
 
+  // Testimonial Carousel State (placeholder content — swap in real quotes/names when available)
+  const [testimonialIdx, setTestimonialIdx] = useState(0);
+  const testimonials = [
+    {
+      name: '[Coach Name]',
+      role: '[Head Coach, Team/Program Name]',
+      quote: '[Placeholder quote about how TouchTeck changed race-day timing for this program.]',
+      result: '[Placeholder result — e.g. "3 meets run without a single missed touch"]'
+    },
+    {
+      name: '[Meet Director Name]',
+      role: '[Meet Director, League/Club Name]',
+      quote: '[Placeholder quote about reliability and ease of setup on meet day.]',
+      result: '[Placeholder result — e.g. "Results published in minutes instead of hours"]'
+    },
+    {
+      name: '[Official Name]',
+      role: '[Certified Timing Official]',
+      quote: '[Placeholder quote about accuracy and trust in the touchpad readings.]',
+      result: '[Placeholder result — e.g. "Zero disputed times across the season"]'
+    }
+  ];
+
   // Segmented Pill Navigation State
   const [activeNavSection, setActiveNavSection] = useState<'overview' | 'capabilities' | 'faq'>('overview');
 
   const heroWallpapers = [
-    { img: '/omega_rio_blocks.jpg', label: 'Rio 2016 Olympic Arena Blocks' },
-    { img: '/omega_phelps_fist_pump.jpg', label: 'Phelps OMEGA Wall Celebration' },
-    { img: '/omega_phelps_london_2012.jpg', label: 'Phelps London 2012 Victory' },
-    { img: '/omega_phelps_touchpad_look.jpg', label: 'Phelps Scoreboard Sync' },
-    { img: '/omega_phelps_london_hd.png', label: 'Phelps London 2012 Victory Block' },
-    { img: '/omega_hero_bg.jpg', label: 'Tokyo 2020 OMEGA Touchpad Wall' }
+    { img: './omega_rio_blocks.jpg', label: 'Rio 2016 Olympic Arena Blocks' },
+    { img: './omega_phelps_fist_pump.jpg', label: 'Phelps OMEGA Wall Celebration' },
+    { img: './omega_phelps_london_2012.jpg', label: 'Phelps London 2012 Victory' },
+    { img: './omega_phelps_touchpad_look.jpg', label: 'Phelps Scoreboard Sync' },
+    { img: './omega_phelps_london_hd.png', label: 'Phelps London 2012 Victory Block' },
+    { img: './omega_hero_bg.jpg', label: 'Tokyo 2020 OMEGA Touchpad Wall' }
   ];
 
   useEffect(() => {
@@ -227,11 +251,18 @@ export default function LandingPage({
         id="hero"
         className="h-screen min-h-screen flex flex-col items-center justify-between text-center w-full pt-28 pb-6 relative overflow-hidden bg-black group"
       >
-        {/* Full 100vw Edge-to-Edge Dynamic 4K Wallpaper Image */}
-        <div
-          className="absolute inset-0 hero-wallpaper-4k transition-all duration-1000"
-          style={{ backgroundImage: `url('${heroWallpapers[heroBgIdx].img}')` }}
-        />
+        {/* Full 100vw Edge-to-Edge Dynamic 4K Wallpaper Image — stacked layers cross-fading via opacity,
+            since background-image itself can't be smoothly interpolated by a CSS transition. */}
+        {heroWallpapers.map((wallpaper, idx) => (
+          <div
+            key={wallpaper.img}
+            className="absolute inset-0 hero-wallpaper-4k transition-opacity duration-1000 ease-in-out"
+            style={{
+              backgroundImage: `url('${wallpaper.img}')`,
+              opacity: idx === heroBgIdx ? 1 : 0,
+            }}
+          />
+        ))}
 
         {/* Ambient Dark Overlay for Contrast */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20" />
@@ -459,6 +490,74 @@ export default function LandingPage({
         </section>
 
         {/* ------------------------------------------------------------- */}
+        {/* TESTIMONIALS — placeholder content, swap in real quotes/names */}
+        {/* ------------------------------------------------------------- */}
+        <section
+          id="testimonials"
+          className="flex flex-col items-center justify-center pb-24 w-full text-center mb-28 scroll-mt-36"
+        >
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-tight">
+              <span className="text-white block">TRUSTED ON THE DECK.</span>
+              <span className="text-[#fff500] block mt-1">BY THE PEOPLE WHO RUN IT.</span>
+            </h2>
+          </div>
+
+          <div className="relative w-full max-w-3xl">
+            <div className="glass-card rounded-3xl p-9 sm:p-12 border border-white/10 bg-slate-950 shadow-2xl text-left">
+              <Quote className="w-10 h-10 text-[#fff500]/60 mb-6" />
+              <p className="text-lg sm:text-xl text-slate-100 leading-relaxed font-medium mb-8">
+                {testimonials[testimonialIdx].quote}
+              </p>
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-black border border-[#fff500]/40 text-[#fff500] flex items-center justify-center shrink-0">
+                    <User className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-white">{testimonials[testimonialIdx].name}</div>
+                    <div className="text-xs text-slate-400 font-mono">{testimonials[testimonialIdx].role}</div>
+                  </div>
+                </div>
+                <div className="text-xs sm:text-sm font-mono text-[#fff500] bg-black/60 border border-[#fff500]/30 rounded-full px-4 py-2">
+                  {testimonials[testimonialIdx].result}
+                </div>
+              </div>
+            </div>
+
+            {/* Prev / Next Arrows */}
+            <button
+              onClick={() => setTestimonialIdx((prev) => (prev === 0 ? testimonials.length - 1 : prev - 1))}
+              className="absolute -left-4 sm:-left-14 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/50 hover:bg-black/80 border border-white/20 hover:border-[#fff500] text-white hover:text-[#fff500] flex items-center justify-center transition-all cursor-pointer shadow-xl"
+              title="Previous testimonial"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setTestimonialIdx((prev) => (prev + 1) % testimonials.length)}
+              className="absolute -right-4 sm:-right-14 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/50 hover:bg-black/80 border border-white/20 hover:border-[#fff500] text-white hover:text-[#fff500] flex items-center justify-center transition-all cursor-pointer shadow-xl"
+              title="Next testimonial"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Slide Dots */}
+          <div className="flex items-center justify-center gap-2 mt-8">
+            {testimonials.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setTestimonialIdx(idx)}
+                className={`rounded-full transition-all cursor-pointer ${
+                  idx === testimonialIdx ? 'w-6 h-2 bg-[#fff500]' : 'w-2 h-2 bg-white/25 hover:bg-white/50'
+                }`}
+                title={`Go to testimonial ${idx + 1}`}
+              />
+            ))}
+          </div>
+        </section>
+
+        {/* ------------------------------------------------------------- */}
         {/* PAGE 4: 16:9 VIEWPORT 4 — FAQ & FOOTER (TEXT <= 2 LINES)      */}
         {/* ------------------------------------------------------------- */}
         <section
@@ -640,7 +739,7 @@ export default function LandingPage({
                   <span className="text-slate-400 font-medium">© 2026 TOUCHTECK FOR OMEGA</span>
                   <span className="hidden sm:inline text-slate-700">|</span>
                   <span className="text-slate-300 font-medium flex items-center gap-2">
-                    Made by <img src="/signature.png" alt="Yenumala Charles Finney" className="h-7 sm:h-9 object-contain inline-block filter drop-shadow-[0_0_8px_rgba(224,255,43,0.5)]" />
+                    Made by <img src="./signature.png" alt="Yenumala Charles Finney" className="h-7 sm:h-9 object-contain inline-block filter drop-shadow-[0_0_8px_rgba(224,255,43,0.5)]" />
                   </span>
                 </div>
               </div>

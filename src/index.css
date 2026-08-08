@@ -1,5 +1,23 @@
 @import "tailwindcss";
 
+/* Self-hosted fonts — no CDN dependency, so the app works fully offline at a venue */
+@import "@fontsource/inter/300.css";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/inter/400-italic.css";
+@import "@fontsource/inter/600-italic.css";
+@import "@fontsource/orbitron/400.css";
+@import "@fontsource/orbitron/700.css";
+@import "@fontsource/orbitron/900.css";
+@import "@fontsource/roboto-mono/400.css";
+@import "@fontsource/roboto-mono/700.css";
+@import "@fontsource/fira-mono/400.css";
+@import "@fontsource/fira-mono/700.css";
+@import "@fontsource/reenie-beanie/400.css";
+@import "@fontsource/kristi/400.css";
+@import "@fontsource/zeyada/400.css";
+
 /* Modern Cyber-Athletic CSS Design System */
 
 :root {
@@ -43,6 +61,18 @@
 
   --transition-fast: 0.15s ease;
   --transition-normal: 0.25s ease;
+
+  /* Glassmorphism surface tokens — derived from the palette above, not a new theme */
+  --glass-blur-sm: 8px;
+  --glass-blur-md: 14px;
+  --glass-blur-lg: 20px;
+  --glass-bg: rgba(19, 26, 44, 0.55);
+  --glass-bg-strong: rgba(11, 15, 25, 0.72);
+  --glass-bg-soft: rgba(27, 37, 63, 0.45);
+  --glass-border: rgba(148, 163, 184, 0.16);
+  --glass-border-strong: rgba(6, 182, 212, 0.3);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  --glass-shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.6);
 }
 
 * {
@@ -115,8 +145,10 @@ body {
   align-items: center;
   padding: 0.75rem 1rem;
   gap: 0.5rem;
-  background-color: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--glass-blur-lg)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(140%);
+  border-bottom: 1px solid var(--glass-border);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -151,10 +183,12 @@ body {
 .nav-tabs {
   align-items: center;
   gap: 0.15rem;
-  background: var(--bg-primary);
+  background: var(--glass-bg-soft);
+  backdrop-filter: blur(var(--glass-blur-sm));
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
   padding: 0.2rem 0.3rem;
   border-radius: var(--radius-md);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--glass-border);
   margin: 0 0.5rem;
   flex: 0 0 auto;
   min-width: 0;
@@ -206,6 +240,10 @@ body {
   background-color: rgba(255, 255, 255, 0.05);
 }
 
+.nav-tab:active {
+  transform: scale(0.96);
+}
+
 .nav-tab.active {
   color: var(--text-primary);
   background-color: var(--bg-tertiary);
@@ -218,9 +256,11 @@ body {
   align-items: center;
   gap: 0.5rem;
   padding: 0.35rem 0.85rem;
-  background: var(--bg-primary);
+  background: var(--glass-bg-soft);
+  backdrop-filter: blur(var(--glass-blur-sm));
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
   border-radius: 9999px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--glass-border);
   font-size: 0.78rem;
   font-weight: 700;
   white-space: nowrap;
@@ -293,12 +333,18 @@ body {
 
 /* Glass Card */
 .glass-card {
-  background: var(--bg-glass);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--border-color);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur-lg)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(140%);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   padding: 1.5rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--glass-shadow);
+  transition: border-color var(--transition-normal);
+}
+
+.glass-card:hover {
+  border-color: var(--glass-border-strong);
 }
 
 .card-title {
@@ -382,6 +428,10 @@ body {
   cursor: not-allowed;
 }
 
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
 /* Form Controls */
 .form-group {
   margin-bottom: 1.25rem;
@@ -426,7 +476,9 @@ select.form-control {
   cursor: pointer;
   border-radius: 14px;
   border: 1px solid rgba(6, 182, 212, 0.4);
-  background-color: #0c1322;
+  background-color: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur-sm));
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
 }
 
@@ -483,9 +535,11 @@ select.form-control option:hover {
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
-  background: linear-gradient(135deg, var(--bg-secondary), #0e1423);
+  background: linear-gradient(135deg, var(--glass-bg), rgba(14, 20, 35, 0.55));
+  backdrop-filter: blur(var(--glass-blur-md));
+  -webkit-backdrop-filter: blur(var(--glass-blur-md));
   border-radius: var(--radius-lg);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--glass-border);
   text-align: center;
   position: relative;
   overflow: hidden;
@@ -508,6 +562,7 @@ select.form-control option:hover {
   letter-spacing: 0.2em;
   color: var(--text-secondary);
   margin-bottom: 0.25rem;
+  transition: color 0.3s ease;
 }
 
 .timer-state-label.running {
@@ -520,6 +575,9 @@ select.form-control option:hover {
 
 .timer-state-label.ready {
   color: var(--accent-amber);
+  display: inline-block;
+  animation: pulse-glow-amber 1.6s ease-in-out infinite;
+  text-shadow: 0 0 4px var(--accent-amber-glow);
 }
 
 .timer-clock {
@@ -530,6 +588,7 @@ select.form-control option:hover {
   color: var(--text-primary);
   text-shadow: 0 0 15px rgba(241, 245, 249, 0.1);
   margin: 0.5rem 0;
+  transition: color 0.3s ease, text-shadow 0.3s ease;
 }
 
 .timer-clock.running {
@@ -561,7 +620,8 @@ select.form-control option:hover {
   grid-template-columns: 60px 2fr 1.5fr 1fr 1.2fr 1fr;
   align-items: center;
   padding: 0.75rem 1.25rem;
-  background-color: var(--bg-secondary);
+  /* Translucent color only, no backdrop-filter — up to 8 of these update live during a race. */
+  background-color: var(--glass-bg);
   border-left: 4px solid var(--border-color);
   border-radius: var(--radius-md);
   transition: all var(--transition-fast);
@@ -606,7 +666,7 @@ select.form-control option:hover {
 .lane-card.finished-swim .lane-number-badge {
   border-color: var(--accent-green);
   color: var(--accent-green);
-  box-shadow: 0 0 8px var(--accent-green-glow);
+  animation: pulse-glow-green 2s ease-in-out infinite;
 }
 
 .lane-swimmer-info {
@@ -707,10 +767,12 @@ select.form-control option:hover {
 }
 
 .settings-section {
-  background: var(--bg-secondary);
+  background: var(--glass-bg-soft);
+  backdrop-filter: blur(var(--glass-blur-md));
+  -webkit-backdrop-filter: blur(var(--glass-blur-md));
   border-radius: var(--radius-md);
   padding: 1.25rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--glass-border);
 }
 
 .settings-header {
@@ -767,8 +829,12 @@ select.form-control option:hover {
 .data-table-container {
   overflow-x: auto;
   border-radius: var(--radius-md);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--glass-border);
   margin-top: 1rem;
+  /* Blur applied once at the container instead of per-cell — rows can run into the hundreds. */
+  background: var(--glass-bg-soft);
+  backdrop-filter: blur(var(--glass-blur-md));
+  -webkit-backdrop-filter: blur(var(--glass-blur-md));
 }
 
 .data-table {
@@ -814,21 +880,63 @@ select.form-control option:hover {
   align-items: center;
   justify-content: center;
   z-index: 99999;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(var(--glass-blur-md));
+  -webkit-backdrop-filter: blur(var(--glass-blur-md));
+  animation: modalOverlayIn 0.18s ease-out;
 }
 
 .modal-content {
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--glass-blur-lg)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(140%);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   width: 90%;
   max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
   padding: 1.5rem;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+  box-shadow: var(--glass-shadow-lg);
   margin: auto;
+  animation: modalContentIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalOverlayOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes modalContentIn {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes modalContentOut {
+  from { opacity: 1; transform: scale(1) translateY(0); }
+  to { opacity: 0; transform: scale(0.96) translateY(8px); }
+}
+
+.modal-overlay.modal-closing {
+  animation: modalOverlayOut 0.15s ease-in forwards;
+}
+
+.modal-content.modal-closing {
+  animation: modalContentOut 0.15s ease-in forwards;
+}
+
+/* For the one modal panel (OperatorConsole's sim-off prompt) that doesn't use .modal-content
+   directly (it has its own inline-styled amber-bordered look) — same animation, no other styles. */
+.modal-panel-anim {
+  animation: modalContentIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-panel-anim.modal-closing {
+  animation: modalContentOut 0.15s ease-in forwards;
 }
 
 .modal-header {
@@ -958,10 +1066,12 @@ select.form-control option:hover {
 .qt-filters {
   display: flex;
   gap: 1rem;
-  background: var(--bg-secondary);
+  background: var(--glass-bg-soft);
+  backdrop-filter: blur(var(--glass-blur-md));
+  -webkit-backdrop-filter: blur(var(--glass-blur-md));
   padding: 1rem;
   border-radius: var(--radius-md);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--glass-border);
 }
 
 .qt-grid-table {
@@ -1029,6 +1139,43 @@ select.form-control option:hover {
   animation: pulseGlow 3s ease-in-out infinite;
 }
 
+/* Was referenced in 3 places (profile dropdown, login modal, select dropdown) but never
+   actually defined anywhere — those pop-ins were silently instant. This makes it real. */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.18s ease-out;
+}
+
+/* Crossfade for tab switches — only used on the 6 tabs that fully unmount/remount.
+   OperatorConsole is deliberately excluded (kept alive via display:none to preserve
+   live timer/serial state), so it never gets this wrapper. */
+@keyframes tabFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tab-panel-enter {
+  animation: tabFadeIn 0.22s ease-out;
+}
+
 @keyframes floatHero {
 
   0%,
@@ -1055,18 +1202,6 @@ select.form-control option:hover {
   background-image:
     linear-gradient(to right, rgba(56, 189, 248, 0.10) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(56, 189, 248, 0.10) 1px, transparent 1px);
-}
-
-.glass-card {
-  background: rgba(18, 18, 22, 0.95);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 245, 0, 0.2);
-  box-shadow: 0 10px 40px 0 rgba(0, 0, 0, 0.6);
-}
-
-.glass-card:hover {
-  border-color: rgba(255, 245, 0, 0.5);
 }
 
 .glass-header {

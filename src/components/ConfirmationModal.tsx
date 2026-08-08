@@ -1,5 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
+import { useModalClose } from '../hooks/useModalClose';
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -20,27 +21,30 @@ export default function ConfirmationModal({
   onConfirm,
   onCancel
 }: ConfirmationModalProps) {
+  const { isClosing, triggerClose } = useModalClose();
+
   if (!isOpen) return null;
 
-  const isDestructive = 
-    confirmText.toLowerCase().includes('delete') || 
-    title.toLowerCase().includes('delete') || 
+  const isDestructive =
+    confirmText.toLowerCase().includes('delete') ||
+    title.toLowerCase().includes('delete') ||
     title.toLowerCase().includes('end') ||
     message.toLowerCase().includes('delete');
 
   const confirmBtnClass = isDestructive ? 'btn-danger' : 'btn-cyan';
+  const closingClass = isClosing ? ' modal-closing' : '';
 
   return createPortal(
-    <div className="modal-overlay" style={{ zIndex: 99999 }}>
-      <div className="modal-content" style={{ maxWidth: '440px' }}>
+    <div className={`modal-overlay${closingClass}`} style={{ zIndex: 99999 }}>
+      <div className={`modal-content${closingClass}`} style={{ maxWidth: '440px' }}>
         <div className="modal-header">
           <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)' }}>
             {title}
           </h3>
-          <button 
-            className="btn btn-secondary" 
-            style={{ padding: '0.2rem 0.5rem', minWidth: 'auto', border: 'none', background: 'transparent' }} 
-            onClick={onCancel}
+          <button
+            className="btn btn-secondary"
+            style={{ padding: '0.2rem 0.5rem', minWidth: 'auto', border: 'none', background: 'transparent' }}
+            onClick={() => triggerClose(onCancel)}
           >
             ✕
           </button>
@@ -49,18 +53,18 @@ export default function ConfirmationModal({
           {message}
         </div>
         <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-          <button 
-            type="button" 
-            className="btn btn-secondary" 
-            onClick={onCancel}
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => triggerClose(onCancel)}
             style={{ padding: '0.5rem 1.25rem' }}
           >
             {cancelText}
           </button>
-          <button 
-            type="button" 
-            className={`btn ${confirmBtnClass}`} 
-            onClick={onConfirm}
+          <button
+            type="button"
+            className={`btn ${confirmBtnClass}`}
+            onClick={() => triggerClose(onConfirm)}
             style={{ padding: '0.5rem 1.25rem' }}
           >
             {confirmText}

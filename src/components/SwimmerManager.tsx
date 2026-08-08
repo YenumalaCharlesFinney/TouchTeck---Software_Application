@@ -4,6 +4,7 @@ import { db, Swimmer } from '../db';
 import { UserPlus, Trash2, Search, Filter } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import CustomSelect from './CustomSelect';
+import { useModalClose } from '../hooks/useModalClose';
 
 interface SwimmerManagerProps {
   activeMeetId?: number | null;
@@ -26,6 +27,7 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deleteSwimmerId, setDeleteSwimmerId] = useState<number | null>(null);
+  const { isClosing: isAddModalClosing, triggerClose: closeAddModal } = useModalClose();
 
   useEffect(() => {
     loadSwimmers();
@@ -208,14 +210,14 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
 
       {/* Add Swimmer Modal */}
       {isModalOpen && createPortal(
-        <div className="modal-overlay" style={{ zIndex: 99999 }}>
-          <div className="modal-content">
+        <div className={`modal-overlay${isAddModalClosing ? ' modal-closing' : ''}`} style={{ zIndex: 99999 }}>
+          <div className={`modal-content${isAddModalClosing ? ' modal-closing' : ''}`}>
             <div className="modal-header">
               <h3>Register New Swimmer</h3>
-              <button 
-                className="btn btn-secondary" 
-                style={{ padding: '0.2rem 0.5rem' }} 
-                onClick={() => setIsModalOpen(false)}
+              <button
+                className="btn btn-secondary"
+                style={{ padding: '0.2rem 0.5rem' }}
+                onClick={() => closeAddModal(() => setIsModalOpen(false))}
               >
                 ✕
               </button>
@@ -290,10 +292,10 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
                 </div>
               </div>
               <div className="modal-actions">
-                <button 
-                  type="button" 
-                  className="btn btn-secondary" 
-                  onClick={() => setIsModalOpen(false)}
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => closeAddModal(() => setIsModalOpen(false))}
                 >
                   Cancel
                 </button>

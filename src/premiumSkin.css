@@ -1,0 +1,583 @@
+/* ============================================================
+   TouchTeck — Premium interface skin
+   ------------------------------------------------------------
+   This is the app's interface, not an alternate theme. The `ui-premium` class
+   ships on <body> in index.html so the app is skinned from the first paint;
+   there is no toggle and no opt-out path.
+
+   Depth is done with layered gradients, inner highlights and real elevation
+   shadows rather than WebGL — this is live race-day software, so it must not
+   fight the timing loop for GPU or add a heavy 3D runtime to the bundle.
+   The class sits on <body> (not the app container) so portalled modals
+   inherit it too.
+   ============================================================ */
+
+body.ui-premium {
+  /* deeper, cooler base than the original navy */
+  --bg-primary: #05070d;
+  --bg-secondary: #0a0e18;
+  --bg-tertiary: #121826;
+
+  --border-color: rgba(148, 170, 214, 0.13);
+  --border-focus: rgba(6, 182, 212, 0.55);
+
+  --text-primary: #f2f6ff;
+  --text-secondary: #94a3c0;
+  --text-muted: #5b6580;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+
+  --p-elev-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --p-elev-2: 0 4px 16px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.6);
+  --p-elev-3: 0 18px 48px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.5);
+
+  /* the hairline of light along a surface's top edge — does most of the
+     "expensive" feeling on dark UI */
+  --p-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+
+  --p-accent: #06b6d4;
+  --p-accent-soft: rgba(6, 182, 212, 0.14);
+
+  background-color: #05070d;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+}
+
+/* Ambient depth behind everything — two soft light sources, fixed so they
+   don't move while content scrolls. */
+body.ui-premium::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(90rem 50rem at 15% -10%, rgba(6, 182, 212, 0.09), transparent 60%),
+    radial-gradient(70rem 40rem at 95% 0%, rgba(255, 245, 0, 0.05), transparent 55%),
+    radial-gradient(60rem 40rem at 50% 120%, rgba(59, 130, 246, 0.06), transparent 60%);
+}
+
+body.ui-premium .app-container {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+}
+
+/* ---------- header ---------- */
+
+body.ui-premium .app-header {
+  background: linear-gradient(180deg, rgba(10, 14, 24, 0.92), rgba(10, 14, 24, 0.72));
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: var(--p-elev-2), var(--p-sheen);
+  padding: 0.85rem 1.25rem;
+}
+
+body.ui-premium .brand-title {
+  letter-spacing: 0.08em;
+}
+
+/* ---------- nav tabs ---------- */
+
+body.ui-premium .nav-tabs {
+  background: rgba(5, 7, 13, 0.6);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  padding: 0.28rem;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.55);
+}
+
+/* Nav tabs are styled to match the pill buttons on the 3D home screen, so the
+   two surfaces read as one interface: soft dark pill at rest, solid cyan when
+   selected. */
+body.ui-premium .nav-tab {
+  border-radius: 999px;
+  padding: 0.62rem 1.15rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.015em;
+  gap: 0.45rem;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid transparent;
+  box-shadow: var(--p-sheen);
+  transition: color 0.2s ease, background-color 0.2s ease, transform 0.16s ease,
+    box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+body.ui-premium .nav-tab:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.075);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+/* selected — same solid cyan as the primary button on the 3D home */
+body.ui-premium .nav-tab.active {
+  background: linear-gradient(180deg, #2ad9f0, #06b6d4);
+  border-color: #3ee0f5;
+  color: #04121a;
+  box-shadow:
+    0 6px 20px rgba(6, 182, 212, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+body.ui-premium .nav-tab.active svg {
+  color: #04121a;
+}
+
+body.ui-premium .nav-tab:active {
+  transform: scale(0.96);
+}
+
+/* ---------- view + tab transitions ---------- */
+
+/* whole-view swap (home ⇄ app shell) */
+@keyframes viewEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.988);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.view-enter {
+  animation: viewEnter 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* the app shell itself, on first paint */
+body.ui-premium .app-container {
+  animation: viewEnter 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* moving between Scoreboard / Heats & Lanes / Swimmers / … — a longer, softer
+   rise than the stock crossfade so switching tabs feels deliberate */
+body.ui-premium .tab-panel-enter {
+  animation: premiumTabEnter 0.46s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes premiumTabEnter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.994);
+    filter: blur(3px);
+  }
+  60% {
+    filter: blur(0);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view-enter,
+  body.ui-premium .app-container,
+  body.ui-premium .tab-panel-enter {
+    animation: none;
+  }
+}
+
+/* ---------- surfaces ---------- */
+
+body.ui-premium .glass-card,
+body.ui-premium .settings-section,
+body.ui-premium .qt-filters,
+body.ui-premium .data-table-container {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)),
+    rgba(10, 14, 24, 0.72);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--p-elev-2), var(--p-sheen);
+}
+
+body.ui-premium .glass-card {
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s ease,
+    border-color 0.28s ease;
+}
+
+body.ui-premium .glass-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(6, 182, 212, 0.35);
+  box-shadow: var(--p-elev-3), var(--p-sheen);
+}
+
+body.ui-premium .card-title {
+  letter-spacing: 0.02em;
+  border-bottom-color: var(--border-color);
+}
+
+/* ---------- master timer ---------- */
+
+body.ui-premium .master-timer-card {
+  background:
+    radial-gradient(120% 100% at 50% 0%, rgba(6, 182, 212, 0.09), transparent 65%),
+    linear-gradient(180deg, rgba(16, 22, 36, 0.9), rgba(7, 10, 18, 0.92));
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--p-elev-3), var(--p-sheen);
+}
+
+body.ui-premium .timer-clock {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 40px rgba(6, 182, 212, 0.25);
+}
+
+/* ---------- lanes ---------- */
+
+body.ui-premium .lane-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0.008)),
+    rgba(10, 14, 24, 0.6);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid rgba(148, 170, 214, 0.18);
+  border-radius: var(--radius-md);
+  box-shadow: var(--p-elev-1), var(--p-sheen);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease,
+    background-color 0.2s ease;
+}
+
+body.ui-premium .lane-card:hover {
+  transform: translateX(3px);
+  box-shadow: var(--p-elev-2), var(--p-sheen);
+}
+
+body.ui-premium .lane-card.active-swim {
+  border-left-color: var(--p-accent);
+  box-shadow: -8px 0 24px -12px rgba(6, 182, 212, 0.7), var(--p-elev-2), var(--p-sheen);
+}
+
+body.ui-premium .lane-card.finished-swim {
+  border-left-color: #10b981;
+  box-shadow: -8px 0 24px -12px rgba(16, 185, 129, 0.7), var(--p-elev-2), var(--p-sheen);
+}
+
+body.ui-premium .lane-number-badge {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015)),
+    rgba(5, 7, 13, 0.9);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--p-sheen);
+  font-variant-numeric: tabular-nums;
+}
+
+body.ui-premium .lane-timer-display {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- buttons ---------- */
+
+body.ui-premium .btn {
+  border-radius: 999px;
+  letter-spacing: 0.03em;
+  box-shadow: var(--p-elev-1), var(--p-sheen);
+  transition: transform 0.16s ease, box-shadow 0.2s ease, background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+body.ui-premium .btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--p-elev-2), var(--p-sheen);
+}
+
+body.ui-premium .btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+  box-shadow: var(--p-elev-1);
+}
+
+body.ui-premium .btn-secondary {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+    rgba(18, 24, 38, 0.9);
+  border: 1px solid var(--border-color);
+}
+
+body.ui-premium .btn-cyan {
+  background: linear-gradient(180deg, #22d3ee, #06b6d4);
+  color: #04121a;
+}
+
+body.ui-premium .btn-primary {
+  background: linear-gradient(180deg, #4c8dff, #2563eb);
+}
+
+body.ui-premium .btn-success {
+  background: linear-gradient(180deg, #16d39a, #059669);
+  color: #032018;
+}
+
+body.ui-premium .btn-danger {
+  background: linear-gradient(180deg, #f87171, #dc2626);
+}
+
+/* ---------- form controls ---------- */
+
+body.ui-premium .form-control,
+body.ui-premium select.form-control {
+  background: rgba(5, 7, 13, 0.8);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+body.ui-premium .form-control:focus,
+body.ui-premium select.form-control:focus {
+  border-color: var(--border-focus);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5), 0 0 0 3px rgba(6, 182, 212, 0.16);
+}
+
+body.ui-premium .form-label {
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* ---------- status pill ---------- */
+
+body.ui-premium .header-status-pill {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015)),
+    rgba(5, 7, 13, 0.8);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--p-elev-1), var(--p-sheen);
+  letter-spacing: 0.04em;
+}
+
+/* ---------- tables ---------- */
+
+body.ui-premium .data-table th {
+  background: rgba(5, 7, 13, 0.85);
+  border-bottom: 1px solid var(--border-color);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+body.ui-premium .data-table td {
+  background: transparent;
+  border-bottom: 1px solid rgba(148, 170, 214, 0.07);
+}
+
+body.ui-premium .data-table tr:hover td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* ---------- modals ---------- */
+
+body.ui-premium .modal-overlay {
+  background: rgba(3, 5, 10, 0.6);
+  backdrop-filter: blur(14px) saturate(130%);
+  -webkit-backdrop-filter: blur(14px) saturate(130%);
+}
+
+body.ui-premium .modal-content,
+body.ui-premium .modal-panel-anim {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)),
+    rgba(10, 14, 24, 0.94);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--p-elev-3), var(--p-sheen);
+}
+
+/* ---------- 3D home ---------- */
+
+.home3d-action {
+  position: relative;
+}
+
+/* brief flash so pressing 1-4 visibly registers before the tab swaps */
+.home3d-action.is-hotkey-hit {
+  transform: translateY(1px) scale(0.985);
+  box-shadow: 0 0 0 2px rgba(255, 245, 0, 0.55);
+}
+
+/* the home look, carried behind the working screens */
+.app-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  /* nothing in this layer may ever intercept a click meant for the app */
+  pointer-events: none;
+  /* faded hard, so panels and numbers stay the brightest thing on screen */
+  opacity: 0.16;
+}
+
+/* the shell has no background of its own, so it needs a stacking context that
+   sits above the backdrop rather than under it */
+.app-container {
+  position: relative;
+  z-index: 1;
+}
+
+.app-container > *:not(.app-backdrop) {
+  position: relative;
+  z-index: 1;
+}
+
+/* look picker pinned to the bottom of the 3D home */
+.home3d-picker {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: min(96vw, 1080px);
+  padding: 0.75rem 1rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015)),
+    rgba(3, 5, 10, 0.72);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.6);
+}
+
+.home3d-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 1rem;
+}
+
+.home3d-picker-title {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: #fff500;
+}
+
+.home3d-picker-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease;
+}
+
+.home3d-picker-close:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.32);
+}
+
+.home3d-picker-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.home3d-picker-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.42rem 0.8rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.home3d-picker-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.home3d-picker-btn.is-active {
+  color: #03060d;
+  background: #fff500;
+  border-color: #fff500;
+  font-weight: 700;
+}
+
+.home3d-picker-num {
+  font-size: 0.58rem;
+  opacity: 0.6;
+}
+
+.home3d-picker-btn.is-active .home3d-picker-num {
+  opacity: 0.75;
+}
+
+/* the small way back after hiding the picker */
+.home3d-picker-show {
+  position: absolute;
+  bottom: 18px;
+  right: 18px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.42rem 0.8rem;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: rgba(3, 5, 10, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  cursor: pointer;
+  opacity: 0.45;
+  transition: opacity 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+
+.home3d-picker-show:hover,
+.home3d-picker-show:focus-visible {
+  opacity: 1;
+  color: #fff500;
+  border-color: rgba(255, 245, 0, 0.45);
+}
+
+.home3d-picker-hint {
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.ui-premium .glass-card,
+  body.ui-premium .lane-card,
+  body.ui-premium .btn {
+    transition: none;
+  }
+
+  .home3d-action.is-hotkey-hit {
+    transform: none;
+  }
+}

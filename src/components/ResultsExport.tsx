@@ -4,6 +4,7 @@ import { db, Meet, Event, Result, Swimmer, QualifyingTime } from '../db';
 import { Award, Download, Trash2, Filter, Printer, AlertTriangle } from 'lucide-react';
 import CustomSelect from './CustomSelect';
 import ConfirmationModal from './ConfirmationModal';
+import { useModalClose } from '../hooks/useModalClose';
 
 interface ResultRow {
   id?: number;
@@ -31,18 +32,23 @@ interface NoticeModalProps {
 }
 
 function NoticeModal({ isOpen, title, message, onClose }: NoticeModalProps) {
+  const { isClosing, triggerClose } = useModalClose();
+
   if (!isOpen) return null;
+
+  const closingClass = isClosing ? ' modal-closing' : '';
+
   return createPortal(
-    <div className="modal-overlay" style={{ zIndex: 99999 }}>
-      <div className="modal-content" style={{ maxWidth: '440px' }}>
+    <div className={`modal-overlay${closingClass}`} style={{ zIndex: 99999 }}>
+      <div className={`modal-content${closingClass}`} style={{ maxWidth: '440px' }}>
         <div className="modal-header">
           <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)' }}>
             {title}
           </h3>
-          <button 
-            className="btn btn-secondary" 
-            style={{ padding: '0.2rem 0.5rem', minWidth: 'auto', border: 'none', background: 'transparent' }} 
-            onClick={onClose}
+          <button
+            className="btn btn-secondary"
+            style={{ padding: '0.2rem 0.5rem', minWidth: 'auto', border: 'none', background: 'transparent' }}
+            onClick={() => triggerClose(onClose)}
           >
             ✕
           </button>
@@ -51,10 +57,10 @@ function NoticeModal({ isOpen, title, message, onClose }: NoticeModalProps) {
           {message}
         </div>
         <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button 
-            type="button" 
-            className="btn btn-cyan" 
-            onClick={onClose}
+          <button
+            type="button"
+            className="btn btn-cyan"
+            onClick={() => triggerClose(onClose)}
             style={{ padding: '0.5rem 1.5rem' }}
           >
             OK

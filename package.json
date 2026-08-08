@@ -3,32 +3,55 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "main": "dist-electron/main.js",
   "scripts": {
     "dev": "concurrently -n bridge,web -c yellow,cyan \"npm:bridge\" \"npm:dev:web\"",
     "dev:web": "vite",
     "bridge": "node bridge/serial-bridge.js",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "icons:generate": "node scripts/generate-icons.mjs",
+    "electron:compile": "tsc -p electron/tsconfig.json && node scripts/copy-electron-package-json.mjs",
+    "electron:launch": "wait-on http://localhost:5173 && npm run electron:compile && electron .",
+    "electron:dev": "concurrently -k -n VITE,ELECTRON -c cyan,magenta \"npm:dev:web\" \"npm:electron:launch\"",
+    "electron:build": "npm run build && npm run electron:compile && electron-builder"
   },
   "dependencies": {
+    "@fontsource/fira-mono": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/kristi": "^5.3.0",
+    "@fontsource/orbitron": "^5.3.0",
+    "@fontsource/reenie-beanie": "^5.3.0",
+    "@fontsource/roboto-mono": "^5.3.0",
+    "@fontsource/zeyada": "^5.3.0",
+    "@react-three/drei": "^9.122.0",
+    "@react-three/fiber": "^8.18.0",
     "dexie": "^4.0.8",
+    "electron-log": "^5.4.4",
     "lucide-react": "^0.395.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "serialport": "^12.0.0",
+    "three": "^0.169.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^26.1.2",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.5.4",
     "concurrently": "^9.0.0",
     "docx": "^9.7.1",
+    "electron": "^43.3.0",
+    "electron-builder": "^26.15.3",
+    "png2icons": "^2.0.1",
     "postcss": "^8.5.23",
+    "sharp": "^0.35.3",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.2.2",
-    "vite": "^5.3.1"
+    "vite": "^5.3.1",
+    "wait-on": "^9.1.0"
   }
 }

@@ -3,9 +3,10 @@ import { createPortal } from 'react-dom';
 import { db, Meet, Event } from '../db';
 import { serialDriver, simulator, TimingEvent } from '../serialDriver';
 import { ScoreboardDisplayConfig, DEFAULT_SCOREBOARD_CONFIG, ScoreboardResolution } from '../types';
-import { Terminal, Cpu, Play, Square, RotateCcw, Save, ShieldAlert, Radio, HelpCircle, CheckCircle2, Plus, Activity, ShieldCheck, Power, Copy, Check } from 'lucide-react';
+import { Terminal, Cpu, Play, Square, RotateCcw, Save, ShieldAlert, Radio, HelpCircle, CheckCircle2, Plus, Activity, ShieldCheck, Power, Copy, Check, Loader2 } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import CustomSelect from './CustomSelect';
+import { useModalClose } from '../hooks/useModalClose';
 
 interface Swimmer {
   id?: number;
@@ -44,6 +45,7 @@ interface OperatorConsoleProps {
   handleResetTimer: () => void;
   handleStopTimer: () => void;
   handleSaveResults: () => void;
+  isSavingResults?: boolean;
   eventLaps: number;
   bothEnds: boolean;
   setBothEnds: (both: boolean) => void;
@@ -73,6 +75,7 @@ export default function OperatorConsole({
   handleResetTimer,
   handleStopTimer,
   handleSaveResults,
+  isSavingResults = false,
   eventLaps,
   bothEnds,
   setBothEnds,
@@ -121,6 +124,8 @@ export default function OperatorConsole({
   const [showSimConfirm, setShowSimConfirm] = useState(false);
   const [showUsbModal, setShowUsbModal] = useState(false);
   const [showSimOffModal, setShowSimOffModal] = useState<boolean>(false);
+  const { isClosing: isUsbModalClosing, triggerClose: closeUsbModal } = useModalClose();
+  const { isClosing: isSimOffModalClosing, triggerClose: closeSimOffModal } = useModalClose();
   const [usbErrorMsg, setUsbErrorMsg] = useState<string | null>(null);
   const [simRunning, setSimRunning] = useState<boolean>(false);
   const [isCopied, setIsCopied] = useState<boolean>(false);
@@ -494,8 +499,14 @@ export default function OperatorConsole({
                   <CheckCircle2 size={18} /> Testing Completed
                 </button>
               ) : (
-                <button className="btn btn-success" onClick={handleSaveResults} style={{ padding: '0.75rem 1.5rem', fontSize: '1rem' }}>
-                  <Save size={18} /> Save Results
+                <button
+                  className="btn btn-success"
+                  onClick={handleSaveResults}
+                  disabled={isSavingResults}
+                  style={{ padding: '0.75rem 1.5rem', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                >
+                  {isSavingResults ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                  {isSavingResults ? 'Saving...' : 'Save Results'}
                 </button>
               )
             )}
@@ -1172,8 +1183,8 @@ export default function OperatorConsole({
 
       {/* USB Serial Hardware Detection Modal */}
       {showUsbModal && (
-        <div className="modal-overlay" style={{ zIndex: 1150 }}>
-          <div className="modal-content" style={{ maxWidth: '520px', padding: '1.75rem' }}>
+        <div className={`modal-overlay${isUsbModalClosing ? ' modal-closing' : ''}`} style={{ zIndex: 1150 }}>
+          <div className={`modal-content${isUsbModalClosing ? ' modal-closing' : ''}`} style={{ maxWidth: '520px', padding: '1.75rem' }}>
             <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                 <div style={{ padding: '0.4rem', borderRadius: '6px', backgroundColor: 'rgba(6, 182, 212, 0.15)', color: 'var(--accent-cyan)' }}>
@@ -1188,10 +1199,10 @@ export default function OperatorConsole({
                   </span>
                 </div>
               </div>
-              <button 
-                className="btn btn-secondary" 
+              <button
+                className="btn btn-secondary"
                 style={{ padding: '0.2rem 0.5rem', minWidth: 'auto', border: 'none', background: 'transparent', fontSize: '1.1rem' }}
-                onClick={() => setShowUsbModal(false)}
+                onClick={() => closeUsbModal(() => setShowUsbModal(false))}
               >
                 ✕
               </button>
@@ -1231,18 +1242,18 @@ export default function OperatorConsole({
 
             {/* Modal Actions */}
             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-              <button 
+              <button
                 type="button"
                 className="btn btn-secondary"
-                onClick={() => {
+                onClick={() => closeUsbModal(() => {
                   setShowUsbModal(false);
                   toggleSimulator();
-                }}
+                })}
                 style={{ padding: '0.55rem 1rem', fontSize: '0.85rem' }}
               >
                 Use Timing Simulator
               </button>
-              <button 
+              <button
                 type="button"
                 className="btn btn-cyan"
                 onClick={async () => {
@@ -1251,7 +1262,7 @@ export default function OperatorConsole({
                     const success = await serialDriver.connect(baudRate);
                     if (success) {
                       setIsConnected(true);
-                      setShowUsbModal(false);
+                      closeUsbModal(() => setShowUsbModal(false));
                       setConsoleLogs(prev => [...prev, `[SYSTEM] Connected to serial port at ${baudRate} baud.`]);
                     }
                   } catch (err: any) {
@@ -1269,8 +1280,8 @@ export default function OperatorConsole({
 
       {/* Simulator Off Prompt Modal */}
       {showSimOffModal && (
-        <div className="modal-overlay" style={{ zIndex: 99999 }}>
-          <div style={{ backgroundColor: 'var(--bg-card)', border: '2px solid var(--accent-amber)', borderRadius: '16px', padding: '2rem', maxWidth: '500px', width: '90%', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.7)' }}>
+        <div className={`modal-overlay${isSimOffModalClosing ? ' modal-closing' : ''}`} style={{ zIndex: 99999 }}>
+          <div className={`modal-panel-anim${isSimOffModalClosing ? ' modal-closing' : ''}`} style={{ backgroundColor: 'var(--bg-card)', border: '2px solid var(--accent-amber)', borderRadius: '16px', padding: '2rem', maxWidth: '500px', width: '90%', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.7)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
               <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(245, 158, 11, 0.2)', border: '1px solid var(--accent-amber)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-amber)' }}>
                 <Cpu size={28} />
@@ -1290,7 +1301,7 @@ export default function OperatorConsole({
                 type="button"
                 className="btn btn-cyan"
                 style={{ width: '100%', padding: '0.85rem', fontSize: '0.95rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-                onClick={() => {
+                onClick={() => closeSimOffModal(() => {
                   setShowSimOffModal(false);
                   if (isConnected) handleDisconnect();
                   setIsSimulating(true);
@@ -1302,7 +1313,7 @@ export default function OperatorConsole({
                     simulator.startRace(eventLaps, activeLanes);
                     setConsoleLogs(prev => [...prev, `[SIMULATOR] Starting race: ${eventLaps} length(s) for lanes [${activeLanes.join(', ')}]`]);
                   }, 100);
-                }}
+                })}
               >
                 <Play size={18} /> Turn On Simulator & Start Race
               </button>
@@ -1311,10 +1322,10 @@ export default function OperatorConsole({
                 type="button"
                 className="btn btn-secondary"
                 style={{ width: '100%', padding: '0.75rem', fontSize: '0.85rem' }}
-                onClick={() => {
+                onClick={() => closeSimOffModal(() => {
                   setShowSimOffModal(false);
                   setShowUsbModal(true);
-                }}
+                })}
               >
                 🔌 Connect USB Hardware Console Instead
               </button>
@@ -1322,7 +1333,7 @@ export default function OperatorConsole({
               <button
                 type="button"
                 style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', padding: '0.5rem', fontSize: '0.8rem', cursor: 'pointer', textAlign: 'center' }}
-                onClick={() => setShowSimOffModal(false)}
+                onClick={() => closeSimOffModal(() => setShowSimOffModal(false))}
               >
                 Cancel
               </button>

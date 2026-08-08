@@ -1,0 +1,41 @@
+appId: com.touchteck.omegatiming
+productName: TouchTeck
+copyright: Copyright (c) 2026 TouchTeck
+
+directories:
+  output: release
+  buildResources: build
+
+# Explicit allowlist keeps the shipped app to just what it needs to run
+# (also keeps the root-level protocol docs/.docx files out of the package).
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - bridge/**/*
+  - package.json
+
+# The bridge is fork()'d from a real file path and its native serial binding
+# can't execute from inside an asar archive, so packaging without asar is
+# simpler and lower-risk than asar + unpack exceptions for this app.
+asar: false
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.ico
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - universal
+  icon: build/icon.icns
+  category: public.app-category.sports

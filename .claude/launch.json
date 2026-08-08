@@ -1,0 +1,22 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "desktop-app",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/Users/CHARLE~1/AppData/Local/Temp/claude/C--Users-charleswesley-OneDrive-Desktop-TouchTeck-Software/20f09ec7-a15c-4a70-bad6-6867dcbef4a2/scratchpad/run-desktop-vite.mjs"
+      ],
+      "port": 5199
+    }
+  ]
+}

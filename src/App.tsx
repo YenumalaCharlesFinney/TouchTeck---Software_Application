@@ -6,13 +6,15 @@ import QualifyingStandards from './components/QualifyingStandards';
 import Scoreboard from './components/Scoreboard';
 import ResultsExport from './components/ResultsExport';
 import OperatorConsole from './components/OperatorConsole';
+import AppBackdrop from './components/AppBackdrop';
 import SystemCheck from './components/SystemCheck';
-import LandingPage from './components/LandingPage';
+import Home3D from './components/Home3D';
 import AnimatedLogo from './components/AnimatedLogo';
 import { Timer, Users, Calendar, Award, BarChart3, Radio, Tv, ShieldCheck, CheckCircle2, AlertCircle, RotateCcw, FileText, Home, LogOut, User, ChevronDown, ChevronLeft, ChevronRight, LogIn, Cpu, Database, Sparkles, Maximize2, Minimize2 } from 'lucide-react';
 import { serialDriver, simulator, TimingEvent } from './serialDriver';
 import { playBeeps, playStarterHorn, playTouchpadChime } from './audioUtility';
 import ConfirmationModal from './components/ConfirmationModal';
+import { useModalClose } from './hooks/useModalClose';
 
 import { ScoreboardDisplayConfig, DEFAULT_SCOREBOARD_CONFIG } from './types';
 
@@ -132,6 +134,15 @@ export default function App() {
     return 'home';
   });
 
+  // The `ui-premium` class ships on <body> in index.html, so the skin is in
+  // place before React mounts and portalled modals inherit it too. Nothing
+  // here toggles it. This only clears opt-out keys left behind by the old
+  // build, which no longer have any reader.
+  useEffect(() => {
+    localStorage.removeItem('touchteck_ui_premium');
+    localStorage.removeItem('touchteck_home_3d');
+  }, []);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('touchteck_active_tab', activeTab);
@@ -200,6 +211,7 @@ export default function App() {
     nextHeatNum: null,
     hasAnyTouch: true
   });
+  const { isClosing: isSaveSuccessClosing, triggerClose: closeSaveSuccess } = useModalClose();
 
   // Shared Stopwatch & Lane States
   const DEFAULT_SWIMMERS: Swimmer[] = [
@@ -229,6 +241,7 @@ export default function App() {
   const [eventLaps, setEventLaps] = useState<number>(1);
   const [isResultsSaved, setIsResultsSaved] = useState(false);
   const isSavingRef = useRef(false);
+  const [isSavingResults, setIsSavingResults] = useState(false);
 
   // System Check States
   const [systemCheckPads, setSystemCheckPads] = useState<number[]>([]);
@@ -1020,6 +1033,7 @@ export default function App() {
   const handleSaveResults = async () => {
     if (!activeEventId || isSavingRef.current || isResultsSaved) return;
     isSavingRef.current = true;
+    setIsSavingResults(true);
 
     try {
       const numEventId = Number(activeEventId);
@@ -1071,6 +1085,7 @@ export default function App() {
       console.error('Error saving results:', err);
     } finally {
       isSavingRef.current = false;
+      setIsSavingResults(false);
     }
   };
 
@@ -1280,7 +1295,7 @@ export default function App() {
   if (!dbSeeded) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', justifyContent: 'center', alignItems: 'center', backgroundColor: '#0b0f19', color: '#fff', gap: '1.5rem' }}>
-        <img src="/logo.png?v=3" alt="TouchTeck Logo" style={{ height: '80px', objectFit: 'contain' }} />
+        <img src="./logo.png?v=3" alt="TouchTeck Logo" style={{ height: '80px', objectFit: 'contain' }} />
         <h3 style={{ letterSpacing: '0.05em' }}>Initializing TouchTeck Database...</h3>
       </div>
     );
@@ -1288,18 +1303,23 @@ export default function App() {
 
   if (activeTab === 'home') {
     return (
-      <LandingPage
-        onLogin={handleLogin}
-        onLogout={handleLogout}
-        onNavigateToTab={(tab) => setActiveTab(tab as TabId)}
-        isLoggedIn={isLoggedIn}
-        userEmail={userEmail}
-      />
+      <div className="view-enter" key="home-3d">
+        <Home3D
+          onNavigateToTab={(tab) => setActiveTab(tab as TabId)}
+          onLogout={handleLogout}
+          userEmail={userEmail}
+        />
+      </div>
     );
   }
 
   return (
     <div className={`app-container ${isFullscreen ? 'fullscreen-active' : ''}`}>
+      {/* The home look, carried behind every tab. Never interactive, never on
+          top — see AppBackdrop. Hidden in fullscreen, where the scoreboard
+          needs the screen to itself. */}
+      {!isFullscreen && <AppBackdrop />}
+
       {/* Top Header — hidden when in fullscreen mode */}
       {!isFullscreen && (
         <header className="app-header">
@@ -1526,21 +1546,30 @@ export default function App() {
       <main className="main-content">
         
         {activeTab === 'scoreboard' && (
-          <Scoreboard
-            activeMeetId={activeMeetId}
-            activeEventId={activeEventId}
-            activeHeatNum={activeHeatNum}
-            isFinals={isFinals}
-            elapsedTime={elapsedTime}
-            timerStatus={timerStatus}
-            lanes={lanes}
-            onRaceComplete={handleStopTimer}
-            displayConfig={scoreboardConfig}
-            isTestMode={isTestMode}
-          />
+          <div key="scoreboard-panel" className="tab-panel-enter">
+            <Scoreboard
+              activeMeetId={activeMeetId}
+              activeEventId={activeEventId}
+              activeHeatNum={activeHeatNum}
+              isFinals={isFinals}
+              elapsedTime={elapsedTime}
+              timerStatus={timerStatus}
+              lanes={lanes}
+              onRaceComplete={handleStopTimer}
+              displayConfig={scoreboardConfig}
+              isTestMode={isTestMode}
+            />
+          </div>
         )}
 
-        <div style={{ display: activeTab === 'operator' ? 'block' : 'none' }}>
+        {/* Operator Desk stays mounted (display toggled, never unmounted) so the
+            timer and serial state survive tab switches. Adding the animation
+            class only while it's visible re-triggers the entrance each time it
+            comes back, without ever remounting the component. */}
+        <div
+          className={activeTab === 'operator' ? 'tab-panel-enter' : undefined}
+          style={{ display: activeTab === 'operator' ? 'block' : 'none' }}
+        >
           <OperatorConsole
             serialStatus={serialStatus}
             isSimulating={isSimulating}
@@ -1559,6 +1588,7 @@ export default function App() {
             handleResetTimer={handleResetTimer}
             handleStopTimer={handleStopTimer}
             handleSaveResults={handleSaveResults}
+            isSavingResults={isSavingResults}
             eventLaps={eventLaps}
             bothEnds={bothEnds}
             setBothEnds={setBothEnds}
@@ -1571,48 +1601,58 @@ export default function App() {
         </div>
 
         {activeTab === 'system-check' && (
-          <SystemCheck
-            systemCheckPads={systemCheckPads}
-            setSystemCheckPads={setSystemCheckPads}
-            starterChecked={starterChecked}
-            setStarterChecked={setStarterChecked}
-            micChecked={micChecked}
-            setMicChecked={setMicChecked}
-            serialStatus={serialStatus}
-            isSimulating={isSimulating}
-            setIsSimulating={setIsSimulating}
-          />
+          <div key="system-check-panel" className="tab-panel-enter">
+            <SystemCheck
+              systemCheckPads={systemCheckPads}
+              setSystemCheckPads={setSystemCheckPads}
+              starterChecked={starterChecked}
+              setStarterChecked={setStarterChecked}
+              micChecked={micChecked}
+              setMicChecked={setMicChecked}
+              serialStatus={serialStatus}
+              isSimulating={isSimulating}
+              setIsSimulating={setIsSimulating}
+            />
+          </div>
         )}
 
         {activeTab === 'meet-setup' && (
-          <MeetManager 
-            activeMeetId={activeMeetId}
-            setActiveMeetId={setActiveMeetId}
-            activeEventId={activeEventId}
-            setActiveEventId={setActiveEventId}
-            activeHeatNum={activeHeatNum}
-            setActiveHeatNum={setActiveHeatNum}
-          />
+          <div key="meet-setup-panel" className="tab-panel-enter">
+            <MeetManager
+              activeMeetId={activeMeetId}
+              setActiveMeetId={setActiveMeetId}
+              activeEventId={activeEventId}
+              setActiveEventId={setActiveEventId}
+              activeHeatNum={activeHeatNum}
+              setActiveHeatNum={setActiveHeatNum}
+            />
+          </div>
         )}
 
         {activeTab === 'swimmer-registry' && (
-          <SwimmerManager activeMeetId={activeMeetId} />
+          <div key="swimmer-registry-panel" className="tab-panel-enter">
+            <SwimmerManager activeMeetId={activeMeetId} />
+          </div>
         )}
 
         {activeTab === 'qualifying' && (
-          <QualifyingStandards activeMeetId={activeMeetId} />
+          <div key="qualifying-panel" className="tab-panel-enter">
+            <QualifyingStandards activeMeetId={activeMeetId} />
+          </div>
         )}
 
         {activeTab === 'results' && (
-          <ResultsExport activeMeetId={activeMeetId} />
+          <div key="results-panel" className="tab-panel-enter">
+            <ResultsExport activeMeetId={activeMeetId} />
+          </div>
         )}
 
       </main>
 
       {/* Save Success Popup Modal */}
       {saveSuccessInfo.isOpen && (
-        <div className="modal-overlay" style={{ zIndex: 1100 }}>
-          <div className="modal-content" style={{ maxWidth: '450px', textAlign: 'center', padding: '2rem 1.75rem' }}>
+        <div className={`modal-overlay${isSaveSuccessClosing ? ' modal-closing' : ''}`} style={{ zIndex: 1100 }}>
+          <div className={`modal-content${isSaveSuccessClosing ? ' modal-closing' : ''}`} style={{ maxWidth: '450px', textAlign: 'center', padding: '2rem 1.75rem' }}>
             {saveSuccessInfo.hasAnyTouch === false ? (
               <>
                 <div 
@@ -1674,20 +1714,20 @@ export default function App() {
             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
               {saveSuccessInfo.hasAnyTouch === false ? (
                 <>
-                  <button 
+                  <button
                     className="btn btn-cyan"
-                    onClick={() => {
+                    onClick={() => closeSaveSuccess(() => {
                       setSaveSuccessInfo(prev => ({ ...prev, isOpen: false }));
                       handleResetTimer();
-                    }}
+                    })}
                     style={{ padding: '0.55rem 1.25rem', fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                   >
                     <RotateCcw size={16} /> Retake Heat
                   </button>
 
-                  <button 
+                  <button
                     className="btn btn-secondary"
-                    onClick={() => setSaveSuccessInfo(prev => ({ ...prev, isOpen: false }))}
+                    onClick={() => closeSaveSuccess(() => setSaveSuccessInfo(prev => ({ ...prev, isOpen: false })))}
                     style={{ padding: '0.55rem 1.25rem', fontSize: '0.85rem', fontWeight: 600 }}
                   >
                     OK
@@ -1695,34 +1735,34 @@ export default function App() {
                 </>
               ) : (
                 <>
-                  <button 
+                  <button
                     className="btn btn-secondary"
-                    onClick={() => {
+                    onClick={() => closeSaveSuccess(() => {
                       setSaveSuccessInfo(prev => ({ ...prev, isOpen: false }));
                       setActiveTab('results');
-                    }}
+                    })}
                     style={{ padding: '0.55rem 1.1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                   >
                     <FileText size={16} /> View Reports
                   </button>
 
                   {saveSuccessInfo.nextHeatNum !== null ? (
-                    <button 
+                    <button
                       className="btn btn-cyan"
-                      onClick={() => {
+                      onClick={() => closeSaveSuccess(() => {
                         if (saveSuccessInfo.nextHeatNum !== null) {
                           setActiveHeatNum(saveSuccessInfo.nextHeatNum);
                         }
                         setSaveSuccessInfo(prev => ({ ...prev, isOpen: false }));
-                      }}
+                      })}
                       style={{ padding: '0.55rem 1.25rem', fontSize: '0.85rem', fontWeight: 700 }}
                     >
                       Load Heat {saveSuccessInfo.nextHeatNum} →
                     </button>
                   ) : (
-                    <button 
+                    <button
                       className="btn btn-cyan"
-                      onClick={() => setSaveSuccessInfo(prev => ({ ...prev, isOpen: false }))}
+                      onClick={() => closeSaveSuccess(() => setSaveSuccessInfo(prev => ({ ...prev, isOpen: false })))}
                       style={{ padding: '0.55rem 1.5rem', fontSize: '0.85rem', fontWeight: 700 }}
                     >
                       OK
@@ -1769,14 +1809,6 @@ export default function App() {
           </span>
         </button>
       )}
-
-      {/* Embedded Animations */}
-      <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 }
