@@ -2,6 +2,14 @@ appId: com.touchteck.omegatiming
 productName: TouchTeck
 copyright: Copyright (c) 2026 TouchTeck
 
+# We only ever build local installers/artifacts, never publish a GitHub
+# Release through electron-builder itself. Without this, electron-builder
+# still tries to generate auto-update metadata (latest.yml / blockmap
+# lookups) against the repo's GitHub remote, which needs a GH_TOKEN and
+# fails the CI build with "GitHub Personal Access Token is not set" even
+# though nothing is actually being published.
+publish: null
+
 directories:
   output: release
   buildResources: build
