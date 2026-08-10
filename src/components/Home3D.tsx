@@ -1,5 +1,5 @@
 import React, { Suspense, useCallback, useEffect, useState } from 'react';
-import { Activity, Radio, Tv, Zap, LogOut, MousePointerClick, X, Palette } from 'lucide-react';
+import { Activity, Radio, Tv, Zap, LogOut, LogIn, MousePointerClick, X, Palette } from 'lucide-react';
 import AnimatedLogo from './AnimatedLogo';
 import LaneWater, { POOL_PRESETS } from './home3d/LaneWater';
 import CanvasBackground from './home3d/Backgrounds';
@@ -9,8 +9,9 @@ type TabTarget = 'scoreboard' | 'operator' | 'system-check' | 'meet-setup';
 
 interface Home3DProps {
   onNavigateToTab: (tab: TabTarget) => void;
-  onLogout?: () => void;
-  userEmail?: string;
+  accountLoggedIn: boolean;
+  onLoginClick: () => void;
+  onLogoutClick: () => void;
 }
 
 const actions: { icon: React.ElementType; label: string; tab: TabTarget; primary?: boolean; hotkey: string }[] = [
@@ -20,7 +21,7 @@ const actions: { icon: React.ElementType; label: string; tab: TabTarget; primary
   { icon: Zap, label: 'Meet Setup', tab: 'meet-setup', hotkey: '4' },
 ];
 
-export default function Home3D({ onNavigateToTab, onLogout, userEmail }: Home3DProps) {
+export default function Home3D({ onNavigateToTab, accountLoggedIn, onLoginClick, onLogoutClick }: Home3DProps) {
   const [webglFailed, setWebglFailed] = useState(false);
   const [hotkeyHit, setHotkeyHit] = useState<string | null>(null);
 
@@ -142,14 +143,13 @@ export default function Home3D({ onNavigateToTab, onLogout, userEmail }: Home3DP
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          {userEmail && (
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem', color: 'var(--text-muted)', letterSpacing: '0.06em' }}>
-              {userEmail}
-            </span>
-          )}
-          {onLogout && (
-            <button className="btn btn-secondary" style={{ padding: '0.4rem 0.9rem', fontSize: '0.72rem' }} onClick={onLogout}>
+          {accountLoggedIn ? (
+            <button className="btn btn-secondary" style={{ padding: '0.4rem 0.9rem', fontSize: '0.72rem' }} onClick={onLogoutClick}>
               <LogOut size={13} /> Logout
+            </button>
+          ) : (
+            <button className="btn btn-yellow" style={{ padding: '0.4rem 0.9rem', fontSize: '0.72rem' }} onClick={onLoginClick}>
+              <LogIn size={13} /> Login
             </button>
           )}
         </div>
@@ -213,7 +213,7 @@ export default function Home3D({ onNavigateToTab, onLogout, userEmail }: Home3DP
           {actions.map(({ icon: Icon, label, tab, primary, hotkey }) => (
             <button
               key={tab}
-              className={`btn ${primary ? 'btn-cyan' : 'btn-secondary'} home3d-action${hotkeyHit === hotkey ? ' is-hotkey-hit' : ''}`}
+              className={`btn ${primary ? 'btn-yellow' : 'btn-secondary'} home3d-action${hotkeyHit === hotkey ? ' is-hotkey-hit' : ''}`}
               style={{ padding: '0.82rem 1.7rem' }}
               onClick={() => navigate(tab)}
             >

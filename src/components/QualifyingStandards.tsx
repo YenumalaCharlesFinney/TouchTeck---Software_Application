@@ -183,7 +183,7 @@ export default function QualifyingStandards({ activeMeetId }: QualifyingStandard
             Set qualification cut-off times for {meetName ? `"${meetName}"` : 'the active meet'}.
           </p>
         </div>
-        <button className="btn btn-cyan" onClick={handleSaveAll}>
+        <button className="btn btn-yellow" onClick={handleSaveAll}>
           <Save size={16} /> Save All standards
         </button>
       </div>

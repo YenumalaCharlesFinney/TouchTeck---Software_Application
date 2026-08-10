@@ -7,6 +7,8 @@ import Scoreboard from './components/Scoreboard';
 import ResultsExport from './components/ResultsExport';
 import OperatorConsole from './components/OperatorConsole';
 import AppBackdrop from './components/AppBackdrop';
+import AccountLoginModal from './components/AccountLoginModal';
+import PasscodeModal from './components/PasscodeModal';
 import SystemCheck from './components/SystemCheck';
 import Home3D from './components/Home3D';
 import AnimatedLogo from './components/AnimatedLogo';
@@ -45,37 +47,60 @@ interface LaneState {
 }
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+  // Account identity (email/password, mirrors the marketing site's login) — this is
+  // purely identity/display and just flips the corner button between Login and
+  // Logout. It persists across restarts until an explicit logout.
+  const [accountLoggedIn, setAccountLoggedIn] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('touchteck_is_logged_in');
+      const saved = localStorage.getItem('touchteck_account_logged_in');
       if (saved !== null) return saved === 'true';
     }
-    return true; // Default to true so new tabs never require sign in
+    // First ever launch shows "Login", not a default-signed-in state.
+    return false;
   });
 
-  const [userEmail, setUserEmail] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('touchteck_user_email') || 'operator@touchteck.com';
+  // The email actually signed in with — shown in the profile menu instead of a
+  // generic placeholder. Only populated once accountLoggedIn is true.
+  const [accountEmail, setAccountEmail] = useState<string>(() => {
+    if (typeof window !== 'undefined' && localStorage.getItem('touchteck_account_logged_in') === 'true') {
+      return localStorage.getItem('touchteck_saved_email') || '';
     }
-    return 'operator@touchteck.com';
+    return '';
   });
 
-  const handleLogin = (email: string) => {
-    setIsLoggedIn(true);
-    setUserEmail(email);
+  // The real access gate: a 4-digit passcode. Deliberately NOT persisted — it
+  // resets to locked every time the app is closed and reopened, so it's asked
+  // again on every fresh launch. Within one running session, once verified it
+  // stays unlocked for every module so the operator isn't re-prompted per click.
+  const [passcodeUnlocked, setPasscodeUnlocked] = useState(false);
+  const [pendingTab, setPendingTab] = useState<TabId | null>(null);
+
+  const [showAccountLoginModal, setShowAccountLoginModal] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showPasscodeModal, setShowPasscodeModal] = useState(false);
+
+  const handleAccountLogin = (email: string) => {
+    setAccountLoggedIn(true);
+    setAccountEmail(email);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('touchteck_is_logged_in', 'true');
-      localStorage.setItem('touchteck_user_email', email);
+      localStorage.setItem('touchteck_account_logged_in', 'true');
     }
-    setActiveTab('operator');
+    setShowAccountLoginModal(false);
+    // If this login was triggered by clicking a locked module (pendingTab is
+    // set) rather than the standalone corner Login button, continue straight
+    // into the passcode step instead of leaving the operator stranded on Home.
+    if (pendingTab && !passcodeUnlocked) {
+      setShowPasscodeModal(true);
+    }
   };
 
-  const handleLogout = async () => {
-    setIsLoggedIn(false);
-    setUserEmail('');
+  const confirmLogout = async () => {
+    setAccountLoggedIn(false);
+    setAccountEmail('');
+    setPasscodeUnlocked(false);
+    setShowLogoutConfirm(false);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('touchteck_is_logged_in', 'false');
-      localStorage.removeItem('touchteck_user_email');
+      localStorage.setItem('touchteck_account_logged_in', 'false');
       localStorage.removeItem('touchteck_connection_mode');
     }
     try {
@@ -85,6 +110,34 @@ export default function App() {
       setIsSimulating(false);
     } catch {}
     setActiveTab('home');
+  };
+
+  // Every one of Home3D's four action buttons is gated behind account login
+  // first, then the passcode. Logged out entirely -> asks to sign in before
+  // anything else. Signed in but not yet passcode-verified this session ->
+  // goes straight to the passcode. Both already satisfied -> navigates
+  // immediately. Either popup remembers which tab was wanted so the chain
+  // continues automatically once each step succeeds.
+  const requestNavigate = useCallback((tab: TabId) => {
+    if (passcodeUnlocked) {
+      setActiveTab(tab);
+      return;
+    }
+    setPendingTab(tab);
+    if (!accountLoggedIn) {
+      setShowAccountLoginModal(true);
+    } else {
+      setShowPasscodeModal(true);
+    }
+  }, [passcodeUnlocked, accountLoggedIn]);
+
+  const handlePasscodeSuccess = () => {
+    setPasscodeUnlocked(true);
+    setShowPasscodeModal(false);
+    setPendingTab((tab) => {
+      if (tab) setActiveTab(tab);
+      return null;
+    });
   };
 
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -1315,15 +1368,15 @@ export default function App() {
   const navigationTabs: { id: TabId; label: string; icon: React.ElementType }[] = [
     { id: 'home', label: 'Home', icon: Home },
     { id: 'scoreboard', label: 'Scoreboard', icon: Tv },
+    { id: 'operator', label: 'Operator Desk', icon: Radio },
+    { id: 'system-check', label: 'System Check', icon: ShieldCheck },
     { id: 'meet-setup', label: 'Heats & Lanes', icon: Calendar },
     { id: 'swimmer-registry', label: 'Swimmers', icon: Users },
     { id: 'qualifying', label: 'Cutoffs', icon: Award },
     { id: 'results', label: 'Reports', icon: BarChart3 },
-    { id: 'operator', label: 'Operator Desk', icon: Radio },
-    { id: 'system-check', label: 'System Check', icon: ShieldCheck },
   ];
 
-  const currentTabItem = navigationTabs.find(t => t.id === activeTab) || navigationTabs[6];
+  const currentTabItem = navigationTabs.find(t => t.id === activeTab) || navigationTabs.find(t => t.id === 'operator')!;
   const currentTabIdx = navigationTabs.findIndex(t => t.id === activeTab);
 
   const handlePrevTabNav = () => {
@@ -1345,13 +1398,40 @@ export default function App() {
     );
   }
 
+  // The 3D home is always the entry point — no full-screen sign-in blocking it.
+  // Account identity (Login/Logout) and the passcode gate are both popups layered
+  // on top of it instead of separate pages.
   if (activeTab === 'home') {
     return (
       <div className="view-enter" key="home-3d">
         <Home3D
-          onNavigateToTab={(tab) => setActiveTab(tab as TabId)}
-          onLogout={handleLogout}
-          userEmail={userEmail}
+          onNavigateToTab={(tab) => requestNavigate(tab as TabId)}
+          accountLoggedIn={accountLoggedIn}
+          onLoginClick={() => setShowAccountLoginModal(true)}
+          onLogoutClick={() => setShowLogoutConfirm(true)}
+        />
+        <AccountLoginModal
+          isOpen={showAccountLoginModal}
+          onClose={() => setShowAccountLoginModal(false)}
+          onLogin={handleAccountLogin}
+        />
+        <ConfirmationModal
+          isOpen={showLogoutConfirm}
+          title="Log out?"
+          message="Are you sure you want to log out?"
+          confirmText="Yes, log out"
+          cancelText="No"
+          confirmVariant="yellow"
+          onConfirm={confirmLogout}
+          onCancel={() => setShowLogoutConfirm(false)}
+        />
+        <PasscodeModal
+          isOpen={showPasscodeModal}
+          onClose={() => {
+            setShowPasscodeModal(false);
+            setPendingTab(null);
+          }}
+          onSuccess={handlePasscodeSuccess}
         />
       </div>
     );
@@ -1438,7 +1518,8 @@ export default function App() {
           {/* Centered Single Header Status Pill */}
           <div className="flex items-center justify-center shrink-0">
             <div className="header-status-pill shrink-0" style={{
-              borderColor: (serialStatus === 'CONNECTED' || serialDriver.isConnected()) ? '#22c55e' : serialStatus === 'SIMULATOR' ? '#06b6d4' : '#ef4444'
+              borderColor: (serialStatus === 'CONNECTED' || serialDriver.isConnected()) ? '#22c55e' : serialStatus === 'SIMULATOR' ? '#06b6d4' : '#ef4444',
+              ['--status-glow' as string]: (serialStatus === 'CONNECTED' || serialDriver.isConnected()) ? 'rgba(34,197,94,0.4)' : serialStatus === 'SIMULATOR' ? 'rgba(6,182,212,0.4)' : 'rgba(239,68,68,0.4)'
             }}>
               <span className={`status-dot ${
                 (serialStatus === 'CONNECTED' || serialDriver.isConnected())
@@ -1456,7 +1537,7 @@ export default function App() {
           </div>
 
           {/* Interactive Profile & Auth Menu */}
-          {isLoggedIn ? (
+          {passcodeUnlocked ? (
             <div className="relative shrink-0 pr-2">
               <button
                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
@@ -1466,16 +1547,16 @@ export default function App() {
                 }}
                 title="User Profile & Session Controls"
               >
-                <div 
+                <div
                   className="w-6 h-6 rounded-full bg-[#fff500]/20 border border-[#fff500] text-[#fff500] flex items-center justify-center font-bold text-[11px] shrink-0"
                   style={{ boxShadow: '0 0 8px rgba(255, 245, 0, 0.4)' }}
                 >
-                  {userEmail ? userEmail[0].toUpperCase() : 'O'}
+                  {accountEmail ? accountEmail[0].toUpperCase() : 'O'}
                 </div>
                 <div className="flex flex-col text-left leading-tight shrink-0">
                   <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Operator</span>
                   <span className="text-[11px] font-medium text-slate-100 truncate max-w-[140px] sm:max-w-[180px]">
-                    {userEmail || 'operator@touchteck.com'}
+                    {accountEmail || 'Operator Console'}
                   </span>
                 </div>
                 <ChevronDown size={14} className="text-[#fff500] shrink-0 ml-0.5" />
@@ -1488,20 +1569,21 @@ export default function App() {
                     boxShadow: '0 20px 50px rgba(0,0,0,0.95), 0 0 25px rgba(255,245,0,0.3)',
                     padding: '20px',
                     boxSizing: 'border-box',
-                    overflow: 'hidden'
+                    overflow: 'hidden',
+                    maxWidth: 'calc(100vw - 24px)'
                   }}
                 >
                   {/* Top Header Section */}
                   <div className="flex items-center gap-3" style={{ paddingBottom: '14px', marginBottom: '14px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                    <div 
+                    <div
                       className="w-10 h-10 rounded-2xl bg-[#fff500] text-black flex items-center justify-center font-bold text-sm shrink-0"
                       style={{ boxShadow: '0 0 12px rgba(255, 245, 0, 0.5)' }}
                     >
-                      {userEmail ? userEmail[0].toUpperCase() : 'O'}
+                      {accountEmail ? accountEmail[0].toUpperCase() : 'O'}
                     </div>
                     <div className="flex flex-col min-w-0 flex-1">
                       <span className="font-bold text-white text-xs sm:text-sm truncate tracking-tight">
-                        {userEmail || 'operator@touchteck.com'}
+                        {accountEmail || 'Operator Console'}
                       </span>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <span className="w-2 h-2 rounded-full bg-emerald-400" />
@@ -1569,7 +1651,7 @@ export default function App() {
                     <button
                       onClick={() => {
                         setIsProfileMenuOpen(false);
-                        handleLogout();
+                        setShowLogoutConfirm(true);
                       }}
                       className="w-full hover:bg-rose-500/25 transition-all cursor-pointer shadow-lg tracking-wide"
                       style={{
@@ -1841,6 +1923,18 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Logout Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showLogoutConfirm}
+        title="Log out?"
+        message="Are you sure you want to log out?"
+        confirmText="Yes, log out"
+        cancelText="No"
+        confirmVariant="yellow"
+        onConfirm={confirmLogout}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
 
       {/* Test Mode Confirmation Modal */}
       <ConfirmationModal

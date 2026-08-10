@@ -10,6 +10,7 @@ interface ConfirmationModalProps {
   cancelText?: string;
   onConfirm: () => void;
   onCancel: () => void;
+  confirmVariant?: 'cyan' | 'yellow' | 'danger';
 }
 
 export default function ConfirmationModal({
@@ -19,7 +20,8 @@ export default function ConfirmationModal({
   confirmText = 'OK',
   cancelText = 'Cancel',
   onConfirm,
-  onCancel
+  onCancel,
+  confirmVariant
 }: ConfirmationModalProps) {
   const { isClosing, triggerClose } = useModalClose();
 
@@ -31,7 +33,11 @@ export default function ConfirmationModal({
     title.toLowerCase().includes('end') ||
     message.toLowerCase().includes('delete');
 
-  const confirmBtnClass = isDestructive ? 'btn-danger' : 'btn-cyan';
+  const confirmBtnClass = confirmVariant
+    ? `btn-${confirmVariant}`
+    : isDestructive
+      ? 'btn-danger'
+      : 'btn-cyan';
   const closingClass = isClosing ? ' modal-closing' : '';
 
   return createPortal(

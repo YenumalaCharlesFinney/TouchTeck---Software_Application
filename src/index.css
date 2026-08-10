@@ -132,6 +132,15 @@ body {
   background: #e6dc00;
 }
 
+/* Recent Chromium can render native up/down arrow buttons on top of a custom
+   webkit scrollbar (chunky, OS-styled, just tinted yellow) instead of the
+   slim pill above — force them off everywhere. */
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 /* App Shell Layout */
 .app-container {
   display: flex;
@@ -247,8 +256,8 @@ body {
 .nav-tab.active {
   color: var(--text-primary);
   background-color: var(--bg-tertiary);
-  box-shadow: 0 2px 8px rgba(6, 182, 212, 0.2);
-  border-color: var(--accent-cyan);
+  box-shadow: 0 2px 8px rgba(255, 245, 0, 0.2);
+  border-color: #fff500;
 }
 
 .header-status-pill {
@@ -315,7 +324,6 @@ body {
 
 /* Fullscreen mode styling */
 .fullscreen-active {
-  background-color: #000000 !important;
   min-height: 100vh !important;
 }
 
@@ -327,7 +335,6 @@ body {
   flex-direction: column !important;
   align-items: center !important;
   justify-content: center !important;
-  background-color: #000000 !important;
   box-sizing: border-box !important;
 }
 
@@ -421,6 +428,16 @@ body {
 .btn-cyan:hover:not(:disabled) {
   background-color: #0891b2;
   box-shadow: 0 0 12px var(--accent-cyan-glow);
+}
+
+.btn-yellow {
+  background-color: #fff500;
+  color: #000;
+}
+
+.btn-yellow:hover:not(:disabled) {
+  background-color: #e6dc00;
+  box-shadow: 0 0 12px rgba(255, 245, 0, 0.45);
 }
 
 .btn:disabled {

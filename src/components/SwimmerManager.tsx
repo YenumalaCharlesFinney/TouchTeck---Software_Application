@@ -111,7 +111,7 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
             </span>
           )}
         </div>
-        <button className="btn btn-cyan" onClick={() => setIsModalOpen(true)}>
+        <button className="btn btn-yellow" onClick={() => setIsModalOpen(true)}>
           <UserPlus size={18} /> Add Swimmer
         </button>
       </div>

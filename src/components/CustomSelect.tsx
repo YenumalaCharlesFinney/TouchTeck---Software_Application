@@ -52,7 +52,7 @@ export default function CustomSelect({
         type="button"
         disabled={disabled}
         onClick={() => !disabled && setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between rounded-xl bg-[#0e1626] border border-white/15 text-slate-100 text-sm font-medium transition-all hover:bg-[#131d32] focus:outline-none cursor-pointer shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+        className={`custom-select-trigger w-full flex items-center justify-between rounded-xl bg-[#0e1626] border border-white/15 text-slate-100 text-sm font-medium transition-all hover:bg-[#131d32] focus:outline-none cursor-pointer shadow-md disabled:opacity-50 disabled:cursor-not-allowed${isOpen ? ' is-open' : ''}`}
         style={{
           paddingLeft: '1.25rem',
           paddingRight: '1.25rem',
@@ -73,8 +73,8 @@ export default function CustomSelect({
 
       {/* Custom Rounded Floating Menu Popup */}
       {isOpen && (
-        <div 
-          className="absolute left-0 right-0 top-full mt-2 z-[99999] bg-[#0c1322] border border-white/20 rounded-2xl shadow-2xl p-2 max-h-64 overflow-y-auto space-y-1.5 backdrop-blur-md animate-fadeIn"
+        <div
+          className="custom-select-menu absolute left-0 right-0 top-full mt-2 z-[99999] bg-[#0c1322] border border-white/20 rounded-2xl shadow-2xl p-2 max-h-64 overflow-y-auto space-y-1.5 backdrop-blur-md animate-fadeIn"
           style={{
             boxShadow: '0 16px 36px rgba(0,0,0,0.95)',
             boxSizing: 'border-box'
@@ -98,9 +98,9 @@ export default function CustomSelect({
                       setIsOpen(false);
                     }
                   }}
-                  className={`w-full flex items-center justify-between rounded-xl text-xs sm:text-sm font-medium transition-all text-left cursor-pointer leading-relaxed ${
-                    isSelected 
-                      ? 'bg-slate-800 text-white font-bold border border-slate-600' 
+                  className={`custom-select-option w-full flex items-center justify-between rounded-xl text-xs sm:text-sm font-medium transition-all text-left cursor-pointer leading-relaxed ${
+                    isSelected
+                      ? 'is-selected bg-slate-800 text-white font-bold border border-slate-600'
                       : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
                   } ${opt.disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                   style={{
@@ -111,7 +111,7 @@ export default function CustomSelect({
                   }}
                 >
                   <span className="truncate">{opt.label}</span>
-                  {isSelected && <Check size={14} className="text-cyan-400 shrink-0 ml-2" />}
+                  {isSelected && <Check size={14} className="text-[#fff500] shrink-0 ml-2" />}
                 </button>
               );
             })

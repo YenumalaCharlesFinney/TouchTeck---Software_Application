@@ -82,7 +82,13 @@ body.ui-premium .brand-title {
 
 /* ---------- nav tabs ---------- */
 
-body.ui-premium .nav-tabs {
+/* Scoped to .nav-tabs-desktop (the main header nav specifically) — .nav-tab
+   and .nav-tabs are also reused for small inline pickers elsewhere (e.g. the
+   Heat 1/2/3 selector in MeetManager), and this bold pill treatment sized
+   for the primary header nav made those look broken when it applied there
+   too — oversized, overlapping pills instead of small compact ones. Those
+   secondary reuses now fall back to the plain base styling in index.css. */
+body.ui-premium .nav-tabs.nav-tabs-desktop {
   background: rgba(5, 7, 13, 0.6);
   border: 1px solid var(--border-color);
   border-radius: 999px;
@@ -93,7 +99,7 @@ body.ui-premium .nav-tabs {
 /* Nav tabs are styled to match the pill buttons on the 3D home screen, so the
    two surfaces read as one interface: soft dark pill at rest, solid cyan when
    selected. */
-body.ui-premium .nav-tab {
+body.ui-premium .nav-tabs.nav-tabs-desktop .nav-tab {
   border-radius: 999px;
   padding: 0.62rem 1.15rem;
   font-size: 0.8rem;
@@ -108,27 +114,27 @@ body.ui-premium .nav-tab {
     box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
-body.ui-premium .nav-tab:hover:not(.active) {
+body.ui-premium .nav-tabs.nav-tabs-desktop .nav-tab:hover:not(.active) {
   background: rgba(255, 255, 255, 0.075);
   color: var(--text-primary);
   transform: translateY(-1px);
 }
 
-/* selected — same solid cyan as the primary button on the 3D home */
-body.ui-premium .nav-tab.active {
-  background: linear-gradient(180deg, #2ad9f0, #06b6d4);
-  border-color: #3ee0f5;
-  color: #04121a;
+/* selected — same solid yellow as the primary button on the 3D home */
+body.ui-premium .nav-tabs.nav-tabs-desktop .nav-tab.active {
+  background: linear-gradient(180deg, #fff959, #fff500);
+  border-color: #fff500;
+  color: #1a1700;
   box-shadow:
-    0 6px 20px rgba(6, 182, 212, 0.4),
+    0 6px 20px rgba(255, 245, 0, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
-body.ui-premium .nav-tab.active svg {
+body.ui-premium .nav-tabs.nav-tabs-desktop .nav-tab.active svg {
   color: #04121a;
 }
 
-body.ui-premium .nav-tab:active {
+body.ui-premium .nav-tabs.nav-tabs-desktop .nav-tab:active {
   transform: scale(0.96);
 }
 
@@ -199,6 +205,19 @@ body.ui-premium .data-table-container {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   box-shadow: var(--p-elev-2), var(--p-sheen);
+}
+
+/* Each of these has its own backdrop-filter, which makes it its own stacking
+   context — so a CustomSelect dropdown opened inside an earlier card (e.g.
+   .qt-filters) has no way to out-rank a later sibling card (e.g.
+   .data-table-container) no matter how high its own z-index is; the later
+   card just paints over it in normal DOM-order stacking. Elevate whichever
+   card currently has an open dropdown above its siblings. */
+body.ui-premium .glass-card:has(.custom-select-menu),
+body.ui-premium .settings-section:has(.custom-select-menu),
+body.ui-premium .qt-filters:has(.custom-select-menu) {
+  position: relative;
+  z-index: 20;
 }
 
 body.ui-premium .glass-card {
@@ -342,13 +361,47 @@ body.ui-premium .form-label {
   color: var(--text-muted);
 }
 
+/* CustomSelect never inherited the glass/gradient treatment every other
+   surface (cards, buttons, .form-control) gets — it was still a flat box.
+   Bring it in line, with the same yellow accent used elsewhere in the auth UI. */
+body.ui-premium .custom-select-trigger {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015)),
+    rgba(5, 7, 13, 0.85) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5), var(--p-sheen);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+body.ui-premium .custom-select-trigger:hover:not(:disabled) {
+  border-color: rgba(255, 245, 0, 0.35) !important;
+}
+
+body.ui-premium .custom-select-trigger.is-open {
+  border-color: #fff500 !important;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5), 0 0 0 3px rgba(255, 245, 0, 0.16);
+}
+
+body.ui-premium .custom-select-menu {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015)),
+    rgba(8, 12, 20, 0.96) !important;
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: var(--p-elev-3), var(--p-sheen);
+}
+
+body.ui-premium .custom-select-option.is-selected {
+  border-color: rgba(255, 245, 0, 0.4) !important;
+  background: rgba(255, 245, 0, 0.08) !important;
+}
+
 /* ---------- status pill ---------- */
 
 body.ui-premium .header-status-pill {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015)),
     rgba(5, 7, 13, 0.8);
   border: 1px solid var(--border-color);
-  box-shadow: var(--p-elev-1), var(--p-sheen);
+  box-shadow: var(--p-elev-1), var(--p-sheen), 0 0 14px var(--status-glow, transparent);
   letter-spacing: 0.04em;
 }
 
@@ -402,6 +455,186 @@ body.ui-premium .modal-panel-anim {
   box-shadow: 0 0 0 2px rgba(255, 245, 0, 0.55);
 }
 
+/* ---------- sign-in ---------- */
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.login-field > span {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.login-field input {
+  padding: 0.65rem 0.8rem;
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  color: var(--text-primary);
+  background: rgba(3, 5, 10, 0.6);
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  outline: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.login-field input:focus {
+  border-color: rgba(6, 182, 212, 0.6);
+  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.16);
+}
+
+.login-error {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.78rem;
+  color: #fca5a5;
+}
+
+.login-remember {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.login-remember input {
+  accent-color: #fff500;
+  width: 15px;
+  height: 15px;
+}
+
+/* ---------- passcode popup ---------- */
+
+.passcode-modal-content {
+  max-width: 400px;
+}
+
+.passcode-modal-single {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.passcode-modal-single.is-shaking {
+  animation: login-card-shake 420ms ease;
+}
+
+.login-passcode-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.3rem;
+}
+
+.login-passcode-dots {
+  display: flex;
+  gap: 0.85rem;
+  margin: 0.6rem 0 0.2rem;
+}
+
+.login-passcode-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: rgba(3, 5, 10, 0.6);
+  transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+
+.login-passcode-dot.is-filled {
+  background: #fff500;
+  border-color: #fff500;
+  box-shadow: 0 0 10px rgba(255, 245, 0, 0.6);
+  transform: scale(1.08);
+}
+
+.login-status {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 1.1rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.login-status-granted {
+  color: #34d399;
+}
+
+.login-status-denied {
+  color: #fca5a5;
+}
+
+.login-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+  width: 100%;
+  margin-top: 0.9rem;
+}
+
+.login-keypad-btn {
+  padding: 0.7rem 0;
+  font-family: var(--font-sans);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: rgba(3, 5, 10, 0.6);
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, transform 100ms ease;
+}
+
+.login-keypad-btn:hover {
+  border-color: rgba(6, 182, 212, 0.6);
+  background: rgba(6, 182, 212, 0.1);
+}
+
+.login-keypad-btn:active {
+  transform: scale(0.95);
+}
+
+.login-keypad-btn-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, #f87171, #dc2626);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+}
+
+.login-keypad-btn-back:hover {
+  background: linear-gradient(180deg, #fb8888, #ef4444);
+  border-color: transparent;
+}
+
+@keyframes login-card-shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-4px); }
+  40%, 60% { transform: translateX(4px); }
+}
+
 /* right-click menu on a nav tab */
 .tab-context-menu {
   position: fixed;
@@ -447,14 +680,15 @@ body.ui-premium .modal-panel-anim {
   z-index: 0;
   /* nothing in this layer may ever intercept a click meant for the app */
   pointer-events: none;
-  /* faded hard, so panels and numbers stay the brightest thing on screen */
-  opacity: 0.16;
+  /* faded so panels and numbers stay the brightest thing on screen, but still
+     visibly the same 3D scene rather than reading as plain black */
+  opacity: 0.34;
 }
 
 /* fullscreen scoreboard is read from across a hall — the backdrop stays, but
    quieter still so it can't compete with the times */
 .app-backdrop.is-dimmed {
-  opacity: 0.09;
+  opacity: 0.18;
 }
 
 /* the shell has no background of its own, so it needs a stacking context that
@@ -464,7 +698,13 @@ body.ui-premium .modal-panel-anim {
   z-index: 1;
 }
 
-.app-container > *:not(.app-backdrop) {
+/* .app-header and .tab-context-menu keep their own higher z-index (sticky
+   header above the page; right-click menu above everything) — without these
+   exclusions this catch-all's equal specificity-and-later-declaration was
+   silently flattening both back down to z-index: 1, which let ordinary page
+   content (e.g. Operator Console's own panels) paint over the header's
+   profile dropdown whenever they occupied the same screen area. */
+.app-container > *:not(.app-backdrop):not(.app-header):not(.tab-context-menu) {
   position: relative;
   z-index: 1;
 }

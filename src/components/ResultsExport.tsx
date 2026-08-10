@@ -554,11 +554,10 @@ export default function ResultsExport({ activeMeetId }: ResultsExportProps) {
         
         {/* Top Action Bar */}
         <div className="flex gap-2 items-center">
-          <button 
-            className="btn btn-primary" 
-            onClick={printPDF} 
-            disabled={leaderboard.length === 0} 
-            style={{ backgroundColor: 'var(--accent-blue)', borderColor: 'var(--accent-blue)' }}
+          <button
+            className="btn btn-yellow"
+            onClick={printPDF}
+            disabled={leaderboard.length === 0}
           >
             <Printer size={16} /> {selectedResultIds.length > 0 ? `Print Selected (${selectedResultIds.length})` : 'Print PDF Report'}
           </button>
