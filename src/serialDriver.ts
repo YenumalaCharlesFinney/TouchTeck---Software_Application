@@ -215,10 +215,11 @@ class SerialTimingDriver {
     this.raceStartHardwareTime = 0;
     this.lastStartSignalTimestamp = 0;
     this.emit({ type: 'RUNNING_TIME', time: 0, raw: '[SYSTEM] Stopped race clock.' });
+    this.emit({ type: 'RUNNING_TIME', time: 0, raw: '[ARES21] ⏳ Hardware Arming Cooldown Active (15s)...' });
     // NOTE: Do NOT clear lastUptimeSecs here — the CMD 0x32 clock-drop gun detection
     // needs the pre-reset high-water mark to be > 1.0 so the heuristic fires correctly
     // on the next race. Clearing it makes rawSecs < lastUptimeSecs - 0.5 always false.
-    this.suppressGunDetectUntil = Date.now() + 2500; // Guard during full initialization + settling time
+    this.suppressGunDetectUntil = Date.now() + 15000; // 15-second hardware settling & arming cooldown lock
     this.lastTouchTimestampByLane = {};
     this.lastTouchTimestampByLaneAndMethod = {};
     this.pendingT2 = null; // discard any half-received T2 pair
@@ -281,7 +282,11 @@ class SerialTimingDriver {
         }
 
         if (allOk) {
-          this.suppressGunDetectUntil = 0; // Arming complete & Green Light ON — unblock gun detection immediately!
+          // If a 15s cooldown was requested (e.g. on reset), keep the lock until the 15s window expires.
+          // Otherwise, unblock gun detection after a 500ms hardware settling pause.
+          if (Date.now() >= this.suppressGunDetectUntil) {
+            this.suppressGunDetectUntil = Date.now() + 500;
+          }
           this.emit({ type: 'RUNNING_TIME', time: 0, raw: '[ARES21] Ready Green Light ON (CMD 0x25 + CMD 0x16)' });
           console.log('[ARES21] Sent Arm command — Green Ready Light ON.');
         } else {
@@ -888,7 +893,7 @@ class SerialTimingDriver {
         //   data[2] = 0x4C means "valid timing data" flag
         // Gun fires: data[2] === 0x4C (valid gun start timing marker)
         // Touchpad:  data[2] >= 0x40 (handled by parseCmd40)
-        const isGunDevice = data.length >= 3 && data[2] === 0x4C;
+        const isGunDevice = data.length >= 3 && (data[1] === 0x01 || data[1] === 0x02 || data[2] === 0x4C);
 
         if (isGunDevice) {
           if (!this.isRaceActive && Date.now() >= this.suppressGunDetectUntil) {

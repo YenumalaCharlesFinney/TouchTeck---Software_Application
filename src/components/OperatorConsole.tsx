@@ -55,9 +55,11 @@ interface OperatorConsoleProps {
   setIsTestMode?: (val: boolean) => void;
   setShowTestModeConfirm?: (val: boolean) => void;
   serialStatus?: 'DISCONNECTED' | 'CONNECTED' | 'SIMULATOR';
+  armingCooldown?: number;
 }
 
 export default function OperatorConsole({
+  armingCooldown = 0,
   serialStatus,
   isSimulating,
   setIsSimulating,
@@ -542,30 +544,36 @@ export default function OperatorConsole({
             {/* Starter LED Indicators */}
             {(() => {
               const isHardwareConnected = isConnected || serialStatus === 'CONNECTED' || serialDriver.isConnected();
-              const isGreenOn = timerStatus !== 'RUNNING';
+              const isCooldownActive = armingCooldown > 0;
+              const isGreenOn = timerStatus !== 'RUNNING' && !isCooldownActive;
               const isRedOn = timerStatus === 'RUNNING';
 
               return (
                 <>
-                  {/* Green LED — ON by default when ready / not running */}
+                  {/* Green/Amber LED — ARMING cooldown or READY */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
                     <div style={{
                       width: '28px',
                       height: '28px',
                       borderRadius: '50%',
-                      backgroundColor: isGreenOn ? '#22c55e' : '#1a3320',
-                      border: `2px solid ${isGreenOn ? '#4ade80' : '#2d4a32'}`,
-                      boxShadow: isGreenOn
-                        ? '0 0 12px #22c55e, 0 0 24px rgba(34,197,94,0.5), inset 0 1px 3px rgba(255,255,255,0.3)'
-                        : 'inset 0 2px 4px rgba(0,0,0,0.5)',
+                      backgroundColor: isCooldownActive ? '#f59e0b' : (isGreenOn ? '#22c55e' : '#1a3320'),
+                      border: `2px solid ${isCooldownActive ? '#fbbf24' : (isGreenOn ? '#4ade80' : '#2d4a32')}`,
+                      boxShadow: isCooldownActive
+                        ? '0 0 12px #f59e0b, 0 0 24px rgba(245,158,11,0.5), inset 0 1px 3px rgba(255,255,255,0.3)'
+                        : (isGreenOn
+                          ? '0 0 12px #22c55e, 0 0 24px rgba(34,197,94,0.5), inset 0 1px 3px rgba(255,255,255,0.3)'
+                          : 'inset 0 2px 4px rgba(0,0,0,0.5)'),
                       transition: 'all 0.2s ease',
                     }} />
                     <span style={{
-                      fontSize: '0.6rem',
-                      fontWeight: 700,
-                      color: isGreenOn ? '#4ade80' : 'rgba(255,255,255,0.25)',
-                      letterSpacing: '0.05em'
-                    }}>GREEN</span>
+                      fontSize: '0.58rem',
+                      fontWeight: 800,
+                      color: isCooldownActive ? '#fbbf24' : (isGreenOn ? '#4ade80' : 'rgba(255,255,255,0.25)'),
+                      letterSpacing: '0.05em',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {isCooldownActive ? `ARMING (${armingCooldown}s)` : 'GREEN'}
+                    </span>
                   </div>
 
                   {/* Red LED — ON when race is RUNNING */}
@@ -913,24 +921,64 @@ export default function OperatorConsole({
               </div>
             </div>
 
-            <div className="flex gap-2">
-              {isSimulating && !isConnected && (
-                <button 
-                  className="btn btn-cyan" 
-                  style={{ flex: 1 }} 
-                  onClick={handleConnect}
-                >
-                  Connect USB
-                </button>
-              )}
+            <div className="w-full">
+              {(() => {
+                const isHwConnected = isConnected || serialStatus === 'CONNECTED' || serialDriver.isConnected();
 
-              <button 
-                className={`btn ${isSimulating ? 'btn-danger' : 'btn-success'}`} 
-                style={{ flex: 1, fontWeight: 700 }} 
-                onClick={handleSimulatorButtonClick}
-              >
-                {isSimulating ? 'Stop Simulator' : 'Simulator'}
-              </button>
+                if (isSimulating) {
+                  return (
+                    <button
+                      className="btn btn-danger w-full"
+                      style={{ width: '100%', fontWeight: 800, padding: '0.65rem' }}
+                      onClick={() => {
+                        setIsSimulating(false);
+                        if (typeof window !== 'undefined') localStorage.removeItem('touchteck_connection_mode');
+                      }}
+                      title="Stop Timer Simulator Mode"
+                    >
+                      Stop Simulator
+                    </button>
+                  );
+                }
+
+                if (isHwConnected) {
+                  return (
+                    <button
+                      className="btn w-full"
+                      style={{
+                        width: '100%',
+                        fontWeight: 800,
+                        padding: '0.65rem',
+                        backgroundColor: '#f59e0b',
+                        color: '#000000',
+                        border: '1px solid #fbbf24',
+                        boxShadow: '0 0 12px rgba(245, 158, 11, 0.4)'
+                      }}
+                      onClick={async () => {
+                        setConsoleLogs(prev => [...prev, '[SYSTEM] Reconnecting to CH340 USB Adapter & ARES 21...']);
+                        await serialDriver.autoConnect().catch(() => false);
+                      }}
+                      title="Trigger instant reconnection with ARES 21 USB Bridge"
+                    >
+                      Reconnect USB
+                    </button>
+                  );
+                }
+
+                return (
+                  <button
+                    className="btn btn-success w-full"
+                    style={{ width: '100%', fontWeight: 800, padding: '0.65rem' }}
+                    onClick={() => {
+                      setIsSimulating(true);
+                      if (typeof window !== 'undefined') localStorage.setItem('touchteck_connection_mode', 'SIMULATOR');
+                    }}
+                    title="Start Timer Simulator Mode"
+                  >
+                    Simulator
+                  </button>
+                );
+              })()}
             </div>
           </div>
         </div>

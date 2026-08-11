@@ -248,6 +248,23 @@ export default function App() {
     localStorage.setItem('touchteck_scoreboard_config', JSON.stringify(scoreboardConfig));
   }, [scoreboardConfig]);
 
+  // 15-Second Hardware Arming Cooldown State
+  const [armingCooldown, setArmingCooldown] = useState<number>(0);
+
+  useEffect(() => {
+    if (armingCooldown <= 0) return;
+    const interval = setInterval(() => {
+      setArmingCooldown(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [armingCooldown]);
+
   // Timing Console Settings
   const [isSimulating, setIsSimulating] = useState(false);
   const [activeMeetId, setActiveMeetId] = useState<number | null>(() => {
@@ -1076,6 +1093,7 @@ export default function App() {
     stopTick();
     setElapsedTime(0);
     setTimerStatus('READY');
+    setArmingCooldown(15);
     const resetLanes = lanes.map(l => ({
       ...l,
       splits: [],
@@ -1192,6 +1210,7 @@ export default function App() {
     const unsubscribe = serialDriver.onData((event: TimingEvent) => {
       if (event.type === 'START') {
         playStarterHorn();
+        setArmingCooldown(0);
         if (activeTabRef.current === 'system-check') {
           setStarterChecked(true);
         } else {
@@ -1202,6 +1221,9 @@ export default function App() {
           }
         }
       } else if (event.type === 'RUNNING_TIME') {
+        if (event.raw && event.raw.includes('Hardware Arming Cooldown Active')) {
+          setArmingCooldown(15);
+        }
         if (event.time === 0) {
           // Many unrelated diagnostic packets (status-poll ACKs, keepalives, arm/disarm
           // confirmations) share this same "RUNNING_TIME time=0" event shape. Only reset the
@@ -1518,18 +1540,26 @@ export default function App() {
           {/* Centered Single Header Status Pill */}
           <div className="flex items-center justify-center shrink-0">
             <div className="header-status-pill shrink-0" style={{
-              borderColor: (serialStatus === 'CONNECTED' || serialDriver.isConnected()) ? '#22c55e' : serialStatus === 'SIMULATOR' ? '#06b6d4' : '#ef4444',
-              ['--status-glow' as string]: (serialStatus === 'CONNECTED' || serialDriver.isConnected()) ? 'rgba(34,197,94,0.4)' : serialStatus === 'SIMULATOR' ? 'rgba(6,182,212,0.4)' : 'rgba(239,68,68,0.4)'
+              borderColor: (serialStatus === 'CONNECTED' || serialDriver.isConnected()) ? (armingCooldown > 0 ? '#f59e0b' : '#22c55e') : serialStatus === 'SIMULATOR' ? '#06b6d4' : '#ef4444',
+              ['--status-glow' as string]: (serialStatus === 'CONNECTED' || serialDriver.isConnected()) ? (armingCooldown > 0 ? 'rgba(245,158,11,0.4)' : 'rgba(34,197,94,0.4)') : serialStatus === 'SIMULATOR' ? 'rgba(6,182,212,0.4)' : 'rgba(239,68,68,0.4)',
+              whiteSpace: 'nowrap',
+              padding: '0.35rem 0.85rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              lineHeight: '1',
+              gap: '0.45rem'
             }}>
               <span className={`status-dot ${
                 (serialStatus === 'CONNECTED' || serialDriver.isConnected())
-                  ? 'connected' 
-                  : serialStatus === 'SIMULATOR' 
-                    ? 'simulating' 
+                  ? (armingCooldown > 0 ? 'simulating' : 'connected')
+                  : serialStatus === 'SIMULATOR'
+                    ? 'simulating'
                     : 'disconnected'
-              }`} />
-              <span style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                {(serialStatus === 'CONNECTED' || serialDriver.isConnected()) && 'COM PORT CONNECTED'}
+              }`} style={{ flexShrink: 0 }} />
+              <span style={{ textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', lineHeight: '1' }}>
+                {(serialStatus === 'CONNECTED' || serialDriver.isConnected()) && (
+                  armingCooldown > 0 ? `ARMING COOLDOWN (${armingCooldown}s)` : 'COM PORT CONNECTED'
+                )}
                 {serialStatus === 'SIMULATOR' && !serialDriver.isConnected() && 'SIMULATING TIMERS'}
                 {serialStatus === 'DISCONNECTED' && !serialDriver.isConnected() && 'NO USB CABLE'}
               </span>
@@ -1721,6 +1751,7 @@ export default function App() {
         >
           <OperatorConsole
             serialStatus={serialStatus}
+            armingCooldown={armingCooldown}
             isSimulating={isSimulating}
             setIsSimulating={setIsSimulating}
             activeMeetId={activeMeetId}

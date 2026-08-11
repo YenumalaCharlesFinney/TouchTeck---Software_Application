@@ -50,8 +50,12 @@ async function findTargetPort() {
   const ports = await SerialPort.list();
   return ports.find(
     (p) =>
-      (p.vendorId || '').toLowerCase() === TARGET_VID &&
-      (p.productId || '').toLowerCase() === TARGET_PID
+      ((p.vendorId || '').toLowerCase() === TARGET_VID &&
+      (p.productId || '').toLowerCase() === TARGET_PID) ||
+      (p.manufacturer || '').toLowerCase().includes('wch') ||
+      (p.manufacturer || '').toLowerCase().includes('qinheng') ||
+      (p.friendlyName || '').toLowerCase().includes('ch340') ||
+      (p.friendlyName || '').toLowerCase().includes('usb-serial')
   );
 }
 
@@ -60,7 +64,7 @@ function scheduleReconnect() {
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
     openSerial();
-  }, 3000);
+  }, 1000);
 }
 
 async function openSerial() {
