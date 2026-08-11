@@ -99,6 +99,7 @@ export default function App() {
     setAccountEmail('');
     setPasscodeUnlocked(false);
     setShowLogoutConfirm(false);
+    setHasBeenConnectedOnce(false);
     if (typeof window !== 'undefined') {
       localStorage.setItem('touchteck_account_logged_in', 'false');
       localStorage.removeItem('touchteck_connection_mode');
@@ -268,7 +269,19 @@ export default function App() {
   // Timing Console Settings
   const [isSimulating, setIsSimulating] = useState(false);
   const [hasAttemptedInitConnect, setHasAttemptedInitConnect] = useState<boolean>(false);
-  const [hasBeenConnectedOnce, setHasBeenConnectedOnce] = useState<boolean>(false);
+  // Persisted (not just in-memory) — survives a refresh so "Reconnect USB" keeps
+  // showing instead of falling back to "Simulator", for either connection type.
+  const [hasBeenConnectedOnce, setHasBeenConnectedOnceState] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('touchteck_has_connected_once') === 'true';
+  });
+  const setHasBeenConnectedOnce = (value: boolean) => {
+    setHasBeenConnectedOnceState(value);
+    if (typeof window !== 'undefined') {
+      if (value) localStorage.setItem('touchteck_has_connected_once', 'true');
+      else localStorage.removeItem('touchteck_has_connected_once');
+    }
+  };
   const [activeMeetId, setActiveMeetId] = useState<number | null>(() => {
     const saved = localStorage.getItem('touchteck_active_meet_id');
     return saved ? Number(saved) : null;
@@ -721,6 +734,7 @@ export default function App() {
   useEffect(() => {
     if (isSimulating) {
       setSerialStatus('SIMULATOR');
+      setHasBeenConnectedOnce(true);
       if (typeof window !== 'undefined') localStorage.setItem('touchteck_connection_mode', 'SIMULATOR');
     } else {
       const checkConnection = () => {

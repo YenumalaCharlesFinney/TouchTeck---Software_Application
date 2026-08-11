@@ -549,7 +549,9 @@ export default function OperatorConsole({
             {(() => {
               const isHardwareConnected = isConnected || serialStatus === 'CONNECTED' || serialDriver.isConnected();
               const isCooldownActive = armingCooldown > 0;
-              const isGreenOn = timerStatus !== 'RUNNING' && !isCooldownActive;
+              // Green only reflects the real ARES 21 — Simulator mode never lights it,
+              // since this LED represents the physical starter, not app-wide readiness.
+              const isGreenOn = isHardwareConnected && timerStatus !== 'RUNNING' && !isCooldownActive;
               const isRedOn = timerStatus === 'RUNNING';
 
               return (
@@ -972,28 +974,50 @@ export default function OperatorConsole({
                   );
                 }
 
-                // 3. Hardware was connected once before, now disconnected -> Show Orangish-Yellow Reconnect USB
+                // 3. Was connected once before (hardware or Simulator), now nothing active ->
+                // Show Reconnect USB, with a quiet escape hatch back to Simulator so a
+                // Simulator-only operator is never stuck retrying a real handshake forever.
                 if (hasBeenConnectedOnce) {
                   return (
-                    <button
-                      className="btn w-full"
-                      style={{
-                        width: '100%',
-                        fontWeight: 800,
-                        padding: '0.65rem',
-                        backgroundColor: '#f59e0b',
-                        color: '#000000',
-                        border: '1px solid #fbbf24',
-                        boxShadow: '0 0 12px rgba(245, 158, 11, 0.4)'
-                      }}
-                      onClick={async () => {
-                        setConsoleLogs(prev => [...prev, '[SYSTEM] Reconnecting to CH340 USB Adapter & ARES 21...']);
-                        await serialDriver.autoConnect().catch(() => false);
-                      }}
-                      title="Trigger instant reconnection with ARES 21 USB Bridge"
-                    >
-                      Reconnect USB
-                    </button>
+                    <>
+                      <button
+                        className="btn w-full"
+                        style={{
+                          width: '100%',
+                          fontWeight: 800,
+                          padding: '0.65rem',
+                          backgroundColor: '#f59e0b',
+                          color: '#000000',
+                          border: '1px solid #fbbf24',
+                          boxShadow: '0 0 12px rgba(245, 158, 11, 0.4)'
+                        }}
+                        onClick={async () => {
+                          setConsoleLogs(prev => [...prev, '[SYSTEM] Reconnecting to CH340 USB Adapter & ARES 21...']);
+                          await serialDriver.autoConnect().catch(() => false);
+                        }}
+                        title="Trigger instant reconnection with ARES 21 USB Bridge"
+                      >
+                        Reconnect USB
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsSimulating(true)}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          marginTop: '0.4rem',
+                          padding: '0.2rem',
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          fontSize: '0.72rem',
+                          textDecoration: 'underline',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Switch to Simulator instead
+                      </button>
+                    </>
                   );
                 }
 
