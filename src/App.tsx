@@ -267,6 +267,8 @@ export default function App() {
 
   // Timing Console Settings
   const [isSimulating, setIsSimulating] = useState(false);
+  const [hasAttemptedInitConnect, setHasAttemptedInitConnect] = useState<boolean>(false);
+  const [hasBeenConnectedOnce, setHasBeenConnectedOnce] = useState<boolean>(false);
   const [activeMeetId, setActiveMeetId] = useState<number | null>(() => {
     const saved = localStorage.getItem('touchteck_active_meet_id');
     return saved ? Number(saved) : null;
@@ -709,7 +711,11 @@ export default function App() {
   // rather than silently giving up and leaving the operator stuck on "NO USB CABLE".
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    // Clear any stale simulator preference so app always boots in idle disconnected state by default
     const mode = localStorage.getItem('touchteck_connection_mode');
+    if (mode === 'SIMULATOR') {
+      localStorage.removeItem('touchteck_connection_mode');
+    }
     if (mode === 'HARDWARE') {
       let cancelled = false;
       const attempt = async (retriesLeft: number) => {
@@ -719,15 +725,14 @@ export default function App() {
           setSerialStatus('CONNECTED');
           setIsSimulating(false);
           isSimulatingRef.current = false;
+          setHasBeenConnectedOnce(true);
         } else if (retriesLeft > 0) {
           setTimeout(() => attempt(retriesLeft - 1), 3000);
         }
+        setHasAttemptedInitConnect(true);
       };
       attempt(4); // up to 5 total tries, ~15s of extra background retry beyond openPort's own budget
       return () => { cancelled = true; };
-    } else if (mode === 'SIMULATOR') {
-      setIsSimulating(true);
-      setSerialStatus('SIMULATOR');
     }
   }, []);
 
@@ -741,6 +746,7 @@ export default function App() {
         const state = serialDriver.getHardwareState();
         if (state === 'ARES_ONLINE' || state === 'CABLE_ONLY') {
           setSerialStatus('CONNECTED');
+          setHasBeenConnectedOnce(true);
           if (typeof window !== 'undefined') localStorage.setItem('touchteck_connection_mode', 'HARDWARE');
         } else {
           setSerialStatus('DISCONNECTED');
@@ -1752,6 +1758,8 @@ export default function App() {
           <OperatorConsole
             serialStatus={serialStatus}
             armingCooldown={armingCooldown}
+            hasAttemptedInitConnect={hasAttemptedInitConnect}
+            hasBeenConnectedOnce={hasBeenConnectedOnce}
             isSimulating={isSimulating}
             setIsSimulating={setIsSimulating}
             activeMeetId={activeMeetId}

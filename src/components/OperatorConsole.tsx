@@ -56,10 +56,14 @@ interface OperatorConsoleProps {
   setShowTestModeConfirm?: (val: boolean) => void;
   serialStatus?: 'DISCONNECTED' | 'CONNECTED' | 'SIMULATOR';
   armingCooldown?: number;
+  hasAttemptedInitConnect?: boolean;
+  hasBeenConnectedOnce?: boolean;
 }
 
 export default function OperatorConsole({
   armingCooldown = 0,
+  hasAttemptedInitConnect = false,
+  hasBeenConnectedOnce = false,
   serialStatus,
   isSimulating,
   setIsSimulating,
@@ -761,14 +765,15 @@ export default function OperatorConsole({
                   <button 
                     className="btn btn-secondary" 
                     disabled={lane.finalTime > 0 || timerStatus !== 'RUNNING'}
-                    style={{ 
-                      flex: 1, 
-                      padding: '0.25rem 0.4rem', 
-                      fontSize: '0.7rem', 
-                      borderColor: 'var(--accent-cyan)', 
+                    style={{
+                      flex: 1,
+                      padding: '0.25rem 0.4rem',
+                      fontSize: '0.7rem',
+                      borderColor: 'var(--accent-cyan)',
                       color: 'var(--accent-cyan)',
                       backgroundColor: 'rgba(6, 182, 212, 0.05)',
-                      height: '28px'
+                      height: '28px',
+                      whiteSpace: 'nowrap'
                     }}
                     onClick={() => handleForceSplit(lane.laneNumber)}
                   >
@@ -777,14 +782,15 @@ export default function OperatorConsole({
                   <button 
                     className="btn btn-secondary" 
                     disabled={lane.finalTime > 0 || timerStatus !== 'RUNNING'}
-                    style={{ 
-                      flex: 1, 
-                      padding: '0.25rem 0.4rem', 
-                      fontSize: '0.7rem', 
-                      borderColor: 'var(--accent-amber)', 
+                    style={{
+                      flex: 1,
+                      padding: '0.25rem 0.4rem',
+                      fontSize: '0.7rem',
+                      borderColor: 'var(--accent-amber)',
                       color: 'var(--accent-amber)',
                       backgroundColor: 'rgba(245, 158, 11, 0.05)',
-                      height: '28px'
+                      height: '28px',
+                      whiteSpace: 'nowrap'
                     }}
                     onClick={() => handleForceFinish(lane.laneNumber)}
                   >
@@ -925,6 +931,7 @@ export default function OperatorConsole({
               {(() => {
                 const isHwConnected = isConnected || serialStatus === 'CONNECTED' || serialDriver.isConnected();
 
+                // 1. Simulator Active
                 if (isSimulating) {
                   return (
                     <button
@@ -932,7 +939,6 @@ export default function OperatorConsole({
                       style={{ width: '100%', fontWeight: 800, padding: '0.65rem' }}
                       onClick={() => {
                         setIsSimulating(false);
-                        if (typeof window !== 'undefined') localStorage.removeItem('touchteck_connection_mode');
                       }}
                       title="Stop Timer Simulator Mode"
                     >
@@ -941,6 +947,7 @@ export default function OperatorConsole({
                   );
                 }
 
+                // 2. Hardware Currently Connected -> Show Reconnect USB option for manual re-handshake
                 if (isHwConnected) {
                   return (
                     <button
@@ -965,17 +972,42 @@ export default function OperatorConsole({
                   );
                 }
 
+                // 3. Hardware was connected once before, now disconnected -> Show Orangish-Yellow Reconnect USB
+                if (hasBeenConnectedOnce) {
+                  return (
+                    <button
+                      className="btn w-full"
+                      style={{
+                        width: '100%',
+                        fontWeight: 800,
+                        padding: '0.65rem',
+                        backgroundColor: '#f59e0b',
+                        color: '#000000',
+                        border: '1px solid #fbbf24',
+                        boxShadow: '0 0 12px rgba(245, 158, 11, 0.4)'
+                      }}
+                      onClick={async () => {
+                        setConsoleLogs(prev => [...prev, '[SYSTEM] Reconnecting to CH340 USB Adapter & ARES 21...']);
+                        await serialDriver.autoConnect().catch(() => false);
+                      }}
+                      title="Trigger instant reconnection with ARES 21 USB Bridge"
+                    >
+                      Reconnect USB
+                    </button>
+                  );
+                }
+
+                // 4. First-time USB check failed (Never connected) -> Show "Re-simulate"
                 return (
                   <button
                     className="btn btn-success w-full"
                     style={{ width: '100%', fontWeight: 800, padding: '0.65rem' }}
                     onClick={() => {
                       setIsSimulating(true);
-                      if (typeof window !== 'undefined') localStorage.setItem('touchteck_connection_mode', 'SIMULATOR');
                     }}
                     title="Start Timer Simulator Mode"
                   >
-                    Simulator
+                    Re-simulate
                   </button>
                 );
               })()}
