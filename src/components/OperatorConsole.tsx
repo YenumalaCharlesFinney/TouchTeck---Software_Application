@@ -1007,7 +1007,7 @@ export default function OperatorConsole({
                     }}
                     title="Start Timer Simulator Mode"
                   >
-                    Re-simulate
+                    Simulator
                   </button>
                 );
               })()}
