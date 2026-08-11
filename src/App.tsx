@@ -704,35 +704,16 @@ export default function App() {
     initDb();
   }, []);
 
-  // Silent hardware auto-connect on mount (uses previously granted port, no popup dialog).
-  // After a hard refresh (Ctrl+R/F5), Windows doesn't always release the previous page's COM
-  // port handle immediately — openPort() already retries internally for ~8.5s, but on a slow
-  // system that can still not be enough. Keep retrying in the background for a while longer
-  // rather than silently giving up and leaving the operator stuck on "NO USB CABLE".
+  // No silent auto-connect on mount — every fresh launch starts in the clean
+  // disconnected default state (NO USB CABLE, green Simulator button) and
+  // waits for the operator to manually click Reconnect USB / Simulator,
+  // rather than the app trying a hardware handshake on its own.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    // Clear any stale simulator preference so app always boots in idle disconnected state by default
+    // Clear any stale connection-mode preference so app always boots idle/disconnected.
     const mode = localStorage.getItem('touchteck_connection_mode');
-    if (mode === 'SIMULATOR') {
+    if (mode) {
       localStorage.removeItem('touchteck_connection_mode');
-    }
-    if (mode === 'HARDWARE') {
-      let cancelled = false;
-      const attempt = async (retriesLeft: number) => {
-        const success = await serialDriver.autoConnect().catch(() => false);
-        if (cancelled) return;
-        if (success) {
-          setSerialStatus('CONNECTED');
-          setIsSimulating(false);
-          isSimulatingRef.current = false;
-          setHasBeenConnectedOnce(true);
-        } else if (retriesLeft > 0) {
-          setTimeout(() => attempt(retriesLeft - 1), 3000);
-        }
-        setHasAttemptedInitConnect(true);
-      };
-      attempt(4); // up to 5 total tries, ~15s of extra background retry beyond openPort's own budget
-      return () => { cancelled = true; };
     }
   }, []);
 
