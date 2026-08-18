@@ -50,6 +50,7 @@ export interface TimingEvent {
   // packet happened to be processed, keeping it in sync with touch times (which are always
   // computed in the ARES clock domain).
   startTimestamp?: number;
+  isManualForce?: boolean;
 }
 
 export type TimingCallback = (event: TimingEvent) => void;
@@ -134,6 +135,9 @@ class SerialTimingDriver {
   }
 
   private lastTouchTimestampByLane: { [lane: number]: number } = {};
+  private lastT1TimeByLane: { [lane: number]: { rawSecs: number; timestamp: number } } = {};
+  private lastT1EmitTimestampByLane: { [lane: number]: number } = {};
+  private lastT2EmitTimestampByLane: { [lane: number]: number } = {};
   private lastHardwareTime: number = 0;
   private raceStartHardwareTime: number = 0;
   private lastStartSignalTimestamp: number = 0;
@@ -215,18 +219,51 @@ class SerialTimingDriver {
     this.raceStartHardwareTime = 0;
     this.lastStartSignalTimestamp = 0;
     this.emit({ type: 'RUNNING_TIME', time: 0, raw: '[SYSTEM] Stopped race clock.' });
-    this.emit({ type: 'RUNNING_TIME', time: 0, raw: '[ARES21] ⏳ Hardware Arming Cooldown Active (15s)...' });
     // NOTE: Do NOT clear lastUptimeSecs here — the CMD 0x32 clock-drop gun detection
     // needs the pre-reset high-water mark to be > 1.0 so the heuristic fires correctly
     // on the next race. Clearing it makes rawSecs < lastUptimeSecs - 0.5 always false.
-    this.suppressGunDetectUntil = Date.now() + 15000; // 15-second hardware settling & arming cooldown lock
+    this.suppressGunDetectUntil = Date.now() + 2500; // Guard during full initialization + settling time
     this.lastTouchTimestampByLane = {};
+    this.lastT1TimeByLane = {};
+    this.lastT1EmitTimestampByLane = {};
+    this.lastT2EmitTimestampByLane = {};
     this.lastTouchTimestampByLaneAndMethod = {};
     this.pendingT2 = null; // discard any half-received T2 pair
     await this.sendAresInit();
   }
 
+  triggerManualTouch(lane: number, timeSecs: number, timingMethod: 'T1' | 'T2' = 'T2', isFinish: boolean = false) {
+    const timeStr = this.formatTime(timeSecs);
+    const eventType = isFinish ? 'FINISH' : 'SPLIT';
+    console.log(`[ARES21] Manual Operator Force ${eventType}: Lane ${lane} Time ${timeStr}`);
+    this.emit({
+      type: eventType,
+      lane,
+      lap: 1,
+      time: timeSecs,
+      timingMethod,
+      isManualForce: true,
+      raw: `TOUCH (${timingMethod}) Lane${lane} ${timeStr}`,
+    });
+  }
+
+  injectRawLine(rawLine: string) {
+    console.log(`[ARES21] Injected raw line: ${rawLine}`);
+    this.emit({
+      type: 'SPLIT',
+      lane: 1,
+      time: 0,
+      timingMethod: 'T2',
+      isManualForce: true,
+      raw: rawLine,
+    });
+  }
+
   async armLanes(force: boolean = false) {
+    if (this.isRaceActive && !force) {
+      console.log('[ARES21] Race active — skipping armLanes call.');
+      return;
+    }
     if (this.isArmed && !force) return; // Already armed — skip duplicate call
     const now = Date.now();
     if (now - this.lastArmTimestamp < 400 && !force) {
@@ -282,11 +319,7 @@ class SerialTimingDriver {
         }
 
         if (allOk) {
-          // If a 15s cooldown was requested (e.g. on reset), keep the lock until the 15s window expires.
-          // Otherwise, unblock gun detection after a 500ms hardware settling pause.
-          if (Date.now() >= this.suppressGunDetectUntil) {
-            this.suppressGunDetectUntil = Date.now() + 500;
-          }
+          this.suppressGunDetectUntil = 0; // Arming complete & Green Light ON — unblock gun detection immediately!
           this.emit({ type: 'RUNNING_TIME', time: 0, raw: '[ARES21] Ready Green Light ON (CMD 0x25 + CMD 0x16)' });
           console.log('[ARES21] Sent Arm command — Green Ready Light ON.');
         } else {
@@ -407,6 +440,10 @@ class SerialTimingDriver {
   // ─── Exact ARES v2.06 Initialization Sequence ─────────────
   private async sendAresInit() {
     if (!this.isConnected()) return;
+    if (this.isRaceActive) {
+      console.log('[ARES21] Race is currently RUNNING — skipping full 14-step re-init to prevent clock reset.');
+      return;
+    }
     const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
     console.log('[ARES21] Executing 14-step ARES 21 initialization...');
@@ -494,6 +531,27 @@ class SerialTimingDriver {
     } catch (e) {
       console.warn('[ARES21] Handshake error:', e);
     }
+  }
+
+  async rehandshake(): Promise<boolean> {
+    console.log('[ARES21] Re-handshake requested by operator...');
+    this.suppressGunDetectUntil = 0;
+    this.isArmed = false;
+    
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try {
+        this.ws.send(JSON.stringify({ action: 'reconnect' }));
+        await new Promise(r => setTimeout(r, 400));
+      } catch {}
+    } else {
+      await this.autoConnect();
+    }
+    
+    if (this.isConnected()) {
+      await this.sendAresInit();
+      return true;
+    }
+    return false;
   }
 
   // ─── Periodic Status Poll Keepalive ───────────────────────
@@ -893,7 +951,7 @@ class SerialTimingDriver {
         //   data[2] = 0x4C means "valid timing data" flag
         // Gun fires: data[2] === 0x4C (valid gun start timing marker)
         // Touchpad:  data[2] >= 0x40 (handled by parseCmd40)
-        const isGunDevice = data.length >= 3 && (data[1] === 0x01 || data[1] === 0x02 || data[2] === 0x4C);
+        const isGunDevice = data.length >= 3 && data[2] === 0x4C;
 
         if (isGunDevice) {
           if (!this.isRaceActive && Date.now() >= this.suppressGunDetectUntil) {
@@ -925,7 +983,12 @@ class SerialTimingDriver {
       // CMD 0x42 / 0x43 – Backup Hand Button T2 Timing Event
       case 0x42:
       case 0x43: {
-        this.parseCmd40(data, 'T2');
+        const b2 = data.length >= 3 ? data[2] : 0;
+        if (b2 >= 0x40 && b2 <= 0x47) {
+          this.parseCmd40(data);
+        } else {
+          this.parseCmd40(data, 'T2');
+        }
         break;
       }
 
@@ -1055,6 +1118,35 @@ class SerialTimingDriver {
 
   // ── shared timing emit helper ────────────────────────────────────────
   private emitTiming(timingMethod: 'T1' | 'T2', lane: number, secs: number) {
+    if (timingMethod === 'T1') {
+      const now = Date.now();
+      const lastT1Emit = this.lastT1EmitTimestampByLane[lane] || 0;
+      if (now - lastT1Emit < 1500) {
+        console.log(`[ARES21] Ignored duplicate T1 touchpad hit on Lane ${lane} (${((now - lastT1Emit) / 1000).toFixed(2)}s < 1.5s per-lane lockout window)`);
+        return;
+      }
+      this.lastT1EmitTimestampByLane[lane] = now;
+      this.lastT1TimeByLane[lane] = { rawSecs: secs, timestamp: now };
+    } else if (timingMethod === 'T2') {
+      const now = Date.now();
+      const lastT2Emit = this.lastT2EmitTimestampByLane[lane] || 0;
+      if (now - lastT2Emit < 1500) {
+        console.log(`[ARES21] Ignored rapid duplicate T2 backup button hit on Lane ${lane} (${((now - lastT2Emit) / 1000).toFixed(2)}s < 1.5s per-lane T2 lockout window)`);
+        return;
+      }
+
+      const prevT1 = this.lastT1TimeByLane[lane];
+      if (prevT1) {
+        const rawDiff = Math.abs(prevT1.rawSecs - secs);
+        const wallDiff = Date.now() - prevT1.timestamp;
+        if (rawDiff < 0.25 || wallDiff < 800) {
+          console.log(`[ARES21] Suppressed duplicate T2 mirror frame for Lane ${lane} (T1 touchpad touch already recorded at rawSecs=${prevT1.rawSecs.toFixed(2)}s)`);
+          return;
+        }
+      }
+      this.lastT2EmitTimestampByLane[lane] = now;
+    }
+
     let netSecs = secs;
     if (this.raceStartHardwareTime > 0 && secs >= this.raceStartHardwareTime) {
       netSecs = secs - this.raceStartHardwareTime;
@@ -1169,7 +1261,6 @@ class SerialTimingDriver {
 
   // ─── Public API ────────────────────────────────────────────
   parseAsciiLine(line: string) { this.parseAsciiEvent(line); }
-  injectRawLine(line: string)  { this.parseAsciiEvent(line); }
 
   async sendSerialData(data: string): Promise<boolean> {
     if (data === 'START') {

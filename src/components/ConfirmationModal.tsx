@@ -7,7 +7,9 @@ interface ConfirmationModalProps {
   title: string;
   message: string;
   confirmText?: string;
+  confirmLabel?: string;
   cancelText?: string;
+  cancelLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
   confirmVariant?: 'cyan' | 'yellow' | 'danger';
@@ -17,8 +19,10 @@ export default function ConfirmationModal({
   isOpen,
   title,
   message,
-  confirmText = 'OK',
-  cancelText = 'Cancel',
+  confirmText,
+  confirmLabel,
+  cancelText,
+  cancelLabel,
   onConfirm,
   onCancel,
   confirmVariant
@@ -27,8 +31,11 @@ export default function ConfirmationModal({
 
   if (!isOpen) return null;
 
+  const actualConfirmText = confirmText || confirmLabel || 'OK';
+  const actualCancelText = cancelText || cancelLabel || 'Cancel';
+
   const isDestructive =
-    confirmText.toLowerCase().includes('delete') ||
+    actualConfirmText.toLowerCase().includes('delete') ||
     title.toLowerCase().includes('delete') ||
     title.toLowerCase().includes('end') ||
     message.toLowerCase().includes('delete');
@@ -65,7 +72,7 @@ export default function ConfirmationModal({
             onClick={() => triggerClose(onCancel)}
             style={{ padding: '0.5rem 1.25rem' }}
           >
-            {cancelText}
+            {actualCancelText}
           </button>
           <button
             type="button"
@@ -73,7 +80,7 @@ export default function ConfirmationModal({
             onClick={() => triggerClose(onConfirm)}
             style={{ padding: '0.5rem 1.25rem' }}
           >
-            {confirmText}
+            {actualConfirmText}
           </button>
         </div>
       </div>

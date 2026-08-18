@@ -34,7 +34,16 @@ function startBridge() {
 
 function stopBridge() {
   if (bridgeProcess) {
-    bridgeProcess.kill();
+    try {
+      if (process.platform === 'win32' && bridgeProcess.pid) {
+        const { execSync } = require('node:child_process');
+        execSync(`taskkill /F /T /PID ${bridgeProcess.pid}`, { stdio: 'ignore' });
+      } else {
+        bridgeProcess.kill('SIGKILL');
+      }
+    } catch (e) {
+      // process already exited
+    }
     bridgeProcess = null;
   }
 }
@@ -76,7 +85,10 @@ function createWindow(initialTab?: string) {
 
   if (!isSecondary) mainWindow = win;
 
-  win.once('ready-to-show', () => win.show());
+  win.once('ready-to-show', () => {
+    win.maximize();
+    win.show();
+  });
 
   win.webContents.on('before-input-event', (_event, input) => {
     if (input.key === 'F12') win.webContents.toggleDevTools();
@@ -92,6 +104,18 @@ function createWindow(initialTab?: string) {
   } else {
     win.loadFile(path.join(__dirname, '../dist/index.html'), hash ? { hash } : undefined);
   }
+
+  win.on('close', () => {
+    if (win === mainWindow) {
+      stopBridge();
+      for (const w of BrowserWindow.getAllWindows()) {
+        if (!w.isDestroyed()) {
+          w.destroy();
+        }
+      }
+      app.quit();
+    }
+  });
 
   win.on('closed', () => {
     if (win === mainWindow) mainWindow = null;
@@ -109,6 +133,42 @@ function wireWindowIpc() {
   ipcMain.handle('touchteck:open-tab-window', (_event, tabId: unknown) => {
     if (typeof tabId !== 'string' || !/^[a-z-]+$/.test(tabId)) return false;
     createWindow(tabId);
+    return true;
+  });
+
+  ipcMain.handle('touchteck:print-html', async (_event, html: string) => {
+    if (typeof html !== 'string') return false;
+
+    const printWin = new BrowserWindow({
+      show: false,
+      title: 'TouchTeck Print',
+      autoHideMenuBar: true,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: false,
+      },
+    });
+
+    const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
+    await printWin.loadURL(dataUrl);
+
+    printWin.webContents.print(
+      {
+        silent: false,
+        printBackground: true,
+        color: true,
+      },
+      (success, failureReason) => {
+        if (!success) {
+          log.warn(`[print] Print result: ${failureReason}`);
+        }
+        if (!printWin.isDestroyed()) {
+          printWin.close();
+        }
+      }
+    );
+
     return true;
   });
 
@@ -136,6 +196,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  stopBridge();
   if (process.platform !== 'darwin') {
     app.quit();
   }

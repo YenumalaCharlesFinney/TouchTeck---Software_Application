@@ -19,6 +19,9 @@ contextBridge.exposeInMainWorld('touchteckApp', {
   openTabWindow: (tabId: string): Promise<boolean> =>
     ipcRenderer.invoke('touchteck:open-tab-window', tabId),
 
+  printHtml: (html: string): Promise<boolean> =>
+    ipcRenderer.invoke('touchteck:print-html', html),
+
   // Send a sync message to every other window.
   sendSync: (message: unknown) => ipcRenderer.send('touchteck:sync', message),
 

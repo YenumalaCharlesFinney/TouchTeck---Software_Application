@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { seedDatabase, db } from './db';
+import { createPortal } from 'react-dom';
+import { seedDatabase, db, type LaneAssignment } from './db';
 import SwimmerManager from './components/SwimmerManager';
 import MeetManager from './components/MeetManager';
 import QualifyingStandards from './components/QualifyingStandards';
@@ -38,6 +39,8 @@ interface LaneState {
   swimmer?: Swimmer;
   qualifyingTime?: number;
   splits: number[];
+  t1Time?: number;
+  t2Time?: number;
   finalTime: number;
   status: 'OK' | 'DNS' | 'DNF' | 'DQ' | 'NT';
   timingMethod?: 'T1' | 'T2';
@@ -345,7 +348,10 @@ export default function App() {
       laneNumber: i + 1,
       swimmer: undefined,
       splits: [],
+      t1Time: undefined,
+      t2Time: undefined,
       finalTime: 0,
+      timingMethod: undefined,
       status: 'OK',
       isRunning: false
     }));
@@ -702,10 +708,13 @@ export default function App() {
           try {
             const meetsList = await db.meets.toArray();
             if (meetsList.length > 0) {
-              setActiveMeetId(meetsList[0].id || 1);
-              const eventsList = await db.events.where('meetId').equals(meetsList[0].id!).toArray();
+              const firstMeetId = meetsList[0].id || 1;
+              setActiveMeetId(firstMeetId);
+              const eventsList = await db.events.where('meetId').equals(firstMeetId).toArray();
+              eventsList.sort((a, b) => (a.eventNo || a.id || 0) - (b.eventNo || b.id || 0));
               if (eventsList.length > 0) {
                 setActiveEventId(eventsList[0].id || 1);
+                setActiveHeatNum(1);
               }
             }
           } catch (e) {
@@ -768,12 +777,12 @@ export default function App() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [serialStatus]);
 
-  // Load lane structure whenever Meet, Event, Heat, BothEnds, isFinals, or dbSeeded config changes
+  // Load lane structure ONLY when not RUNNING and not FINISHED (preserve finished heat lanes for review & saving)
   useEffect(() => {
     if (!dbSeeded) return;
     setIsResultsSaved(false);
-    // IMPORTANT: Do NOT reset to READY or clear race state if a live race was restored on startup
-    if (timerStatusRef.current !== 'RUNNING') {
+    // IMPORTANT: Do NOT reset to READY or clear race state if a live race was restored on startup or if race just FINISHED
+    if (timerStatusRef.current !== 'RUNNING' && timerStatusRef.current !== 'FINISHED') {
       // Only wipe saved race state if there is no running race being restored
       const savedStr = typeof window !== 'undefined' ? localStorage.getItem('touchteck_live_race_state') : null;
       const savedIsRunning = savedStr ? (() => { try { return JSON.parse(savedStr)?.timerStatus === 'RUNNING'; } catch { return false; } })() : false;
@@ -790,11 +799,85 @@ export default function App() {
     }
   }, [dbSeeded, activeMeetId, activeEventId, activeHeatNum, bothEnds, isFinals]);
 
-  // Listen for live lane assignment updates dispatched when swimmers are added/removed
+  const syncToFirstUncompletedEvent = async (meetId: number | null) => {
+    if (!meetId) return;
+    const allEvs = await db.events.filter(e => Number(e.meetId) === Number(meetId)).toArray();
+    allEvs.sort((a, b) => (a.eventNo || a.id || 0) - (b.eventNo || b.id || 0));
+    if (allEvs.length === 0) return;
+
+    const allAssignments = await db.laneAssignments.toArray();
+    const allResults = await db.results.toArray();
+
+    const savedHeatKeys = new Set<string>();
+    allResults.forEach(r => {
+      if (r.eventId && r.heatNumber && (!(r as any).meetId || Number((r as any).meetId) === Number(meetId))) {
+        savedHeatKeys.add(`${Number(r.eventId)}-${r.heatNumber}`);
+      }
+    });
+
+    const totalHeatsMap = new Map<number, Set<number>>();
+    allAssignments.forEach(a => {
+      if (a.eventId && a.heatNumber && (!(a as any).meetId || Number((a as any).meetId) === Number(meetId))) {
+        const numId = Number(a.eventId);
+        if (!totalHeatsMap.has(numId)) totalHeatsMap.set(numId, new Set());
+        totalHeatsMap.get(numId)!.add(a.heatNumber);
+      }
+    });
+
+    const savedManual = typeof window !== 'undefined' ? localStorage.getItem('touchteck_manual_done_events') : null;
+    const manualDoneIds: number[] = savedManual ? JSON.parse(savedManual).map(Number) : [];
+
+    const firstUncompleted = allEvs.find(ev => {
+      if (!ev.id) return false;
+      const numEvId = Number(ev.id);
+      if (manualDoneIds.includes(numEvId)) return false;
+
+      const totalSet = totalHeatsMap.get(numEvId);
+      const heatSet = new Set<number>();
+      if (totalSet) totalSet.forEach(h => heatSet.add(h));
+
+      const savedForEv = new Set<number>();
+      savedHeatKeys.forEach(key => {
+        const [eId, hNum] = key.split('-').map(Number);
+        if (eId === numEvId) savedForEv.add(hNum);
+      });
+      savedForEv.forEach(h => heatSet.add(h));
+      if (heatSet.size === 0) heatSet.add(1);
+
+      const heatArray = Array.from(heatSet).sort((a, b) => a - b);
+      const areAllSaved = heatArray.length > 0 && heatArray.every(h => savedForEv.has(h));
+      return !areAllSaved;
+    });
+
+    if (firstUncompleted && firstUncompleted.id) {
+      const numEvId = Number(firstUncompleted.id);
+      const savedForEv = new Set<number>();
+      savedHeatKeys.forEach(key => {
+        const [eId, hNum] = key.split('-').map(Number);
+        if (eId === numEvId) savedForEv.add(hNum);
+      });
+      const totalSet = totalHeatsMap.get(numEvId);
+      const heatSet = new Set<number>();
+      if (totalSet) totalSet.forEach(h => heatSet.add(h));
+      savedForEv.forEach(h => heatSet.add(h));
+      if (heatSet.size === 0) heatSet.add(1);
+      const sortedHeats = Array.from(heatSet).sort((a, b) => a - b);
+      const firstUnsavedHeat = sortedHeats.find(h => !savedForEv.has(h)) || 1;
+
+      if (activeEventIdRef.current !== numEvId || activeHeatNumRef.current !== firstUnsavedHeat) {
+        setActiveEventId(numEvId);
+        setActiveHeatNum(firstUnsavedHeat);
+        loadLanesAndEventConfig(numEvId, firstUnsavedHeat, isFinalsRef.current);
+      }
+    }
+  };
+
+  // Listen for live lane assignment updates dispatched when swimmers are added/removed or events marked/unmarked done
   useEffect(() => {
-    const handleLiveLaneUpdate = () => {
+    const handleLiveLaneUpdate = async () => {
       if (timerStatusRef.current !== 'RUNNING') {
-        loadLanesAndEventConfig(activeEventId, activeHeatNum, isFinals);
+        await syncToFirstUncompletedEvent(activeMeetIdRef.current);
+        loadLanesAndEventConfig(activeEventIdRef.current || 1, activeHeatNumRef.current || 1, isFinalsRef.current);
       }
     };
 
@@ -874,19 +957,70 @@ export default function App() {
       }
       return resolvedLanes;
     } else {
-      // REGULAR HEATS STAGE: Get assignments for this heat
-      const assignments = await db.laneAssignments
+      // REGULAR HEATS STAGE: Get assignments & recorded results for this heat
+      let assignments = await db.laneAssignments
         .filter(a => Number(a.eventId) === numEventId && Number(a.heatNumber) === numHeatNum)
+        .toArray();
+
+      // Fallback: If no laneAssignments exist for this event/heat (or no swimmers are assigned), auto-seed eligible swimmers!
+      const assignedSwimmerIds = assignments.map(a => a.swimmerId).filter(Boolean);
+      if (assignments.length === 0 || assignedSwimmerIds.length === 0) {
+        const allSwimmers = await db.swimmers.toArray();
+        const isMergedOrAll = ev.ageGroup === 'All Age Groups' || ev.ageGroup?.toLowerCase().includes('merged') || (ev as any)?.isMerged;
+        let eligible = allSwimmers.filter(s => s.gender === ev.gender && (isMergedOrAll || s.ageGroup === ev.ageGroup));
+        if (eligible.length === 0) {
+          eligible = allSwimmers.filter(s => s.gender === ev.gender);
+        }
+        if (eligible.length === 0) {
+          eligible = allSwimmers;
+        }
+
+        const SPEARHEAD_LANES = [4, 5, 3, 6, 2, 7, 1, 8];
+        const heatSwimmers = eligible.slice((numHeatNum - 1) * 8, numHeatNum * 8);
+
+        const syntheticAssignments: LaneAssignment[] = [];
+        for (let idx = 0; idx < heatSwimmers.length; idx++) {
+          const sw = heatSwimmers[idx];
+          if (idx < SPEARHEAD_LANES.length && sw.id) {
+            const la: LaneAssignment = {
+              eventId: numEventId,
+              heatNumber: numHeatNum,
+              laneNumber: SPEARHEAD_LANES[idx],
+              swimmerId: sw.id
+            };
+            syntheticAssignments.push(la);
+            try {
+              const existing = await db.laneAssignments
+                .filter(a => Number(a.eventId) === numEventId && Number(a.heatNumber) === numHeatNum && a.laneNumber === SPEARHEAD_LANES[idx])
+                .first();
+              if (!existing) {
+                await db.laneAssignments.add(la);
+              }
+            } catch (e) {}
+          }
+        }
+        if (syntheticAssignments.length > 0) {
+          assignments = await db.laneAssignments
+            .filter(a => Number(a.eventId) === numEventId && Number(a.heatNumber) === numHeatNum)
+            .toArray();
+        }
+      }
+
+      const savedResults = await db.results
+        .filter(r => Number(r.eventId) === numEventId && Number(r.heatNumber) === numHeatNum && (r.stage || 'Heats') === 'Heats')
         .toArray();
 
       const resolvedLanes: LaneState[] = [];
       for (let laneNum = 1; laneNum <= 8; laneNum++) {
         const assign = assignments.find(a => a.laneNumber === laneNum);
+        const res = savedResults.find(r => r.laneNumber === laneNum);
+
+        const swimmerId = assign?.swimmerId || res?.swimmerId;
         let swimmer: Swimmer | undefined;
         let qTime = undefined;
 
-        if (assign && assign.swimmerId) {
-          swimmer = await db.swimmers.get(assign.swimmerId);
+        if (swimmerId) {
+          swimmer = await db.swimmers.get(swimmerId);
           if (swimmer) {
             try {
               const qtRecord = await db.qualifyingTimes
@@ -903,9 +1037,12 @@ export default function App() {
           laneNumber: laneNum,
           swimmer,
           qualifyingTime: qTime,
-          splits: [],
-          finalTime: 0,
-          status: 'OK',
+          splits: res?.splits || [],
+          finalTime: res?.finalTime || 0,
+          status: res?.status || (swimmer ? 'OK' : 'DNS'),
+          timingMethod: res?.timingMethod,
+          t1Time: res?.t1Time,
+          t2Time: res?.t2Time,
           isRunning: false,
           lastSplitTime: undefined,
           lastSplitTimestamp: undefined
@@ -1017,7 +1154,7 @@ export default function App() {
   };
 
   // Timing Operations: Start (Synchronous for immediate start execution)
-  const triggerStart = (startTimeOverride?: number) => {
+  const triggerStart = (startTimeOverride?: number, isHardwareStart = false) => {
     // Hardware-gun starts pass a backdated wall-clock timestamp (translated from the ARES
     // hardware clock domain) so the local race clock begins at the TRUE fire moment instead
     // of whenever this event happened to be received — keeping it in sync with touch times.
@@ -1050,11 +1187,11 @@ export default function App() {
 
     setLanes(newLanes);
     startTick(startTime);
-    // NOTE: For hardware gun starts, markRaceStarted(true) was already called by
-    // the serial driver before this triggerStart() runs. sendRaceStartSignal()
-    // handles marking for manual UI starts. Do NOT call markRaceStarted here
-    // to avoid double-disarm which causes ARES 21 3-beep error lock.
-    serialDriver.sendRaceStartSignal();
+    // For hardware gun starts, ARES 21 is ALREADY started and armed. Do NOT call sendRaceStartSignal
+    // (which sends disarm/re-arm commands back to ARES 21). Only send it for manual UI button starts.
+    if (!isHardwareStart) {
+      serialDriver.sendRaceStartSignal();
+    }
 
     if (typeof window !== 'undefined') {
       localStorage.setItem('touchteck_live_race_state', JSON.stringify({
@@ -1081,7 +1218,7 @@ export default function App() {
   };
 
   // Timing Operations: Reset
-  const handleResetTimer = () => {
+  const handleResetTimer = async (clearDBResults = true) => {
     simulator.stop();
     simulator.reset();
     serialDriver.sendRaceResetSignal(); // Resets hardware state + arms lanes (calls resetRaceStartHardwareTime internally)
@@ -1095,9 +1232,28 @@ export default function App() {
     setElapsedTime(0);
     setTimerStatus('READY');
     setArmingCooldown(15);
-    const resetLanes = lanes.map(l => ({
+
+    // Delete any previous/draft results for this event & heat from DB so reset is 100% clean
+    if (clearDBResults && activeEventIdRef.current) {
+      try {
+        const currentEvId = activeEventIdRef.current;
+        const currentHtNum = activeHeatNumRef.current;
+        const oldResults = await db.results
+          .filter(r => Number(r.eventId) === currentEvId && Number(r.heatNumber) === currentHtNum)
+          .toArray();
+        for (const r of oldResults) {
+          if (r.id) await db.results.delete(r.id);
+        }
+      } catch (err) {
+        console.warn('Error clearing results on reset:', err);
+      }
+    }
+
+    const resetLanes = (lanesRef.current.length > 0 ? lanesRef.current : lanes).map(l => ({
       ...l,
       splits: [],
+      t1Time: undefined,
+      t2Time: undefined,
       finalTime: 0,
       timingMethod: undefined,
       isRunning: false,
@@ -1106,6 +1262,7 @@ export default function App() {
       lastSplitTimestamp: undefined
     }));
     setLanes(resetLanes);
+    lanesRef.current = resetLanes;
 
     broadcastSyncMessage('RACE_RESET', {
       lanes: resetLanes,
@@ -1119,16 +1276,20 @@ export default function App() {
   };
 
   // Timing Operations: Stop
-  const handleStopTimer = () => {
+  const handleStopTimer = (overrideLanes?: LaneState[]) => {
     serialDriver.stopRace();
     timerStatusRef.current = 'FINISHED';
     stopTick();
     setTimerStatus('FINISHED');
-    const finishedLanes = lanes.map(l => ({
-      ...l,
-      isRunning: false
-    }));
+    const targetLanes = overrideLanes || (lanesRef.current.length > 0 ? lanesRef.current : lanes);
+    const finishedLanes = targetLanes.map(l => {
+      return {
+        ...l,
+        isRunning: false
+      };
+    });
     setLanes(finishedLanes);
+    lanesRef.current = finishedLanes;
 
     if (typeof window !== 'undefined') {
       localStorage.setItem('touchteck_live_race_state', JSON.stringify({
@@ -1147,7 +1308,7 @@ export default function App() {
 
   // Timing Operations: Save
   const handleSaveResults = async () => {
-    if (!activeEventId || isSavingRef.current || isResultsSaved) return;
+    if (!activeEventId || isSavingRef.current) return;
     isSavingRef.current = true;
     setIsSavingResults(true);
 
@@ -1158,16 +1319,21 @@ export default function App() {
       const hasAnyTouch = lanes.some(l => l.swimmer && l.finalTime > 0);
 
       for (const lane of lanes) {
-        if (!lane.swimmer) continue;
+        const isTouchRecorded = lane.finalTime > 0 || !!lane.t1Time || !!lane.t2Time;
+        if (!lane.swimmer && !isTouchRecorded) continue;
 
-        const isTouchRecorded = lane.finalTime > 0;
         const record = {
           eventId: numEventId,
           stage: (isFinals ? 'Finals' : 'Heats') as 'Heats' | 'Finals',
           heatNumber: numHeatNum,
           laneNumber: lane.laneNumber,
-          swimmerId: lane.swimmer.id,
+          swimmerId: lane.swimmer ? lane.swimmer.id : 0,
+          swimmerName: lane.swimmer ? lane.swimmer.name : `Lane ${lane.laneNumber} Swimmer`,
+          club: lane.swimmer ? lane.swimmer.club : 'Unassigned',
+          ageGroup: lane.swimmer ? lane.swimmer.ageGroup : 'General',
           splits: lane.splits,
+          t1Time: lane.t1Time || (lane.timingMethod === 'T1' ? lane.finalTime : undefined),
+          t2Time: lane.t2Time || (lane.timingMethod === 'T2' ? lane.finalTime : undefined),
           finalTime: lane.finalTime || 0,
           status: (isTouchRecorded ? (lane.status || 'OK') : 'NT') as 'OK' | 'DNS' | 'DNF' | 'DQ' | 'NT',
           timingMethod: isTouchRecorded ? (lane.timingMethod || 'T1') : undefined,
@@ -1206,25 +1372,27 @@ export default function App() {
   };
 
 
+  useEffect(() => {
+    if (activeTab === 'operator' && timerStatusRef.current === 'READY') {
+      if (serialDriver.isConnected()) {
+        serialDriver.armLanes(true);
+      }
+    }
+  }, [activeTab]);
+
   // Global Serial Stream Listener
   useEffect(() => {
     const unsubscribe = serialDriver.onData((event: TimingEvent) => {
       if (event.type === 'START') {
         playStarterHorn();
         setArmingCooldown(0);
-        if (activeTabRef.current === 'system-check') {
-          setStarterChecked(true);
+        setStarterChecked(true);
+        if (timerStatusRef.current !== 'RUNNING') {
+          triggerStart(event.startTimestamp, true);
         } else {
-          if (timerStatusRef.current !== 'RUNNING') {
-            triggerStart(event.startTimestamp);
-          } else {
-            console.log('[ARES21] Hardware START signal received while race already RUNNING — keeping active race clock.');
-          }
+          console.log('[ARES21] Hardware START signal received while race already RUNNING — keeping active race clock.');
         }
       } else if (event.type === 'RUNNING_TIME') {
-        if (event.raw && event.raw.includes('Hardware Arming Cooldown Active')) {
-          setArmingCooldown(15);
-        }
         if (event.time === 0) {
           // Many unrelated diagnostic packets (status-poll ACKs, keepalives, arm/disarm
           // confirmations) share this same "RUNNING_TIME time=0" event shape. Only reset the
@@ -1247,6 +1415,12 @@ export default function App() {
       } else if (event.type === 'SPLIT' || event.type === 'FINISH') {
         const laneNum = event.lane;
         if (!laneNum || laneNum < 1 || laneNum > 8 || !event.time || event.time <= 0) return;
+
+        // Ignore automatic touchpad touches if race is not currently RUNNING (manual force clicks by operator always bypass)
+        if (!event.isManualForce && timerStatusRef.current !== 'RUNNING') {
+          console.log(`[ARES21] Touchpad touch on Lane ${laneNum} ignored — race clock is not RUNNING.`);
+          return;
+        }
 
         const timingMethod = event.timingMethod || 'T1';
         const now = Date.now();
@@ -1305,6 +1479,17 @@ export default function App() {
             return;
           }
 
+          // ── START LOCKOUT WINDOW (1 SECOND) ──────────────────────────────
+          // Ignore false bounce noise in the first 1 second after starter gun fire
+          // (Manual force clicks by operator always bypass lockout)
+          if (!event.isManualForce && timerStartRef.current > 0 && !isTestModeRef.current) {
+            const raceElapsedSecs = (now - timerStartRef.current) / 1000;
+            if (raceElapsedSecs < 1.0 || touchTime < 1.0) {
+              console.log(`[ARES21] Ignored false start noise on Lane ${laneNum} (${touchTime.toFixed(2)}s < 1s lockout window)`);
+              return;
+            }
+          }
+
           setLanes(prev => {
             const currentLanes = prev.map(l => {
               if (l.laneNumber === laneNum) {
@@ -1323,6 +1508,8 @@ export default function App() {
                     return {
                       ...l,
                       finalTime: touchTime,
+                      t1Time: touchTime,
+                      t2Time: l.t2Time || l.finalTime,
                       splits: updatedSplits,
                       timingMethod: 'T1' as const,
                       isRunning: false
@@ -1333,36 +1520,55 @@ export default function App() {
                   return l;
                 }
 
-                // If lane already finished, ignore
-                if (l.finalTime > 0) return l;
+                // Determine if this touch is the final finish line touch for the lane
+                // Final touch occurs if:
+                // 1) event explicitly signals FINISH or isManualForce
+                // 2) timingMethod === 'T2' (timekeeper hand button pressed)
+                // 3) event.lap reaches eventLapsRef
+                // 4) splits count + 1 reaches target laps
+                const isFinalLap = (l.splits.length + 1) >= eventLapsRef.current;
+                const isFinal = event.isManualForce || timingMethod === 'T2' || event.type === 'FINISH' || (event.lap ? event.lap >= eventLapsRef.current : isFinalLap);
 
-                const isFinal = event.lap ? event.lap >= eventLapsRef.current : ((l.splits.length + 1) >= eventLapsRef.current);
-                const updatedSplits = [...l.splits];
-
-                const resolvedTimingMethod: 'T1' | 'T2' = timingMethod === 'T2' ? 'T2' : 'T1';
-
-                // If previous split was T2 and T1 arrives now: T1 OVERRIDES T2 split ONLY IF within 2s window!
-                if (l.timingMethod === 'T2' && resolvedTimingMethod === 'T1' && updatedSplits.length > 0) {
-                  if (isT2PendingWindowActive) {
-                    updatedSplits[updatedSplits.length - 1] = touchTime;
-                    console.log(`[Arbitration] T1 touchpad split (${touchTime}s) OVERRODE T2 split on Lane ${laneNum} (within 2s window)`);
-                  }
-                } else {
+                // If this touch is NOT the final finish touch, record it strictly as an intermediate SPLIT time
+                // Intermediate splits are ALWAYS touchpad (T1) touches (timekeepers do not press T2 for splits)
+                if (!isFinal) {
+                  const updatedSplits = [...l.splits];
                   if (!updatedSplits.includes(touchTime)) {
                     updatedSplits.push(touchTime);
                   }
+                  return {
+                    ...l,
+                    splits: updatedSplits,
+                    t1Time: timingMethod === 'T1' ? touchTime : l.t1Time,
+                    // Keep timingMethod untouched or default to T1 for splits, do not switch badge on split
+                    timingMethod: l.timingMethod || 'T1',
+                    isRunning: true,
+                    lastSplitTime: touchTime,
+                    lastSplitTimestamp: Date.now()
+                  };
                 }
 
-                const finalMethod: 'T1' | 'T2' = resolvedTimingMethod === 'T1' ? 'T1' : (l.timingMethod || resolvedTimingMethod);
+                // ── FINAL FINISH TOUCH PROCESSING ───────────────────────────────────
+                // For the final touch, resolve whether T1 (Touchpad) or T2 (Backup Button) took priority
+                const resolvedFinishMethod: 'T1' | 'T2' = (timingMethod === 'T2') ? 'T2' : 'T1';
+
+                const updatedSplits = [...l.splits];
+                // Ensure the final finish time is not duplicated in intermediate splits
+                if (updatedSplits.includes(touchTime)) {
+                  const idx = updatedSplits.indexOf(touchTime);
+                  if (idx !== -1) updatedSplits.splice(idx, 1);
+                }
 
                 return {
                   ...l,
                   splits: updatedSplits,
-                  finalTime: isFinal ? touchTime : l.finalTime,
-                  timingMethod: finalMethod,
-                  isRunning: !isFinal,
-                  lastSplitTime: isFinal ? undefined : touchTime,
-                  lastSplitTimestamp: isFinal ? undefined : Date.now()
+                  finalTime: touchTime,
+                  t1Time: timingMethod === 'T1' ? touchTime : l.t1Time,
+                  t2Time: timingMethod === 'T2' ? touchTime : l.t2Time,
+                  timingMethod: resolvedFinishMethod,
+                  isRunning: false,
+                  lastSplitTime: undefined,
+                  lastSplitTimestamp: undefined
                 };
               }
               return l;
@@ -1382,9 +1588,17 @@ export default function App() {
     };
   }, []);
 
-  // Completion checker helper
+  // Completion checker helper — auto-stops race clock when all active / touched swimmers finish
   const checkRaceCompletion = (currentLanes: LaneState[]) => {
-    // Clock remains ticking and must be manually stopped by the operator.
+    const participatingLanes = currentLanes.filter(l => !!l.swimmer || l.finalTime > 0 || !!l.t1Time || !!l.t2Time);
+    if (participatingLanes.length === 0) return;
+
+    const allFinished = participatingLanes.every(l => l.finalTime > 0 || l.status === 'DNS' || l.status === 'DNF' || l.status === 'DQ');
+
+    if (allFinished && timerStatusRef.current === 'RUNNING') {
+      console.log('[TimingEngine] All active swimmers in heat finished. Stopping race clock.');
+      handleStopTimer(currentLanes);
+    }
   };
 
   // Navigation Tabs Configuration (All 8 Tabs)
@@ -1392,11 +1606,11 @@ export default function App() {
     { id: 'home', label: 'Home', icon: Home },
     { id: 'scoreboard', label: 'Scoreboard', icon: Tv },
     { id: 'operator', label: 'Operator Desk', icon: Radio },
-    { id: 'system-check', label: 'System Check', icon: ShieldCheck },
     { id: 'meet-setup', label: 'Heats & Lanes', icon: Calendar },
     { id: 'swimmer-registry', label: 'Swimmers', icon: Users },
     { id: 'qualifying', label: 'Cutoffs', icon: Award },
     { id: 'results', label: 'Reports', icon: BarChart3 },
+    { id: 'system-check', label: 'System Check', icon: ShieldCheck },
   ];
 
   const currentTabItem = navigationTabs.find(t => t.id === activeTab) || navigationTabs.find(t => t.id === 'operator')!;
@@ -1767,7 +1981,8 @@ export default function App() {
             elapsedTime={elapsedTime}
             timerStatus={timerStatus}
             lanes={lanes}
-            handleManualStart={serialDriver.injectRawLine.bind(serialDriver, 'START')}
+            setLanes={setLanes}
+            handleManualStart={() => triggerStart(Date.now(), false)}
             handleResetTimer={handleResetTimer}
             handleStopTimer={handleStopTimer}
             handleSaveResults={handleSaveResults}
@@ -1826,15 +2041,15 @@ export default function App() {
 
         {activeTab === 'results' && (
           <div key="results-panel" className="tab-panel-enter">
-            <ResultsExport activeMeetId={activeMeetId} />
+            <ResultsExport activeMeetId={activeMeetId} activeEventId={activeEventId} />
           </div>
         )}
 
       </main>
 
       {/* Save Success Popup Modal */}
-      {saveSuccessInfo.isOpen && (
-        <div className={`modal-overlay${isSaveSuccessClosing ? ' modal-closing' : ''}`} style={{ zIndex: 1100 }}>
+      {saveSuccessInfo.isOpen && createPortal(
+        <div className={`modal-overlay${isSaveSuccessClosing ? ' modal-closing' : ''}`} style={{ zIndex: 99999 }}>
           <div className={`modal-content${isSaveSuccessClosing ? ' modal-closing' : ''}`} style={{ maxWidth: '450px', textAlign: 'center', padding: '2rem 1.75rem' }}>
             {saveSuccessInfo.hasAnyTouch === false ? (
               <>
@@ -1955,7 +2170,8 @@ export default function App() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Logout Confirmation Modal */}

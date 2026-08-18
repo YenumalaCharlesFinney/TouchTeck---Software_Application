@@ -17,7 +17,7 @@ import AnimatedLogo from './AnimatedLogo';
    a real lookup once that exists.
    ============================================================ */
 
-const ACCESS_CODE = '1234';
+const ACCESS_CODE = '7112';
 const CODE_LENGTH = 4;
 
 type CheckStatus = 'idle' | 'granted' | 'denied';
@@ -111,20 +111,18 @@ export default function PasscodeModal({ isOpen, onClose, onSuccess }: PasscodeMo
     (code: string) => {
       if (code === ACCESS_CODE) {
         setStatus('granted');
-        speakAccessGranted(resolveVoiceNow(), () => {
-          setDigits('');
-          setStatus('idle');
-          onSuccess();
-        });
+        setDigits('');
+        setStatus('idle');
+        onSuccess();
       } else {
         setStatus('denied');
         resetTimeoutRef.current = window.setTimeout(() => {
           setStatus('idle');
           setDigits('');
-        }, 700);
+        }, 400);
       }
     },
-    [resolveVoiceNow, onSuccess],
+    [onSuccess],
   );
 
   // pushDigit only ever updates `digits` — checking happens in the effect
@@ -165,10 +163,18 @@ export default function PasscodeModal({ isOpen, onClose, onSuccess }: PasscodeMo
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => {
+      let digit: string | null = null;
+
       if (e.key >= '0' && e.key <= '9') {
+        digit = e.key;
+      } else if (/^(Digit|Numpad)[0-9]$/.test(e.code)) {
+        digit = e.code.slice(-1);
+      }
+
+      if (digit !== null) {
         e.preventDefault();
-        pushDigit(e.key);
-      } else if (e.key === 'Backspace') {
+        pushDigit(digit);
+      } else if (e.key === 'Backspace' || e.key === 'Delete') {
         e.preventDefault();
         popDigit();
       } else if (e.key === 'Escape') {

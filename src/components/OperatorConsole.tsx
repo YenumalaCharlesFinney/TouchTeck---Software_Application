@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { db, Meet, Event } from '../db';
+import { db, Meet, type Event } from '../db';
 import { serialDriver, simulator, TimingEvent } from '../serialDriver';
 import { ScoreboardDisplayConfig, DEFAULT_SCOREBOARD_CONFIG, ScoreboardResolution } from '../types';
-import { Terminal, Cpu, Play, Square, RotateCcw, Save, ShieldAlert, Radio, HelpCircle, CheckCircle2, Plus, Activity, ShieldCheck, Power, Copy, Check, Loader2 } from 'lucide-react';
+import { Terminal, Cpu, Play, Square, RotateCcw, Save, ShieldAlert, Radio, HelpCircle, CheckCircle2, Plus, Activity, ShieldCheck, Power, Copy, Check, Loader2, Zap } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import CustomSelect from './CustomSelect';
 import { useModalClose } from '../hooks/useModalClose';
@@ -20,6 +20,8 @@ interface LaneState {
   swimmer?: Swimmer;
   qualifyingTime?: number;
   splits: number[];
+  t1Time?: number;
+  t2Time?: number;
   finalTime: number;
   status: 'OK' | 'DNS' | 'DNF' | 'DQ' | 'NT';
   timingMethod?: 'T1' | 'T2';
@@ -41,8 +43,9 @@ interface OperatorConsoleProps {
   elapsedTime: number;
   timerStatus: 'IDLE' | 'READY' | 'RUNNING' | 'FINISHED';
   lanes: LaneState[];
+  setLanes?: React.Dispatch<React.SetStateAction<LaneState[]>>;
   handleManualStart: () => void;
-  handleResetTimer: () => void;
+  handleResetTimer: (clearDBResults?: boolean) => void;
   handleStopTimer: () => void;
   handleSaveResults: () => void;
   isSavingResults?: boolean;
@@ -77,6 +80,7 @@ export default function OperatorConsole({
   elapsedTime,
   timerStatus,
   lanes,
+  setLanes,
   handleManualStart,
   handleResetTimer,
   handleStopTimer,
@@ -105,17 +109,31 @@ export default function OperatorConsole({
     }
   }, [activeEventId, activeHeatNum]);
 
+  useEffect(() => {
+    const handleUpdate = () => {
+      if (activeEventId) {
+        loadAvailableHeats(activeEventId);
+      }
+    };
+    window.addEventListener('lane-assignments-updated', handleUpdate);
+    return () => window.removeEventListener('lane-assignments-updated', handleUpdate);
+  }, [activeEventId]);
+
   const loadAvailableHeats = async (eventId: number) => {
-    const assignments = await db.laneAssignments.where('eventId').equals(eventId).toArray();
-    const results = await db.results.where('eventId').equals(eventId).toArray();
+    const numEventId = Number(eventId);
+    const assignments = await db.laneAssignments.filter(a => Number(a.eventId) === numEventId).toArray();
+    const results = await db.results.filter(r => Number(r.eventId) === numEventId).toArray();
 
     const heatSet = new Set<number>();
-    assignments.forEach(a => heatSet.add(a.heatNumber));
-    results.forEach(r => heatSet.add(r.heatNumber));
-    heatSet.add(activeHeatNum);
+    assignments.forEach(a => { if (a.heatNumber) heatSet.add(a.heatNumber); });
+    results.forEach(r => { if (r.heatNumber) heatSet.add(r.heatNumber); });
+
+    if (heatSet.size === 0) {
+      heatSet.add(1);
+    }
 
     const sortedHeats = Array.from(heatSet).sort((a, b) => a - b);
-    setAvailableHeats(sortedHeats.length > 0 ? sortedHeats : [1]);
+    setAvailableHeats(sortedHeats);
   };
 
   const handleAddHeat = () => {
@@ -131,13 +149,168 @@ export default function OperatorConsole({
   const [showUsbModal, setShowUsbModal] = useState(false);
   const [showSimOffModal, setShowSimOffModal] = useState<boolean>(false);
   const { isClosing: isUsbModalClosing, triggerClose: closeUsbModal } = useModalClose();
-  const { isClosing: isSimOffModalClosing, triggerClose: closeSimOffModal } = useModalClose();
   const [usbErrorMsg, setUsbErrorMsg] = useState<string | null>(null);
+  const [isResultsSaved, setIsResultsSaved] = useState<boolean>(false);
+
+  useEffect(() => {
+    setIsResultsSaved(false);
+  }, [activeEventId, activeHeatNum, timerStatus]);
+
+  const advanceToNextHeatOrEvent = async () => {
+    if (!activeEventId) return;
+
+    const assignments = await db.laneAssignments.where('eventId').equals(activeEventId).toArray();
+    const results = await db.results.where('eventId').equals(activeEventId).toArray();
+
+    const heatSet = new Set<number>();
+    assignments.forEach(a => { if (a.heatNumber) heatSet.add(a.heatNumber); });
+    results.forEach(r => { if (r.heatNumber) heatSet.add(r.heatNumber); });
+    availableHeats.forEach(h => heatSet.add(h));
+
+    if (heatSet.size === 0) heatSet.add(1);
+
+    const sortedHeats = Array.from(heatSet).sort((a, b) => a - b);
+    const maxHeat = Math.max(1, ...sortedHeats);
+
+    if (activeHeatNum < maxHeat) {
+      const nextHeat = activeHeatNum + 1;
+      setActiveHeatNum(nextHeat);
+      setConsoleLogs(prev => [...prev, `[ADVANCE] Results saved for Heat ${activeHeatNum}. Advancing to Heat ${nextHeat}`]);
+    } else {
+      // Current event completed! Save as DONE
+      if (typeof window !== 'undefined') {
+        try {
+          const savedManual = localStorage.getItem('touchteck_manual_done_events');
+          const currentDone: number[] = savedManual ? JSON.parse(savedManual) : [];
+          if (!currentDone.includes(activeEventId)) {
+            currentDone.push(activeEventId);
+            localStorage.setItem('touchteck_manual_done_events', JSON.stringify(currentDone));
+          }
+        } catch {}
+      }
+
+      const meetId = selectedMeetId || activeMeetId;
+      if (meetId) {
+        const allEvs = await db.events.where('meetId').equals(meetId).toArray();
+        allEvs.sort((a, b) => (a.eventNo || a.id || 0) - (b.eventNo || b.id || 0));
+
+        const currentIdx = allEvs.findIndex(e => e.id === activeEventId);
+        let nextEv: Event | undefined;
+
+        if (currentIdx !== -1 && currentIdx + 1 < allEvs.length) {
+          nextEv = allEvs[currentIdx + 1];
+        } else {
+          const doneResults = await db.results.toArray();
+          const doneIds = new Set(doneResults.map(r => r.eventId));
+          doneIds.add(activeEventId);
+          nextEv = allEvs.find(e => !doneIds.has(e.id!));
+        }
+
+        if (nextEv) {
+          setActiveEventId(nextEv.id!);
+          setActiveHeatNum(1);
+          setConsoleLogs(prev => [...prev, `[ADVANCE] Event completed. Advancing to Event #${nextEv.eventNo || nextEv.id}: ${nextEv.distance}m ${nextEv.stroke}, Heat 1`]);
+        } else {
+          setConsoleLogs(prev => [...prev, `[ADVANCE] All events in the meet are completed!`]);
+        }
+      }
+    }
+
+    setTimeout(() => {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('lane-assignments-updated'));
+      }
+    }, 50);
+  };
+
+  const onSaveResultsClick = async () => {
+    await handleSaveResults();
+    setIsResultsSaved(true);
+    handleResetTimer(false);
+    await advanceToNextHeatOrEvent();
+  };
+
+  const [autoSaveAdvance, setAutoSaveAdvance] = useState<boolean>(() => {
+    return localStorage.getItem('touchteck_auto_save_advance') === 'true';
+  });
+  const [autoSaveCountdown, setAutoSaveCountdown] = useState<number | null>(null);
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem('touchteck_auto_save_advance', autoSaveAdvance ? 'true' : 'false');
+  }, [autoSaveAdvance]);
+
+  // Auto-Save 10-Second Countdown Effect
+  useEffect(() => {
+    if (timerStatus === 'FINISHED' && autoSaveAdvance) {
+      setAutoSaveCountdown(10);
+      if (autoSaveTimerRef.current) clearInterval(autoSaveTimerRef.current);
+
+      autoSaveTimerRef.current = setInterval(() => {
+        setAutoSaveCountdown(prev => {
+          if (prev === null || prev <= 1) {
+            if (autoSaveTimerRef.current) clearInterval(autoSaveTimerRef.current);
+            autoSaveTimerRef.current = null;
+            triggerAutoSaveAndAdvance();
+            return null;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      if (autoSaveTimerRef.current) {
+        clearInterval(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+      setAutoSaveCountdown(null);
+    }
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearInterval(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+    };
+  }, [timerStatus, autoSaveAdvance]);
+
+  const handleCancelAutoSave = () => {
+    if (autoSaveTimerRef.current) {
+      clearInterval(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+    setAutoSaveCountdown(null);
+    setConsoleLogs(prev => [...prev, '[AUTO-SAVE] Auto save cancelled by operator. Remaining on current heat.']);
+  };
+
+  const triggerAutoSaveAndAdvance = async () => {
+    if (autoSaveTimerRef.current) {
+      clearInterval(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+    await handleSaveResults();
+    setIsResultsSaved(true);
+    handleResetTimer(false);
+    await advanceToNextHeatOrEvent();
+  };
   const [simRunning, setSimRunning] = useState<boolean>(false);
   const [isCopied, setIsCopied] = useState<boolean>(false);
 
+  const [isStartLightArmed, setIsStartLightArmed] = useState<boolean>(false);
   const isHardwareConnected = isConnected || serialStatus === 'CONNECTED' || serialDriver.isConnected();
   const isSessionActive = isSimulating || isHardwareConnected;
+
+  const prevHwConnectedRef = useRef(isHardwareConnected);
+
+  useEffect(() => {
+    if (isHardwareConnected && !prevHwConnectedRef.current) {
+      // Turn ON start light when hardware connects
+      setIsStartLightArmed(true);
+    } else if (!isHardwareConnected) {
+      // Turn OFF start light by default when disconnected
+      setIsStartLightArmed(false);
+    }
+    prevHwConnectedRef.current = isHardwareConnected;
+  }, [isHardwareConnected]);
 
   const consoleBottomRef = useRef<HTMLDivElement>(null);
   const consoleContainerRef = useRef<HTMLDivElement>(null);
@@ -164,6 +337,74 @@ export default function OperatorConsole({
     }
   }, [selectedMeetId]);
 
+  const [completedEventIds, setCompletedEventIds] = useState<Set<number>>(new Set());
+  const [manuallyDoneEventIds, setManuallyDoneEventIds] = useState<Set<number>>(new Set());
+
+  const loadDoneEvents = async () => {
+    const allResults = await db.results.toArray();
+    const allAssignments = await db.laneAssignments.toArray();
+
+    const savedHeatsMap = new Map<number, Set<number>>();
+    allResults.forEach(r => {
+      if (r.eventId) {
+        if (!savedHeatsMap.has(r.eventId)) savedHeatsMap.set(r.eventId, new Set());
+        if (r.heatNumber) savedHeatsMap.get(r.eventId)!.add(r.heatNumber);
+      }
+    });
+
+    const totalHeatsMap = new Map<number, Set<number>>();
+    allAssignments.forEach(a => {
+      if (a.eventId) {
+        if (!totalHeatsMap.has(a.eventId)) totalHeatsMap.set(a.eventId, new Set());
+        if (a.heatNumber) totalHeatsMap.get(a.eventId)!.add(a.heatNumber);
+      }
+    });
+
+    const doneIds = new Set<number>();
+    const allEventsList = await db.events.toArray();
+    allEventsList.forEach(ev => {
+      if (!ev.id) return;
+      const savedSet = savedHeatsMap.get(ev.id);
+      const totalSet = totalHeatsMap.get(ev.id);
+
+      if (savedSet && savedSet.size > 0) {
+        const requiredHeatCount = totalSet && totalSet.size > 0 ? Math.max(...Array.from(totalSet)) : 1;
+        let allSaved = true;
+        for (let h = 1; h <= requiredHeatCount; h++) {
+          if (!savedSet.has(h)) {
+            allSaved = false;
+            break;
+          }
+        }
+        if (allSaved) doneIds.add(ev.id);
+      }
+    });
+
+    setCompletedEventIds(doneIds);
+
+    if (typeof window !== 'undefined') {
+      try {
+        const savedManual = localStorage.getItem('touchteck_manual_done_events');
+        if (savedManual) setManuallyDoneEventIds(new Set(JSON.parse(savedManual)));
+      } catch {}
+    }
+  };
+
+  useEffect(() => {
+    loadDoneEvents();
+  }, [activeEventId, activeHeatNum, timerStatus]);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      loadDoneEvents();
+      if (selectedMeetId) {
+        loadEvents(selectedMeetId);
+      }
+    };
+    window.addEventListener('lane-assignments-updated', handleUpdate);
+    return () => window.removeEventListener('lane-assignments-updated', handleUpdate);
+  }, [selectedMeetId]);
+
   const loadMeets = async () => {
     const list = await db.meets.toArray();
     setMeets(list);
@@ -176,10 +417,28 @@ export default function OperatorConsole({
 
   const loadEvents = async (meetId: number) => {
     const list = await db.events.where('meetId').equals(meetId).toArray();
+    list.sort((a, b) => (a.eventNo || a.id || 0) - (b.eventNo || b.id || 0));
     setEvents(list);
+
     if (list.length > 0) {
-      if (!activeEventId || !list.some(e => e.id === activeEventId)) {
-        setActiveEventId(list[0].id!);
+      const doneResults = await db.results.toArray();
+      const doneIds = new Set(doneResults.map(r => r.eventId));
+      if (typeof window !== 'undefined') {
+        try {
+          const savedManual = localStorage.getItem('touchteck_manual_done_events');
+          if (savedManual) {
+            JSON.parse(savedManual).forEach((id: number) => doneIds.add(id));
+          }
+        } catch {}
+      }
+
+      // Find first uncompleted (ONGOING) event
+      const ongoingEv = list.find(e => !doneIds.has(e.id!));
+      const targetId = ongoingEv ? ongoingEv.id! : (activeEventId && list.some(e => e.id === activeEventId) ? activeEventId : list[0].id!);
+
+      if (!activeEventId || activeEventId !== targetId) {
+        setActiveEventId(targetId);
+        setActiveHeatNum(1);
       }
     }
   };
@@ -191,21 +450,8 @@ export default function OperatorConsole({
   }, [consoleLogs, onlyImportantLogs]);
 
   const onStartRaceClick = () => {
-    if (isConnected || isTestMode) {
-      // handleManualStart → triggerStart → sendRaceStartSignal → markRaceStarted(false) → disarmAres.
-      // Do NOT additionally call sendSerialData('START') or injectRawLine('START') —
-      // those triggered extra markRaceStarted() calls causing triple disarm → ARES 21 3-beep lockout.
-      handleManualStart();
-      setConsoleLogs(prev => [...prev, '[HARDWARE] Sent START command to ARES 21 console via Serial.']);
-    } else if (isSimulating) {
-      setSimRunning(true);
-      const swimmerLanes = lanes.filter(l => l.swimmer).map(l => l.laneNumber);
-      const activeLanes = swimmerLanes.length > 0 ? swimmerLanes : [1, 2, 3, 4, 5, 6, 7, 8];
-      simulator.startRace(eventLaps, activeLanes);
-      setConsoleLogs(prev => [...prev, `[SIMULATOR] Starting race: ${eventLaps} length(s) for lanes [${activeLanes.join(', ')}]`]);
-    } else {
-      setShowSimOffModal(true);
-    }
+    handleManualStart();
+    setConsoleLogs(prev => [...prev, '[SYSTEM] Race clock started by operator.']);
   };
 
   const onStopRaceClick = () => {
@@ -379,11 +625,7 @@ export default function OperatorConsole({
     if (isSimulating) {
       simulator.manualSplit(laneNumber, elapsedTime);
     } else {
-      const formattedTime = formatSecondsToTime(elapsedTime);
-      const currentSplits = lane.splits.length;
-      const nextLap = currentSplits + 1;
-      // Inject a Split Touch event (Format: LANE LAP TIME)
-      serialDriver.injectRawLine(`0${laneNumber} ${nextLap} ${formattedTime}`);
+      serialDriver.triggerManualTouch(laneNumber, elapsedTime, 'T1', false);
     }
   };
 
@@ -394,9 +636,27 @@ export default function OperatorConsole({
     if (isSimulating) {
       simulator.manualFinish(laneNumber, elapsedTime);
     } else {
-      const formattedTime = formatSecondsToTime(elapsedTime);
-      // Inject a Finish Touch event
-      serialDriver.injectRawLine(`TF 0${laneNumber} ${formattedTime}`);
+      serialDriver.triggerManualTouch(laneNumber, elapsedTime, 'T2', true);
+    }
+  };
+
+  const handleClearLane = (laneNumber: number) => {
+    if (setLanes) {
+      setLanes((prev: LaneState[]) => prev.map((l: LaneState) => {
+        if (l.laneNumber === laneNumber) {
+          return {
+            ...l,
+            splits: [],
+            t1Time: undefined,
+            t2Time: undefined,
+            finalTime: 0,
+            timingMethod: undefined,
+            status: l.swimmer ? 'OK' : 'DNS',
+            isRunning: timerStatus === 'RUNNING'
+          };
+        }
+        return l;
+      }));
     }
   };
 
@@ -494,27 +754,68 @@ export default function OperatorConsole({
             )}
 
             {(timerStatus === 'FINISHED' || (timerStatus === 'READY' && elapsedTime > 0)) && (
-              <button className="btn btn-cyan font-bold" onClick={onResetRaceClick} style={{ padding: '0.75rem 1.5rem', fontSize: '1rem' }}>
-                <RotateCcw size={18} /> Reset Timer
-              </button>
-            )}
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                <button className="btn btn-cyan font-bold" onClick={onResetRaceClick} style={{ padding: '0.75rem 1.25rem', fontSize: '1rem' }}>
+                  <RotateCcw size={18} /> Reset Timer
+                </button>
 
-            {timerStatus === 'FINISHED' && (
-              isTestMode ? (
-                <button className="btn btn-success" onClick={handleTestingCompleted} style={{ padding: '0.75rem 1.5rem', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <CheckCircle2 size={18} /> Testing Completed
-                </button>
-              ) : (
-                <button
-                  className="btn btn-success"
-                  onClick={handleSaveResults}
-                  disabled={isSavingResults}
-                  style={{ padding: '0.75rem 1.5rem', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-                >
-                  {isSavingResults ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-                  {isSavingResults ? 'Saving...' : 'Save Results'}
-                </button>
-              )
+                {isTestMode ? (
+                  <button className="btn btn-success" onClick={handleTestingCompleted} style={{ padding: '0.75rem 1.5rem', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <CheckCircle2 size={18} /> Testing Completed
+                  </button>
+                ) : isResultsSaved ? (
+                  <button
+                    className="btn btn-secondary"
+                    style={{
+                      padding: '0.75rem 1.25rem',
+                      fontSize: '1rem',
+                      color: '#4ade80',
+                      borderColor: 'rgba(74, 222, 128, 0.4)',
+                      backgroundColor: 'rgba(74, 222, 128, 0.1)',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem'
+                    }}
+                    onClick={async () => {
+                      const assignments = await db.laneAssignments.where('eventId').equals(activeEventId!).toArray();
+                      const uniqueHeats = Array.from(new Set(assignments.map(a => Number(a.heatNumber)))).sort((a, b) => a - b);
+                      const maxHeat = uniqueHeats.length > 0 ? Math.max(...uniqueHeats) : 1;
+                      if (activeHeatNum < maxHeat) {
+                        setActiveHeatNum(activeHeatNum + 1);
+                        setConsoleLogs(prev => [...prev, `[ADVANCE] Advanced to Heat ${activeHeatNum + 1}`]);
+                      } else {
+                        const meetId = selectedMeetId || activeMeetId;
+                        if (meetId) {
+                          const allEvs = await db.events.where('meetId').equals(meetId).toArray();
+                          allEvs.sort((a, b) => (a.eventNo || a.id || 0) - (b.eventNo || b.id || 0));
+                          const currentIdx = allEvs.findIndex(e => e.id === activeEventId);
+                          if (currentIdx >= 0 && currentIdx < allEvs.length - 1) {
+                            const nextEv = allEvs[currentIdx + 1];
+                            setActiveEventId(nextEv.id!);
+                            setActiveHeatNum(1);
+                            setConsoleLogs(prev => [...prev, `[ADVANCE] Advanced to Event #${nextEv.eventNo || nextEv.id}: ${nextEv.distance}m ${nextEv.stroke}`]);
+                          }
+                        }
+                      }
+                    }}
+                  >
+                    Next Heat / Event ⏩
+                  </button>
+                ) : (
+                  <button
+                    className="btn btn-success"
+                    onClick={async () => {
+                      await triggerAutoSaveAndAdvance();
+                    }}
+                    disabled={isSavingResults}
+                    style={{ padding: '0.75rem 1.5rem', fontSize: '1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
+                  >
+                    {isSavingResults ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                    {isSavingResults ? 'Saving...' : 'Save & Next ➔'}
+                  </button>
+                )}
+              </div>
             )}
           </div>
 
@@ -547,12 +848,11 @@ export default function OperatorConsole({
 
             {/* Starter LED Indicators */}
             {(() => {
-              const isHardwareConnected = isConnected || serialStatus === 'CONNECTED' || serialDriver.isConnected();
               const isCooldownActive = armingCooldown > 0;
-              // Green only reflects the real ARES 21 — Simulator mode never lights it,
-              // since this LED represents the physical starter, not app-wide readiness.
-              const isGreenOn = isHardwareConnected && timerStatus !== 'RUNNING' && !isCooldownActive;
-              const isRedOn = timerStatus === 'RUNNING';
+              // Green LED is ON when Start Light is ARMED, race is not running, and not in cooldown
+              const isGreenOn = isStartLightArmed && timerStatus !== 'RUNNING' && !isCooldownActive;
+              // Red LED is ON when race is RUNNING or Start Light is DISARMED / OFF
+              const isRedOn = timerStatus === 'RUNNING' || !isStartLightArmed;
 
               return (
                 <>
@@ -621,105 +921,248 @@ export default function OperatorConsole({
 
         {/* Meet/Event/Heat Selectors */}
         <div className="glass-card" ref={eventSectionRef} style={{ position: 'relative', zIndex: 50 }}>
-          <h4 className="settings-header"><Radio size={16} /> Controller Assignment</h4>
-          <div className="form-row">
-            <div className="form-group mb-0">
-              <label className="form-label">Active Meet</label>
-              <CustomSelect
-                disabled={timerStatus === 'RUNNING' || timerStatus === 'FINISHED'}
-                options={meets.map(m => ({ value: m.id!, label: m.name }))}
-                value={selectedMeetId || ''}
-                placeholder="Select Meet"
-                onChange={(val) => setSelectedMeetId(Number(val))}
-              />
-            </div>
+          {/* Race Completed Banner & Action Bar (Shown whenever race timer is FINISHED) */}
+          {timerStatus === 'FINISHED' && (
+            <div 
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '0.85rem 1.2rem',
+                marginBottom: '1rem',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(6, 182, 212, 0.15) 100%)',
+                border: '1.5px solid rgba(34, 197, 94, 0.5)',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+                flexWrap: 'wrap',
+                gap: '0.75rem'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <CheckCircle2 size={28} style={{ color: '#4ade80', flexShrink: 0 }} />
+                <div>
+                  <div style={{ fontSize: '1rem', fontWeight: 900, color: '#4ade80', letterSpacing: '0.02em' }}>
+                    RACE COMPLETED — Clock Stopped & Details Frozen!
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.85)' }}>
+                    Review swimmer finish times and splits below. Click Save & Next Heat when ready.
+                  </div>
+                </div>
+              </div>
 
-            <div className="form-group mb-0">
-              <label className="form-label">Active Event</label>
-              <CustomSelect
-                disabled={timerStatus === 'RUNNING' || timerStatus === 'FINISHED'}
-                options={events.map(ev => ({
-                  value: ev.id!,
-                  label: `Event #${ev.id}: ${ev.distance}m ${ev.stroke} (${ev.gender === 'M' ? 'Men' : 'Women'} - ${ev.ageGroup})`
-                }))}
-                value={activeEventId || ''}
-                placeholder="Select Event"
-                onChange={(val) => setActiveEventId(Number(val))}
-              />
-            </div>
-
-            <div className="form-group mb-0">
-              <label className="form-label">Heat Number</label>
-              <div className="flex gap-1 items-center">
-                <CustomSelect
-                  disabled={timerStatus === 'RUNNING' || timerStatus === 'FINISHED'}
-                  options={availableHeats.map(h => ({ value: h, label: `Heat ${h}` }))}
-                  value={activeHeatNum}
-                  onChange={(val) => setActiveHeatNum(Number(val))}
-                />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                 <button
                   type="button"
-                  className="btn btn-secondary"
-                  style={{ padding: '0.45rem 0.6rem' }}
-                  title="Add New Heat"
-                  onClick={handleAddHeat}
-                  disabled={timerStatus === 'RUNNING' || timerStatus === 'FINISHED'}
+                  className="btn btn-yellow"
+                  style={{ padding: '0.55rem 1.4rem', fontSize: '0.9rem', fontWeight: 800, background: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)', boxShadow: '0 0 12px rgba(234, 179, 8, 0.3)' }}
+                  onClick={async () => {
+                    await triggerAutoSaveAndAdvance();
+                  }}
                 >
-                  <Plus size={16} />
+                  <Save size={18} /> Save & Load Next Heat / Event ➔
                 </button>
               </div>
             </div>
+          )}
 
-            <div className="form-group mb-0">
-              <label className="form-label">Stage</label>
-              <CustomSelect
-                disabled={timerStatus === 'RUNNING' || timerStatus === 'FINISHED'}
-                options={[
-                  { value: 'Heats', label: 'Heats' },
-                  { value: 'Finals', label: 'Finals' }
-                ]}
-                value={isFinals ? 'Finals' : 'Heats'}
-                onChange={(val) => setIsFinals(val === 'Finals')}
-              />
+          <div style={{ marginBottom: '0.8rem' }}>
+            <h4 className="settings-header" style={{ margin: 0 }}>
+              <Radio size={16} /> Controller Assignment
+            </h4>
+          </div>
+          <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 2.8fr 0.8fr 1fr', gap: '0.65rem', alignItems: 'flex-end' }}>
+            {/* Active Meet Info (Read-Only) */}
+            <div className="form-group mb-0" style={{ minWidth: 0 }}>
+              <label className="form-label" style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Active Meet</label>
+              <div 
+                style={{
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '10px',
+                  padding: '0.55rem 0.85rem',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  color: '#e2e8f0',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  height: '42px',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+                title={meets.find(m => m.id === (selectedMeetId || activeMeetId))?.name || '11th Telangana Masters IDSC 2026'}
+              >
+                {meets.find(m => m.id === (selectedMeetId || activeMeetId))?.name || '11th Telangana Masters IDSC 2026'}
+              </div>
+            </div>
+
+            {/* Active ONGOING Event Details Card (Read-Only) */}
+            {(() => {
+              let currentEv = events.find(e => e.id === activeEventId);
+              const isCurrentDone = currentEv && (completedEventIds.has(currentEv.id!) || manuallyDoneEventIds.has(currentEv.id!));
+              
+              if (!currentEv || isCurrentDone) {
+                const ongoingEv = events.find(e => !completedEventIds.has(e.id!) && !manuallyDoneEventIds.has(e.id!));
+                if (ongoingEv) {
+                  currentEv = ongoingEv;
+                }
+              }
+              const isMerged = currentEv?.ageGroup === 'All Age Groups' || currentEv?.ageGroup?.toLowerCase().includes('merged') || (currentEv as any)?.isMerged;
+              return (
+                <div className="form-group mb-0" style={{ minWidth: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--accent-cyan)' }}>Ongoing Event Details</label>
+                  <div 
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(15, 23, 42, 0.7) 100%)',
+                      border: '1px solid rgba(6, 182, 212, 0.45)',
+                      borderRadius: '10px',
+                      padding: '0.4rem 0.85rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '0.6rem',
+                      height: '42px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, overflow: 'hidden' }}>
+                      <span style={{ background: '#06b6d4', color: '#0f172a', fontWeight: 900, fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: '5px', flexShrink: 0 }}>
+                        Ev #{currentEv?.eventNo || currentEv?.id || 1}
+                      </span>
+                      <span style={{ fontSize: '0.88rem', fontWeight: 800, color: '#f8fafc', whiteSpace: 'nowrap' }}>
+                        {currentEv ? `${currentEv.distance}m ${currentEv.stroke} - ${currentEv.gender === 'M' ? 'Men' : 'Women'}` : 'No Ongoing Event'}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '0.18rem 0.45rem', borderRadius: '4px', background: 'rgba(255,255,255,0.08)', color: 'var(--accent-cyan)' }}>
+                        Category: {currentEv?.ageGroup || 'All Age Groups'}
+                      </span>
+                      {isMerged && (
+                        <span style={{ fontSize: '0.7rem', fontWeight: 900, padding: '0.18rem 0.45rem', borderRadius: '4px', background: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)', color: '#0f172a', letterSpacing: '0.5px' }}>
+                          🔀 MERGED
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Read-Only Heat Info Badge */}
+            <div className="form-group mb-0" style={{ minWidth: 0 }}>
+              <label className="form-label" style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Heat Status</label>
+              <div 
+                style={{
+                  background: 'rgba(250, 204, 21, 0.12)',
+                  border: '1px solid rgba(250, 204, 21, 0.4)',
+                  borderRadius: '10px',
+                  padding: '0.4rem 0.75rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 900,
+                  fontSize: '0.85rem',
+                  color: '#facc15',
+                  height: '42px'
+                }}
+              >
+                Heat {activeHeatNum} of {availableHeats.length > 0 ? Math.max(...availableHeats) : 1}
+              </div>
+            </div>
+
+            {/* Auto-Save & Advance Toggle Switch */}
+            <div className="form-group mb-0" style={{ minWidth: 0 }}>
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}>
+                <Zap size={13} style={{ color: autoSaveAdvance ? '#38bdf8' : '#64748b' }} />
+                Auto Save & Advance
+              </label>
+              <div 
+                onClick={() => setAutoSaveAdvance(prev => !prev)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  background: autoSaveAdvance ? 'rgba(6, 182, 212, 0.12)' : 'rgba(255, 255, 255, 0.04)',
+                  padding: '0.4rem 0.65rem',
+                  borderRadius: '8px',
+                  border: `1px solid ${autoSaveAdvance ? 'rgba(6, 182, 212, 0.4)' : 'rgba(255, 255, 255, 0.12)'}`,
+                  transition: 'all 0.2s ease',
+                  height: '42px',
+                  cursor: 'pointer',
+                  userSelect: 'none'
+                }}
+                title={autoSaveAdvance ? 'Auto Save & Advance ENABLED — starts 10s countdown on race stop' : 'Auto Save & Advance DISABLED'}
+              >
+                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: autoSaveAdvance ? '#38bdf8' : 'var(--text-muted)' }}>
+                  {autoSaveAdvance ? 'ENABLED' : 'DISABLED'}
+                </span>
+                <div
+                  style={{
+                    width: '36px',
+                    height: '18px',
+                    borderRadius: '9px',
+                    backgroundColor: autoSaveAdvance ? '#06b6d4' : '#334155',
+                    position: 'relative',
+                    transition: 'background-color 0.2s ease',
+                    flexShrink: 0
+                  }}
+                >
+                  <span
+                    style={{
+                      width: '12px',
+                      height: '12px',
+                      borderRadius: '50%',
+                      backgroundColor: '#ffffff',
+                      position: 'absolute',
+                      top: '3px',
+                      left: autoSaveAdvance ? '21px' : '3px',
+                      transition: 'left 0.2s ease',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
+                    }}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Lanes overview with manual override triggers */}
         <div className="glass-card" style={{ position: 'relative', zIndex: 1 }}>
-          <h4 className="settings-header">Lane Supervisor (Touchpad Overrides)</h4>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+            <h4 className="settings-header" style={{ margin: 0 }}>Lane Supervisor (Touchpad & Backup Button Overrides)</h4>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+              Showing T1 (Touchpad) & T2 (Backup Button) Hardware Times
+            </span>
+          </div>
+
           <div className="scoreboard-container" style={{ gap: '0.4rem', margin: 0 }}>
             {lanes.map(lane => (
               <div 
                 key={lane.laneNumber} 
                 className="lane-card" 
                 style={{ 
-                  gridTemplateColumns: '45px 2fr 1.2fr 1fr 75px 170px', 
-                  padding: '0.4rem 1rem',
+                  gridTemplateColumns: '36px 1.8fr 1fr 1fr 1.2fr 165px', 
+                  padding: '0.45rem 0.85rem',
                   borderLeftColor: lane.swimmer ? (lane.finalTime > 0 ? 'var(--accent-green)' : 'var(--accent-cyan)') : 'var(--border-color)' 
                 }}
               >
-                <div className="lane-number-badge" style={{ width: '28px', height: '28px', fontSize: '1rem' }}>
+                <div className="lane-number-badge" style={{ width: '28px', height: '28px', fontSize: '0.95rem' }}>
                   {lane.laneNumber}
                 </div>
 
                 <div className="lane-swimmer-info">
-                  <span className="lane-swimmer-name" style={{ fontSize: '0.9rem' }}>
+                  <span className="lane-swimmer-name" style={{ fontSize: '0.88rem' }}>
                     {lane.swimmer ? lane.swimmer.name : <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>[ Empty ]</span>}
                   </span>
                   {lane.swimmer && <span style={{ fontSize: '0.7rem', color: 'var(--accent-cyan)' }}>{lane.swimmer.club}</span>}
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                  {lane.splits.length > 0 ? (
-                    <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+                  {lane.splits.length > 0 && (
+                    <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
                       {lane.splits.map((s, idx) => (
                         <span 
                           key={idx} 
                           style={{ 
                             fontFamily: 'var(--font-mono)', 
-                            fontSize: '0.75rem', 
-                            padding: '0.1rem 0.35rem', 
+                            fontSize: '0.7rem', 
+                            padding: '0.05rem 0.25rem', 
                             borderRadius: '3px', 
                             backgroundColor: 'rgba(6, 182, 212, 0.1)', 
                             border: '1px solid rgba(6, 182, 212, 0.2)',
@@ -727,50 +1170,75 @@ export default function OperatorConsole({
                           }}
                           title={`Lap ${idx + 1} Split Time`}
                         >
-                          L{idx + 1}: {s.toFixed(2)}
+                          L{idx + 1}: {formatSecondsToTime(s)}
                         </span>
                       ))}
                     </div>
-                  ) : (
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>--</span>
                   )}
                 </div>
 
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: lane.finalTime > 0 ? 'var(--accent-green)' : 'var(--text-secondary)' }}>
-                  {lane.finalTime > 0 ? formatSecondsToTime(lane.finalTime) : (timerStatus === 'RUNNING' ? 'Running' : (timerStatus === 'FINISHED' ? (lane.status === 'DNS' ? 'DNS' : '--') : (isTestMode ? 'Testing' : 'Ready')))}
+                {/* T1 (Touchpad) Time Readout */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', justifyContent: 'center' }}>
+                  <span style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--accent-cyan)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    T1 (Touchpad)
+                  </span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9rem', fontWeight: 700, color: lane.t1Time ? 'var(--accent-cyan)' : 'var(--text-muted)' }}>
+                    {lane.t1Time ? formatSecondsToTime(lane.t1Time) : '--'}
+                  </span>
                 </div>
 
-                {/* T1 / T2 Method Badge placed right between Time Readout & Force Buttons */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {lane.finalTime > 0 || lane.splits.length > 0 ? (
-                    <span 
-                      style={{ 
-                        fontSize: '0.75rem', 
-                        fontWeight: 800, 
-                        padding: '0.2rem 0.55rem', 
-                        borderRadius: '4px', 
-                        fontFamily: 'var(--font-mono)',
-                        color: (lane.timingMethod === 'T2') ? 'var(--accent-amber)' : 'var(--accent-cyan)',
-                        backgroundColor: (lane.timingMethod === 'T2') ? 'rgba(245, 158, 11, 0.15)' : 'rgba(6, 182, 212, 0.15)',
-                        border: `1px solid ${(lane.timingMethod === 'T2') ? 'rgba(245, 158, 11, 0.4)' : 'rgba(6, 182, 212, 0.4)'}`
-                      }}
-                      title={lane.timingMethod === 'T2' ? 'Recorded via Backup Button / Manual Force (T2)' : 'Recorded via Swimmer Touchpad (T1)'}
-                    >
-                      {lane.timingMethod || 'T1'}
+                {/* T2 (Backup Button) Time Readout */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', justifyContent: 'center' }}>
+                  <span style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--accent-amber)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    T2 (Backup)
+                  </span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9rem', fontWeight: 700, color: lane.t2Time ? 'var(--accent-amber)' : 'var(--text-muted)' }}>
+                    {lane.t2Time ? formatSecondsToTime(lane.t2Time) : '--'}
+                  </span>
+                </div>
+
+                {/* Final Official Time, Timing Method & Delta */}
+                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '0.1rem' }}>
+                  <span style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Official Final
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '1.02rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: lane.finalTime > 0 ? 'var(--accent-green)' : 'var(--text-secondary)' }}>
+                      {lane.finalTime > 0 ? formatSecondsToTime(lane.finalTime) : (timerStatus === 'RUNNING' ? 'Running' : (timerStatus === 'FINISHED' ? (lane.status === 'DNS' ? 'DNS' : '--') : (isTestMode ? 'Testing' : 'Ready')))}
                     </span>
-                  ) : (
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>--</span>
-                  )}
+                    {lane.finalTime > 0 && (
+                      <span 
+                        style={{ 
+                          fontSize: '0.68rem', 
+                          fontWeight: 800, 
+                          padding: '0.12rem 0.4rem', 
+                          borderRadius: '4px', 
+                          fontFamily: 'var(--font-mono)',
+                          color: (lane.timingMethod === 'T2') ? 'var(--accent-amber)' : 'var(--accent-cyan)',
+                          backgroundColor: (lane.timingMethod === 'T2') ? 'rgba(245, 158, 11, 0.15)' : 'rgba(6, 182, 212, 0.15)',
+                          border: `1px solid ${(lane.timingMethod === 'T2') ? 'rgba(245, 158, 11, 0.4)' : 'rgba(6, 182, 212, 0.4)'}`
+                        }}
+                        title={lane.timingMethod === 'T2' ? 'Recorded via Backup Button / Manual Force (T2)' : 'Recorded via Swimmer Touchpad (T1)'}
+                      >
+                        {lane.timingMethod || 'T1'}
+                      </span>
+                    )}
+                  </div>
+                  {lane.t1Time && lane.t2Time ? (
+                    <span style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: Math.abs(lane.t1Time - lane.t2Time) > 0.3 ? '#f87171' : '#4ade80' }}>
+                      Δ {Math.abs(lane.t1Time - lane.t2Time).toFixed(2)}s
+                    </span>
+                  ) : null}
                 </div>
 
-                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
                   <button 
                     className="btn btn-secondary" 
-                    disabled={lane.finalTime > 0 || timerStatus !== 'RUNNING'}
+                    disabled={lane.finalTime > 0}
                     style={{
                       flex: 1,
                       padding: '0.25rem 0.4rem',
-                      fontSize: '0.7rem',
+                      fontSize: '0.68rem',
                       borderColor: 'var(--accent-cyan)',
                       color: 'var(--accent-cyan)',
                       backgroundColor: 'rgba(6, 182, 212, 0.05)',
@@ -783,11 +1251,11 @@ export default function OperatorConsole({
                   </button>
                   <button 
                     className="btn btn-secondary" 
-                    disabled={lane.finalTime > 0 || timerStatus !== 'RUNNING'}
+                    disabled={lane.finalTime > 0}
                     style={{
                       flex: 1,
                       padding: '0.25rem 0.4rem',
-                      fontSize: '0.7rem',
+                      fontSize: '0.68rem',
                       borderColor: 'var(--accent-amber)',
                       color: 'var(--accent-amber)',
                       backgroundColor: 'rgba(245, 158, 11, 0.05)',
@@ -949,28 +1417,74 @@ export default function OperatorConsole({
                   );
                 }
 
-                // 2. Hardware Currently Connected -> Show Reconnect USB option for manual re-handshake
+                // 2. Hardware Currently Connected -> Show Green Connected status badge & Disconnect/Re-Handshake controls
                 if (isHwConnected) {
                   return (
-                    <button
-                      className="btn w-full"
-                      style={{
-                        width: '100%',
-                        fontWeight: 800,
-                        padding: '0.65rem',
-                        backgroundColor: '#f59e0b',
-                        color: '#000000',
-                        border: '1px solid #fbbf24',
-                        boxShadow: '0 0 12px rgba(245, 158, 11, 0.4)'
-                      }}
-                      onClick={async () => {
-                        setConsoleLogs(prev => [...prev, '[SYSTEM] Reconnecting to CH340 USB Adapter & ARES 21...']);
-                        await serialDriver.autoConnect().catch(() => false);
-                      }}
-                      title="Trigger instant reconnection with ARES 21 USB Bridge"
-                    >
-                      Reconnect USB
-                    </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
+                      <div 
+                        style={{ 
+                          padding: '0.55rem 0.75rem', 
+                          borderRadius: '8px', 
+                          backgroundColor: 'rgba(34, 197, 94, 0.12)', 
+                          border: '1px solid rgba(34, 197, 94, 0.3)', 
+                          color: '#4ade80', 
+                          fontWeight: 800, 
+                          fontSize: '0.85rem', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          gap: '0.5rem' 
+                        }}
+                      >
+                        <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#22c55e', boxShadow: '0 0 8px #22c55e' }} />
+                        USB Hardware Connected
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{
+                            flex: 1,
+                            fontWeight: 700,
+                            padding: '0.45rem',
+                            fontSize: '0.78rem',
+                            color: '#f87171',
+                            borderColor: 'rgba(239, 68, 68, 0.3)',
+                            backgroundColor: 'rgba(239, 68, 68, 0.08)'
+                          }}
+                          onClick={async () => {
+                            await handleDisconnect();
+                          }}
+                          title="Disconnect USB serial hardware"
+                        >
+                          Disconnect Port
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{
+                            flex: 1,
+                            fontWeight: 700,
+                            padding: '0.45rem',
+                            fontSize: '0.78rem',
+                            color: '#fbbf24',
+                            borderColor: 'rgba(251, 191, 36, 0.3)',
+                            backgroundColor: 'rgba(251, 191, 36, 0.08)'
+                          }}
+                          onClick={async () => {
+                            setConsoleLogs(prev => [...prev, '[SYSTEM] Re-handshaking with CH340 USB Adapter & ARES 21...']);
+                            const ok = await serialDriver.rehandshake().catch(() => false);
+                            if (ok) {
+                              setIsStartLightArmed(true);
+                            }
+                          }}
+                          title="Trigger fresh handshake with ARES 21 USB Bridge"
+                        >
+                          Re-Handshake
+                        </button>
+                      </div>
+                    </div>
                   );
                 }
 
@@ -992,8 +1506,11 @@ export default function OperatorConsole({
                           boxShadow: '0 0 12px rgba(245, 158, 11, 0.4)'
                         }}
                         onClick={async () => {
-                          setConsoleLogs(prev => [...prev, '[SYSTEM] Reconnecting to CH340 USB Adapter & ARES 21...']);
-                          await serialDriver.autoConnect().catch(() => false);
+                          setConsoleLogs(prev => [...prev, '[SYSTEM] Reconnecting & Re-handshaking with ARES 21...']);
+                          const ok = await serialDriver.rehandshake().catch(() => false);
+                          if (ok) {
+                            setIsStartLightArmed(true);
+                          }
                         }}
                         title="Trigger instant reconnection with ARES 21 USB Bridge"
                       >
@@ -1209,8 +1726,8 @@ export default function OperatorConsole({
                   padding: '0 0.5rem',
                   whiteSpace: 'nowrap',
                   color: '#4ade80',
-                  border: '1px solid rgba(74, 222, 128, 0.4)',
-                  background: 'rgba(74, 222, 128, 0.08)',
+                  border: isStartLightArmed ? '2px solid #4ade80' : '1px solid rgba(74, 222, 128, 0.4)',
+                  background: isStartLightArmed ? 'rgba(74, 222, 128, 0.22)' : 'rgba(74, 222, 128, 0.08)',
                   fontWeight: 700,
                   display: 'flex',
                   alignItems: 'center',
@@ -1219,14 +1736,18 @@ export default function OperatorConsole({
                   borderRadius: '8px',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
+                  boxShadow: isStartLightArmed ? '0 0 12px rgba(74, 222, 128, 0.4)' : '0 2px 8px rgba(0, 0, 0, 0.2)'
                 }}
                 onClick={async () => {
+                  setIsStartLightArmed(true);
+                  if (timerStatus !== 'RUNNING') {
+                    handleResetTimer();
+                  }
                   const isHw = isConnected || serialStatus === 'CONNECTED' || serialDriver.isConnected();
                   if (isHw) {
                     await serialDriver.armLanes(true);
-                    setConsoleLogs(prev => [...prev, '[ARES21] Sent Arm command (CMD 0x16) — Green Ready Light ON.']);
                   }
+                  setConsoleLogs(prev => [...prev, '[ARES21] Sent Arm command (CMD 0x16) — Green Ready Light ON & Race Clock Reset to READY.']);
                 }}
                 title="Turn ON Omega StartTime Green Ready Light"
               >
@@ -1244,8 +1765,8 @@ export default function OperatorConsole({
                   padding: '0 0.5rem',
                   whiteSpace: 'nowrap',
                   color: '#f87171',
-                  border: '1px solid rgba(239, 68, 68, 0.4)',
-                  background: 'rgba(239, 68, 68, 0.08)',
+                  border: !isStartLightArmed ? '2px solid #f87171' : '1px solid rgba(239, 68, 68, 0.4)',
+                  background: !isStartLightArmed ? 'rgba(239, 68, 68, 0.22)' : 'rgba(239, 68, 68, 0.08)',
                   fontWeight: 700,
                   display: 'flex',
                   alignItems: 'center',
@@ -1254,14 +1775,15 @@ export default function OperatorConsole({
                   borderRadius: '8px',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
+                  boxShadow: !isStartLightArmed ? '0 0 12px rgba(239, 68, 68, 0.4)' : '0 2px 8px rgba(0, 0, 0, 0.2)'
                 }}
                 onClick={async () => {
+                  setIsStartLightArmed(false);
                   const isHw = isConnected || serialStatus === 'CONNECTED' || serialDriver.isConnected();
                   if (isHw) {
                     await serialDriver.disarmAres();
-                    setConsoleLogs(prev => [...prev, '[ARES21] Sent Disarm command — Green Ready Light OFF.']);
                   }
+                  setConsoleLogs(prev => [...prev, '[ARES21] Sent Disarm command — Green Ready Light OFF.']);
                 }}
                 title="Turn OFF Omega StartTime Green Ready Light"
               >
@@ -1382,64 +1904,84 @@ export default function OperatorConsole({
         </div>
       )}
 
-      {/* Simulator Off Prompt Modal */}
-      {showSimOffModal && (
-        <div className={`modal-overlay${isSimOffModalClosing ? ' modal-closing' : ''}`} style={{ zIndex: 99999 }}>
-          <div className={`modal-panel-anim${isSimOffModalClosing ? ' modal-closing' : ''}`} style={{ backgroundColor: 'var(--bg-card)', border: '2px solid var(--accent-amber)', borderRadius: '16px', padding: '2rem', maxWidth: '500px', width: '90%', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.7)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
-              <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(245, 158, 11, 0.2)', border: '1px solid var(--accent-amber)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-amber)' }}>
-                <Cpu size={28} />
-              </div>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#ffffff' }}>Simulator is OFF</h3>
-                <span style={{ fontSize: '0.8rem', color: 'var(--accent-amber)', fontWeight: 600 }}>Action Required to Start Race</span>
-              </div>
+
+      {/* 10-Second Auto Save & Advance Countdown Modal */}
+      {autoSaveCountdown !== null && (
+        <div 
+          className="modal-backdrop fade-in"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(5, 8, 15, 0.85)',
+            backdropFilter: 'blur(12px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999
+          }}
+        >
+          <div 
+            className="modal-content glass-card slide-up"
+            style={{
+              width: '420px',
+              maxWidth: '90vw',
+              padding: '2rem',
+              borderRadius: '20px',
+              border: '1px solid rgba(6, 182, 212, 0.4)',
+              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(6, 182, 212, 0.2)',
+              textAlign: 'center',
+              background: 'linear-gradient(145deg, #0e1726, #090d16)'
+            }}
+          >
+            <div style={{ display: 'inline-flex', padding: '0.5rem 1rem', borderRadius: '30px', background: 'rgba(6, 182, 212, 0.15)', border: '1px solid rgba(6, 182, 212, 0.3)', color: '#38bdf8', fontWeight: 800, fontSize: '0.78rem', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '1.2rem', gap: '0.4rem', alignItems: 'center' }}>
+              <Zap size={15} /> Auto Save & Advance Active
             </div>
 
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.5', marginBottom: '1.5rem' }}>
-              The <strong>Timing Simulator</strong> is currently turned OFF, and no physical USB hardware timing console is connected. Turn on the simulator to run simulated race triggers and touchpad splits.
+            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.4rem', fontWeight: 800, color: '#ffffff' }}>
+              Saving Results & Advancing
+            </h3>
+
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0 0 1.5rem 0', lineHeight: 1.5 }}>
+              Race clock stopped. Results will save automatically and advance to the next heat/event in:
             </p>
+
+            {/* Countdown Big Number Display */}
+            <div style={{ position: 'relative', width: '100px', height: '100px', margin: '0 auto 1.8rem auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div 
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  borderRadius: '50%',
+                  border: '4px solid rgba(6, 182, 212, 0.2)',
+                  borderTopColor: '#06b6d4',
+                  animation: 'spin 1.5s linear infinite'
+                }} 
+              />
+              <span style={{ fontSize: '3rem', fontWeight: 900, fontFamily: 'var(--font-mono)', color: '#06b6d4', textShadow: '0 0 20px rgba(6, 182, 212, 0.6)' }}>
+                {autoSaveCountdown}
+              </span>
+              <span style={{ position: 'absolute', bottom: '10px', fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                SECS
+              </span>
+            </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <button
                 type="button"
-                className="btn btn-cyan"
-                style={{ width: '100%', padding: '0.85rem', fontSize: '0.95rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-                onClick={() => closeSimOffModal(() => {
-                  setShowSimOffModal(false);
-                  if (isConnected) handleDisconnect();
-                  setIsSimulating(true);
-                  setConsoleLogs(prev => [...prev, '[SYSTEM] Simulator Mode ENABLED via Start prompt.']);
-                  setTimeout(() => {
-                    setSimRunning(true);
-                    const swimmerLanes = lanes.filter(l => l.swimmer).map(l => l.laneNumber);
-                    const activeLanes = swimmerLanes.length > 0 ? swimmerLanes : [1, 2, 3, 4, 5, 6, 7, 8];
-                    simulator.startRace(eventLaps, activeLanes);
-                    setConsoleLogs(prev => [...prev, `[SIMULATOR] Starting race: ${eventLaps} length(s) for lanes [${activeLanes.join(', ')}]`]);
-                  }, 100);
-                })}
+                className="btn btn-cyan font-bold"
+                style={{ padding: '0.85rem', width: '100%', fontSize: '0.95rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                onClick={triggerAutoSaveAndAdvance}
               >
-                <Play size={18} /> Turn On Simulator & Start Race
+                <Save size={18} /> Save Results & Advance Now
               </button>
 
               <button
                 type="button"
                 className="btn btn-secondary"
-                style={{ width: '100%', padding: '0.75rem', fontSize: '0.85rem' }}
-                onClick={() => closeSimOffModal(() => {
-                  setShowSimOffModal(false);
-                  setShowUsbModal(true);
-                })}
+                style={{ padding: '0.75rem', width: '100%', fontSize: '0.85rem', color: 'var(--accent-red)', borderColor: 'rgba(239, 68, 68, 0.4)', backgroundColor: 'rgba(239, 68, 68, 0.1)', fontWeight: 700 }}
+                onClick={handleCancelAutoSave}
               >
-                🔌 Connect USB Hardware Console Instead
-              </button>
-
-              <button
-                type="button"
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', padding: '0.5rem', fontSize: '0.8rem', cursor: 'pointer', textAlign: 'center' }}
-                onClick={() => closeSimOffModal(() => setShowSimOffModal(false))}
-              >
-                Cancel
+                ✕ Cancel Auto Save (Stay on current heat)
               </button>
             </div>
           </div>

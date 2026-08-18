@@ -135,10 +135,27 @@ wss.on('connection', (ws) => {
   if (disarmGraceTimer) { clearTimeout(disarmGraceTimer); disarmGraceTimer = null; }
   ws.send(JSON.stringify({ type: 'status', deviceConnected: !!serialPort?.isOpen }));
 
-  ws.on('message', (data, isBinary) => {
-    if (!isBinary) return; // browser never sends control text frames, only raw protocol bytes
+  ws.on('message', async (data) => {
+    try {
+      const text = typeof data === 'string' ? data : (Buffer.isBuffer(data) ? data.toString('utf8') : '');
+      if (text.startsWith('{')) {
+        const json = JSON.parse(text);
+        if (json.action === 'reconnect' || json.action === 'rehandshake') {
+          log('Received explicit COM port reconnect request from browser UI.');
+          if (serialPort) {
+            try { serialPort.close(); } catch {}
+            serialPort = null;
+          }
+          await openSerial();
+          ws.send(JSON.stringify({ type: 'status', deviceConnected: !!serialPort?.isOpen }));
+          return;
+        }
+      }
+    } catch {}
+
     if (serialPort?.isOpen) {
-      serialPort.write(data);
+      const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
+      serialPort.write(buf);
     }
   });
 

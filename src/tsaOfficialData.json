@@ -1,0 +1,6628 @@
+{
+  "swimmers": [
+    {
+      "name": "PAPOLU SATYANARAYANA PRASAD",
+      "district": "Hyderabad",
+      "sfiUid": "SFIMAXTEL29685",
+      "gender": "M",
+      "ageGroup": "70-74",
+      "birthYear": 1985
+    },
+    {
+      "name": "Ranjita Rao Katragadda",
+      "district": "Hyderabad",
+      "sfiUid": "Sfifaxtel2501",
+      "gender": "F",
+      "ageGroup": "65-69",
+      "birthYear": 1985
+    },
+    {
+      "name": "Asit Kumar Khanra",
+      "district": "Warangal",
+      "sfiUid": "SFIMAXTEL38568",
+      "gender": "M",
+      "ageGroup": "55-59",
+      "birthYear": 1985
+    },
+    {
+      "name": "SRINIVAS BANDIRALA",
+      "district": "Medchal Malkajgiri",
+      "sfiUid": "SFIMAXTEL35156",
+      "gender": "M",
+      "ageGroup": "55-59",
+      "birthYear": 1985
+    },
+    {
+      "name": "Sireesha Mamidenna",
+      "district": "Ranga Reddy",
+      "sfiUid": "BSA",
+      "gender": "F",
+      "ageGroup": "55-59",
+      "birthYear": 1985
+    },
+    {
+      "name": "santosh chandra",
+      "district": "Hyderabad",
+      "sfiUid": "2026",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "birthYear": 1985
+    },
+    {
+      "name": "ADITYA VUPPALA",
+      "district": "Hyderabad",
+      "sfiUid": "SFIMAXTEL38999",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "birthYear": 1985
+    },
+    {
+      "name": "Ganachary sravan kumar",
+      "district": "Hyderabad",
+      "sfiUid": "SFIMAXTEL20274",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "birthYear": 1985
+    },
+    {
+      "name": "Smita Bose",
+      "district": "Hyderabad",
+      "sfiUid": "SFIMAXTEL",
+      "gender": "F",
+      "ageGroup": "45-49",
+      "birthYear": 1985
+    },
+    {
+      "name": "Satya Sravan Kumar Rachakonda",
+      "district": "Medchal Malkajgiri",
+      "sfiUid": "SFIMAXTEL42643",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "birthYear": 1985
+    },
+    {
+      "name": "Bhanu Indurkar",
+      "district": "Hyderabad",
+      "sfiUid": "SFIMAXTEL42648",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "birthYear": 1985
+    },
+    {
+      "name": "Mayank Gupta",
+      "district": "Hyderabad",
+      "sfiUid": "SFIMAXTEL42692",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "birthYear": 1985
+    },
+    {
+      "name": "Abhilasha Gadiraju",
+      "district": "Medchal Malkajgiri",
+      "sfiUid": "SFIFAXTEL25199",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "birthYear": 1985
+    },
+    {
+      "name": "Nagaswathi Putta",
+      "district": "Ranga Reddy",
+      "sfiUid": "SFIFAXTEL35130",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "birthYear": 1985
+    },
+    {
+      "name": "SYED AMJAD",
+      "district": "Mahaboobnagar",
+      "sfiUid": "2026-27",
+      "gender": "M",
+      "ageGroup": "35-39",
+      "birthYear": 1985
+    },
+    {
+      "name": "Sarepalli Harika",
+      "district": "Hyderabad",
+      "sfiUid": "SFIFAXTEL42691",
+      "gender": "F",
+      "ageGroup": "35-39",
+      "birthYear": 1985
+    },
+    {
+      "name": "Satyaraj Mayor",
+      "district": "Hyderabad",
+      "sfiUid": "SFIMAXTEL",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "birthYear": 1985
+    },
+    {
+      "name": "Thumpilla Naresh Kumar",
+      "district": "Warangal",
+      "sfiUid": "SFIMAXTEL",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "birthYear": 1985
+    },
+    {
+      "name": "Lakshmi Ramani Vadde",
+      "district": "Hyderabad",
+      "sfiUid": "SFIFAXTEL42688",
+      "gender": "F",
+      "ageGroup": "30-34",
+      "birthYear": 1985
+    },
+    {
+      "name": "Sayera Banu",
+      "district": "Mahaboobnagar",
+      "sfiUid": "2026-27",
+      "gender": "F",
+      "ageGroup": "30-34",
+      "birthYear": 1985
+    },
+    {
+      "name": "KANNEKANTI BHARGAVACHARY",
+      "district": "Nalgonda",
+      "sfiUid": "SFIMAXTEL42631",
+      "gender": "M",
+      "ageGroup": "25-29",
+      "birthYear": 1985
+    },
+    {
+      "name": "Prashant Raparthi",
+      "district": "Karimnagar",
+      "sfiUid": "SFIMAXTEL",
+      "gender": "M",
+      "ageGroup": "25-29",
+      "birthYear": 1985
+    },
+    {
+      "name": "Vinuthna Venigalla",
+      "district": "Nizamabad",
+      "sfiUid": "SFIFAXTEL42705",
+      "gender": "F",
+      "ageGroup": "25-29",
+      "birthYear": 1985
+    },
+    {
+      "name": "Shishir Punjala",
+      "district": "Hyderabad",
+      "sfiUid": "SFIMAXTEL35481",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "birthYear": 1985
+    },
+    {
+      "name": "G Mohan Reddy",
+      "district": "Hyderabad",
+      "sfiUid": "SFIMAXTEL35488",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "birthYear": 1985
+    },
+    {
+      "name": "SUDHIR SHAH",
+      "district": "Hyderabad",
+      "sfiUid": "BSA",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "birthYear": 1985
+    },
+    {
+      "name": "Goli Syamala",
+      "district": "Sangareddy",
+      "sfiUid": "SFIFAXTEL20238",
+      "gender": "F",
+      "ageGroup": "50-54",
+      "birthYear": 1985
+    },
+    {
+      "name": "K. R. Ajithsudarshan",
+      "district": "Hyderabad",
+      "sfiUid": "Swimedtempc_3379f122",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "birthYear": 1985
+    },
+    {
+      "name": "Vidya Sunitha Mogadala",
+      "district": "Ranga Reddy",
+      "sfiUid": "SFIFAXTEL38432",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "birthYear": 1985
+    },
+    {
+      "name": "Gunda Lakshmi Narasimha Achyuth",
+      "district": "Hyderabad",
+      "sfiUid": "SFIMAXTEL20267",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "birthYear": 1985
+    },
+    {
+      "name": "MOHAMMED HYDER ALI",
+      "district": "Hyderabad",
+      "sfiUid": "SFIMAXTEL38423",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "birthYear": 1985
+    },
+    {
+      "name": "Soma Jagan Mohan Reddy",
+      "district": "Hyderabad",
+      "sfiUid": "SFIMAXTEL 29623",
+      "gender": "M",
+      "ageGroup": "75-79",
+      "birthYear": 1985
+    },
+    {
+      "name": "RUCHI SINGH",
+      "district": "Hyderabad",
+      "sfiUid": "SFIFAXTEL38910",
+      "gender": "F",
+      "ageGroup": "55-59",
+      "birthYear": 1985
+    },
+    {
+      "name": "MADAGOUNI NARSIMHA",
+      "district": "Ranga Reddy",
+      "sfiUid": "SFIMAXTEL42682",
+      "gender": "M",
+      "ageGroup": "50-54",
+      "birthYear": 1985
+    },
+    {
+      "name": "MADHU SUDHAN YADAV",
+      "district": "Hyderabad",
+      "sfiUid": "SFIMAXTEL38523",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "birthYear": 1985
+    },
+    {
+      "name": "Muthyala Archana",
+      "district": "Hyderabad",
+      "sfiUid": "SFIFAXTEL38935",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "birthYear": 1985
+    },
+    {
+      "name": "Navathe ramakrishna",
+      "district": "Hyderabad",
+      "sfiUid": "SFIMAXTEL20548",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "birthYear": 1985
+    },
+    {
+      "name": "Girija Rampalli",
+      "district": "Hyderabad",
+      "sfiUid": "SFIMAXTEL",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "birthYear": 1985
+    },
+    {
+      "name": "Gayathri INKOLLU",
+      "district": "Hyderabad",
+      "sfiUid": "SFIFAXTEL38477",
+      "gender": "F",
+      "ageGroup": "75-79",
+      "birthYear": 1985
+    },
+    {
+      "name": "Talla Babu",
+      "district": "Hyderabad",
+      "sfiUid": "SFIMAXTEL35520",
+      "gender": "M",
+      "ageGroup": "70-74",
+      "birthYear": 1985
+    },
+    {
+      "name": "SUDARSHAN KALAKOTLA",
+      "district": "Warangal",
+      "sfiUid": "SFIMAXTEL25294",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "birthYear": 1985
+    },
+    {
+      "name": "Pallem Gopal",
+      "district": "Hyderabad",
+      "sfiUid": "SFIMAXTEL38421",
+      "gender": "M",
+      "ageGroup": "50-54",
+      "birthYear": 1985
+    }
+  ],
+  "events": [
+    {
+      "eventNo": 1,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 2,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 3,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 4,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 5,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 6,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 7,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 8,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 9,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 10,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 11,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 12,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 13,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 14,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 15,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 16,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 17,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 18,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 19,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 20,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 21,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 22,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 23,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 24,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 25,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 26,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 27,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 28,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 29,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 30,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 31,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 32,
+      "eventName": "400m Freestyle",
+      "distance": 400,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 33,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 34,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 35,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 36,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 37,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 38,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 39,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 40,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 41,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 42,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 43,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 44,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 45,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 46,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 47,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 48,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 49,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 50,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 51,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 52,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 53,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 54,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 55,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 56,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 57,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 58,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 59,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 60,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 61,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 62,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 63,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 64,
+      "eventName": "200m Breaststroke",
+      "distance": 200,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 65,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 66,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 67,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 68,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 69,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 70,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 71,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 72,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 73,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 74,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 75,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 76,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 77,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 78,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 79,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 80,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 81,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 82,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 83,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 84,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 85,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 86,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 87,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 88,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 89,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 90,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 91,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 92,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 93,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 94,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 95,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 96,
+      "eventName": "200m Backstroke",
+      "distance": 200,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 97,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 98,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 99,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 100,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 101,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 102,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 103,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 104,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 105,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 106,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 107,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 108,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 109,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 110,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 111,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 112,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 113,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 114,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 115,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 116,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 117,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 118,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 119,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 120,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 121,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 122,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 123,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 124,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 125,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 126,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 127,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 128,
+      "eventName": "400m IM",
+      "distance": 400,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 129,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 130,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 131,
+      "eventName": "400m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "75-79",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Soma Jagan Mohan Reddy"
+        }
+      ]
+    },
+    {
+      "eventNo": 132,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 133,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "70-74",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "PAPOLU SATYANARAYANA PRASAD"
+        }
+      ]
+    },
+    {
+      "eventNo": 134,
+      "eventName": "100m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "70-74",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "PAPOLU SATYANARAYANA PRASAD"
+        }
+      ]
+    },
+    {
+      "eventNo": 135,
+      "eventName": "200m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "70-74",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "PAPOLU SATYANARAYANA PRASAD"
+        }
+      ]
+    },
+    {
+      "eventNo": 136,
+      "eventName": "400m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "70-74",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "PAPOLU SATYANARAYANA PRASAD"
+        }
+      ]
+    },
+    {
+      "eventNo": 137,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 138,
+      "eventName": "200m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "G Mohan Reddy"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "SUDHIR SHAH"
+        }
+      ]
+    },
+    {
+      "eventNo": 139,
+      "eventName": "400m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "G Mohan Reddy"
+        }
+      ]
+    },
+    {
+      "eventNo": 140,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "65-69",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Ranjita Rao Katragadda"
+        }
+      ]
+    },
+    {
+      "eventNo": 141,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 142,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 143,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "55-59",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Asit Kumar Khanra"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "SRINIVAS BANDIRALA"
+        }
+      ]
+    },
+    {
+      "eventNo": 144,
+      "eventName": "100m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "55-59",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "SRINIVAS BANDIRALA"
+        }
+      ]
+    },
+    {
+      "eventNo": 145,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "55-59",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Sireesha Mamidenna"
+        }
+      ]
+    },
+    {
+      "eventNo": 146,
+      "eventName": "400m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "55-59",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "RUCHI SINGH"
+        }
+      ]
+    },
+    {
+      "eventNo": 147,
+      "eventName": "400m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "50-54",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "MADAGOUNI NARSIMHA"
+        }
+      ]
+    },
+    {
+      "eventNo": 148,
+      "eventName": "200m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "50-54",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Goli Syamala"
+        }
+      ]
+    },
+    {
+      "eventNo": 149,
+      "eventName": "400m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "50-54",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Goli Syamala"
+        }
+      ]
+    },
+    {
+      "eventNo": 150,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 3,
+          "swimmerName": "santosh chandra"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "ADITYA VUPPALA"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "Ganachary sravan kumar"
+        }
+      ]
+    },
+    {
+      "eventNo": 151,
+      "eventName": "100m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Ganachary sravan kumar"
+        }
+      ]
+    },
+    {
+      "eventNo": 152,
+      "eventName": "200m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Ganachary sravan kumar"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "K. R. Ajithsudarshan"
+        }
+      ]
+    },
+    {
+      "eventNo": 153,
+      "eventName": "400m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 3,
+          "swimmerName": "MADHU SUDHAN YADAV"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Ganachary sravan kumar"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "K. R. Ajithsudarshan"
+        }
+      ]
+    },
+    {
+      "eventNo": 154,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "45-49",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Smita Bose"
+        }
+      ]
+    },
+    {
+      "eventNo": 155,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 3,
+          "swimmerName": "Satya Sravan Kumar Rachakonda"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Bhanu Indurkar"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "Mayank Gupta"
+        }
+      ]
+    },
+    {
+      "eventNo": 156,
+      "eventName": "100m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 3,
+          "swimmerName": "Shishir Punjala"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Bhanu Indurkar"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "Satya Sravan Kumar Rachakonda"
+        }
+      ]
+    },
+    {
+      "eventNo": 157,
+      "eventName": "200m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Satya Sravan Kumar Rachakonda"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "Shishir Punjala"
+        }
+      ]
+    },
+    {
+      "eventNo": 158,
+      "eventName": "400m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Mayank Gupta"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "Satya Sravan Kumar Rachakonda"
+        }
+      ]
+    },
+    {
+      "eventNo": 159,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Abhilasha Gadiraju"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "Nagaswathi Putta"
+        }
+      ]
+    },
+    {
+      "eventNo": 160,
+      "eventName": "100m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Nagaswathi Putta"
+        }
+      ]
+    },
+    {
+      "eventNo": 161,
+      "eventName": "200m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Vidya Sunitha Mogadala"
+        }
+      ]
+    },
+    {
+      "eventNo": 162,
+      "eventName": "400m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 3,
+          "swimmerName": "Vidya Sunitha Mogadala"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Muthyala Archana"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "Nagaswathi Putta"
+        }
+      ]
+    },
+    {
+      "eventNo": 163,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "35-39",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "SYED AMJAD"
+        }
+      ]
+    },
+    {
+      "eventNo": 164,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "35-39",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Sarepalli Harika"
+        }
+      ]
+    },
+    {
+      "eventNo": 165,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Satyaraj Mayor"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "Thumpilla Naresh Kumar"
+        }
+      ]
+    },
+    {
+      "eventNo": 166,
+      "eventName": "100m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Satyaraj Mayor"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "Thumpilla Naresh Kumar"
+        }
+      ]
+    },
+    {
+      "eventNo": 167,
+      "eventName": "200m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Gunda Lakshmi Narasimha Achyuth"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "MOHAMMED HYDER ALI"
+        }
+      ]
+    },
+    {
+      "eventNo": 168,
+      "eventName": "400m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 3,
+          "swimmerName": "Satyaraj Mayor"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Gunda Lakshmi Narasimha Achyuth"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "MOHAMMED HYDER ALI"
+        }
+      ]
+    },
+    {
+      "eventNo": 169,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "30-34",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Lakshmi Ramani Vadde"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "Sayera Banu"
+        }
+      ]
+    },
+    {
+      "eventNo": 170,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "25-29",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "KANNEKANTI BHARGAVACHARY"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "Prashant Raparthi"
+        }
+      ]
+    },
+    {
+      "eventNo": 171,
+      "eventName": "100m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "25-29",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Prashant Raparthi"
+        }
+      ]
+    },
+    {
+      "eventNo": 172,
+      "eventName": "200m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "25-29",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Prashant Raparthi"
+        }
+      ]
+    },
+    {
+      "eventNo": 173,
+      "eventName": "400m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "25-29",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "KANNEKANTI BHARGAVACHARY"
+        }
+      ]
+    },
+    {
+      "eventNo": 174,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "25-29",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Vinuthna Venigalla"
+        }
+      ]
+    },
+    {
+      "eventNo": 175,
+      "eventName": "200m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "25-29",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Vinuthna Venigalla"
+        }
+      ]
+    },
+    {
+      "eventNo": 176,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 177,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 178,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 179,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 180,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 181,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 182,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 183,
+      "eventName": "50m Freestyle",
+      "distance": 50,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 184,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 185,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 186,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 187,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 188,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 189,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 190,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 191,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 192,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 193,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 194,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 195,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 196,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 197,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 198,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 199,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 200,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 201,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 202,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 203,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 204,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 205,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 206,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 207,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 208,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 209,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 210,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 211,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 212,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 213,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 214,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 215,
+      "eventName": "200m Butterfly",
+      "distance": 200,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 216,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 217,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 218,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 219,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 220,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 221,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 222,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 223,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 224,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 225,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 226,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 227,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 228,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 229,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 230,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 231,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 232,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 233,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 234,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 235,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 236,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 237,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 238,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 239,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 240,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 241,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 242,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 243,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 244,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 245,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 246,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 247,
+      "eventName": "200m Freestyle",
+      "distance": 200,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 248,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 249,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 250,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 251,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 252,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 253,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 254,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 255,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 256,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 257,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 258,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 259,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 260,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 261,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 262,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 263,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 264,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 265,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 266,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 267,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 268,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 269,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 270,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 271,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 272,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 273,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 274,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 275,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 276,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 277,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 278,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 279,
+      "eventName": "100m Backstroke",
+      "distance": 100,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 280,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 281,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 282,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 283,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 284,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 285,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 286,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 287,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 288,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 289,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 290,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 291,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 292,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 293,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 294,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 295,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 296,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 297,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 298,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 299,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 300,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 301,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 302,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 303,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 304,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 305,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 306,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 307,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 308,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 309,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 310,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 311,
+      "eventName": "200m IM",
+      "distance": 200,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 312,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 313,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 314,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 315,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 316,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 317,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 318,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 319,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 320,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 321,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 322,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 323,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 324,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 325,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 326,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 327,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 328,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 329,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 330,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 331,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 332,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 333,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 334,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 335,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 336,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 337,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 338,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 339,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 340,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 341,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 342,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 343,
+      "eventName": "100m Breaststroke",
+      "distance": 100,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 344,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 345,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 346,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 347,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 348,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 349,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 350,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 351,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 352,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 353,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 354,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 355,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 356,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 357,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 358,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 359,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 360,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 361,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 362,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 363,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 364,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 365,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 366,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 367,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 368,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 369,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 370,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 371,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 372,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 373,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 374,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 375,
+      "eventName": "100m Butterfly",
+      "distance": 100,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 376,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 377,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 378,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 379,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 380,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 381,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 382,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 383,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 384,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 385,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 386,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 387,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 388,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 389,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 390,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 391,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 392,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 393,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 394,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 395,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 396,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 397,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 398,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 399,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 400,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 401,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 402,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 403,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 404,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 405,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 406,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 407,
+      "eventName": "100m Freestyle",
+      "distance": 100,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 408,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 409,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 410,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 411,
+      "eventName": "100m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "75-79",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Gayathri INKOLLU"
+        }
+      ]
+    },
+    {
+      "eventNo": 412,
+      "eventName": "100m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "70-74",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Talla Babu"
+        }
+      ]
+    },
+    {
+      "eventNo": 413,
+      "eventName": "200m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "70-74",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Talla Babu"
+        }
+      ]
+    },
+    {
+      "eventNo": 414,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 415,
+      "eventName": "100m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "G Mohan Reddy"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "SUDARSHAN KALAKOTLA"
+        }
+      ]
+    },
+    {
+      "eventNo": 416,
+      "eventName": "200m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "G Mohan Reddy"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "SUDARSHAN KALAKOTLA"
+        }
+      ]
+    },
+    {
+      "eventNo": 417,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "65-69",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Ranjita Rao Katragadda"
+        }
+      ]
+    },
+    {
+      "eventNo": 418,
+      "eventName": "100m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "65-69",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Ranjita Rao Katragadda"
+        }
+      ]
+    },
+    {
+      "eventNo": 419,
+      "eventName": "200m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "65-69",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Ranjita Rao Katragadda"
+        }
+      ]
+    },
+    {
+      "eventNo": 420,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 421,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 422,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "55-59",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "SRINIVAS BANDIRALA"
+        }
+      ]
+    },
+    {
+      "eventNo": 423,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "55-59",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "RUCHI SINGH"
+        }
+      ]
+    },
+    {
+      "eventNo": 424,
+      "eventName": "100m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "55-59",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "RUCHI SINGH"
+        }
+      ]
+    },
+    {
+      "eventNo": 425,
+      "eventName": "200m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "55-59",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "RUCHI SINGH"
+        }
+      ]
+    },
+    {
+      "eventNo": 426,
+      "eventName": "100m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "50-54",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "MADAGOUNI NARSIMHA"
+        }
+      ]
+    },
+    {
+      "eventNo": 427,
+      "eventName": "100m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "50-54",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Goli Syamala"
+        }
+      ]
+    },
+    {
+      "eventNo": 428,
+      "eventName": "200m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "50-54",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Goli Syamala"
+        }
+      ]
+    },
+    {
+      "eventNo": 429,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Navathe ramakrishna"
+        }
+      ]
+    },
+    {
+      "eventNo": 430,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "45-49",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Smita Bose"
+        }
+      ]
+    },
+    {
+      "eventNo": 431,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Bhanu Indurkar"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "Shishir Punjala"
+        }
+      ]
+    },
+    {
+      "eventNo": 432,
+      "eventName": "100m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Bhanu Indurkar"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "Shishir Punjala"
+        }
+      ]
+    },
+    {
+      "eventNo": 433,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 3,
+          "swimmerName": "Nagaswathi Putta"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Abhilasha Gadiraju"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "Girija Rampalli"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 6,
+          "swimmerName": "Vidya Sunitha Mogadala"
+        }
+      ]
+    },
+    {
+      "eventNo": 434,
+      "eventName": "100m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Girija Rampalli"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "Vidya Sunitha Mogadala"
+        }
+      ]
+    },
+    {
+      "eventNo": 435,
+      "eventName": "200m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Girija Rampalli"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "Vidya Sunitha Mogadala"
+        }
+      ]
+    },
+    {
+      "eventNo": 436,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 437,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 438,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Thumpilla Naresh Kumar"
+        }
+      ]
+    },
+    {
+      "eventNo": 439,
+      "eventName": "100m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "MOHAMMED HYDER ALI"
+        }
+      ]
+    },
+    {
+      "eventNo": 440,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "30-34",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Lakshmi Ramani Vadde"
+        }
+      ]
+    },
+    {
+      "eventNo": 441,
+      "eventName": "200m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "25-29",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "KANNEKANTI BHARGAVACHARY"
+        }
+      ]
+    },
+    {
+      "eventNo": 442,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "25-29",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Vinuthna Venigalla"
+        }
+      ]
+    },
+    {
+      "eventNo": 443,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 444,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 445,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 446,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 447,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 448,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 449,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "M",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 450,
+      "eventName": "50m Backstroke",
+      "distance": 50,
+      "stroke": "Backstroke",
+      "gender": "F",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 451,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 452,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 453,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 454,
+      "eventName": "100m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "75-79",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Gayathri INKOLLU"
+        }
+      ]
+    },
+    {
+      "eventNo": 455,
+      "eventName": "200m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "75-79",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Gayathri INKOLLU"
+        }
+      ]
+    },
+    {
+      "eventNo": 456,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 457,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 458,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "SUDHIR SHAH"
+        }
+      ]
+    },
+    {
+      "eventNo": 459,
+      "eventName": "200m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "SUDARSHAN KALAKOTLA"
+        }
+      ]
+    },
+    {
+      "eventNo": 460,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 461,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 462,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 463,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "55-59",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Asit Kumar Khanra"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "SRINIVAS BANDIRALA"
+        }
+      ]
+    },
+    {
+      "eventNo": 464,
+      "eventName": "100m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "55-59",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Asit Kumar Khanra"
+        }
+      ]
+    },
+    {
+      "eventNo": 465,
+      "eventName": "200m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "55-59",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Asit Kumar Khanra"
+        }
+      ]
+    },
+    {
+      "eventNo": 466,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 467,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "50-54",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Pallem Gopal"
+        }
+      ]
+    },
+    {
+      "eventNo": 468,
+      "eventName": "100m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "50-54",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Pallem Gopal"
+        }
+      ]
+    },
+    {
+      "eventNo": 469,
+      "eventName": "200m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "50-54",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "MADAGOUNI NARSIMHA"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "Pallem Gopal"
+        }
+      ]
+    },
+    {
+      "eventNo": 470,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 471,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "ADITYA VUPPALA"
+        }
+      ]
+    },
+    {
+      "eventNo": 472,
+      "eventName": "100m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "K. R. Ajithsudarshan"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "santosh chandra"
+        }
+      ]
+    },
+    {
+      "eventNo": 473,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "45-49",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Smita Bose"
+        }
+      ]
+    },
+    {
+      "eventNo": 474,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 475,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Abhilasha Gadiraju"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "Muthyala Archana"
+        }
+      ]
+    },
+    {
+      "eventNo": 476,
+      "eventName": "100m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Muthyala Archana"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "Nagaswathi Putta"
+        }
+      ]
+    },
+    {
+      "eventNo": 477,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 478,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 479,
+      "eventName": "200m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "MOHAMMED HYDER ALI"
+        }
+      ]
+    },
+    {
+      "eventNo": 480,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 481,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "25-29",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Prashant Raparthi"
+        }
+      ]
+    },
+    {
+      "eventNo": 482,
+      "eventName": "100m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "25-29",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Prashant Raparthi"
+        }
+      ]
+    },
+    {
+      "eventNo": 483,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "25-29",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Vinuthna Venigalla"
+        }
+      ]
+    },
+    {
+      "eventNo": 484,
+      "eventName": "100m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "25-29",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Vinuthna Venigalla"
+        }
+      ]
+    },
+    {
+      "eventNo": 485,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 486,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 487,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 488,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 489,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 490,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 491,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "M",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 492,
+      "eventName": "50m Breaststroke",
+      "distance": 50,
+      "stroke": "Breaststroke",
+      "gender": "F",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 493,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 494,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 495,
+      "eventName": "100m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "75-79",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Soma Jagan Mohan Reddy"
+        }
+      ]
+    },
+    {
+      "eventNo": 496,
+      "eventName": "200m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "75-79",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Soma Jagan Mohan Reddy"
+        }
+      ]
+    },
+    {
+      "eventNo": 497,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 498,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 499,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 500,
+      "eventName": "100m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "SUDARSHAN KALAKOTLA"
+        }
+      ]
+    },
+    {
+      "eventNo": 501,
+      "eventName": "200m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "SUDARSHAN KALAKOTLA"
+        }
+      ]
+    },
+    {
+      "eventNo": 502,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 503,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 504,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 505,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "55-59",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Asit Kumar Khanra"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "SRINIVAS BANDIRALA"
+        }
+      ]
+    },
+    {
+      "eventNo": 506,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 507,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 508,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 509,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Ganachary sravan kumar"
+        }
+      ]
+    },
+    {
+      "eventNo": 510,
+      "eventName": "100m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "MADHU SUDHAN YADAV"
+        }
+      ]
+    },
+    {
+      "eventNo": 511,
+      "eventName": "200m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "MADHU SUDHAN YADAV"
+        }
+      ]
+    },
+    {
+      "eventNo": 512,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 513,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Bhanu Indurkar"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "Mayank Gupta"
+        }
+      ]
+    },
+    {
+      "eventNo": 514,
+      "eventName": "100m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Shishir Punjala"
+        }
+      ]
+    },
+    {
+      "eventNo": 515,
+      "eventName": "200m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Satya Sravan Kumar Rachakonda"
+        }
+      ]
+    },
+    {
+      "eventNo": 516,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 517,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 518,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 519,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 520,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 521,
+      "eventName": "200m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "25-29",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "KANNEKANTI BHARGAVACHARY"
+        }
+      ]
+    },
+    {
+      "eventNo": 522,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 523,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 524,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 525,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 526,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 527,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 528,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 529,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "M",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 530,
+      "eventName": "50m Butterfly",
+      "distance": 50,
+      "stroke": "Butterfly",
+      "gender": "F",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 531,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 532,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 533,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 534,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "80 & above",
+      "assignments": []
+    },
+    {
+      "eventNo": 535,
+      "eventName": "200m IM",
+      "distance": 50,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "75-79",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Soma Jagan Mohan Reddy"
+        }
+      ]
+    },
+    {
+      "eventNo": 536,
+      "eventName": "400m IM",
+      "distance": 50,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "75-79",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Soma Jagan Mohan Reddy"
+        }
+      ]
+    },
+    {
+      "eventNo": 537,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 538,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 539,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 540,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "75-79",
+      "assignments": []
+    },
+    {
+      "eventNo": 541,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 542,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 543,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 544,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "70-74",
+      "assignments": []
+    },
+    {
+      "eventNo": 545,
+      "eventName": "200m IM",
+      "distance": 50,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "SUDHIR SHAH"
+        }
+      ]
+    },
+    {
+      "eventNo": 546,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 547,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 548,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 549,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "65-69",
+      "assignments": []
+    },
+    {
+      "eventNo": 550,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 551,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 552,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 553,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "60-64",
+      "assignments": []
+    },
+    {
+      "eventNo": 554,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 555,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 556,
+      "eventName": "400m IM",
+      "distance": 50,
+      "stroke": "Individual Medley",
+      "gender": "F",
+      "ageGroup": "55-59",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "RUCHI SINGH"
+        }
+      ]
+    },
+    {
+      "eventNo": 557,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 558,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "55-59",
+      "assignments": []
+    },
+    {
+      "eventNo": 559,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 560,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 561,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 562,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "50-54",
+      "assignments": []
+    },
+    {
+      "eventNo": 563,
+      "eventName": "200m IM",
+      "distance": 50,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "K. R. Ajithsudarshan"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "MADHU SUDHAN YADAV"
+        }
+      ]
+    },
+    {
+      "eventNo": 564,
+      "eventName": "400m IM",
+      "distance": 50,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "MADHU SUDHAN YADAV"
+        }
+      ]
+    },
+    {
+      "eventNo": 565,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 566,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 567,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 568,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "45-49",
+      "assignments": []
+    },
+    {
+      "eventNo": 569,
+      "eventName": "200m IM",
+      "distance": 50,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Mayank Gupta"
+        }
+      ]
+    },
+    {
+      "eventNo": 570,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 571,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 572,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 573,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "40-44",
+      "assignments": []
+    },
+    {
+      "eventNo": 574,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 575,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 576,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 577,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "35-39",
+      "assignments": []
+    },
+    {
+      "eventNo": 578,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 579,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 580,
+      "eventName": "200m IM",
+      "distance": 50,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "30-34",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "Gunda Lakshmi Narasimha Achyuth"
+        },
+        {
+          "heatNumber": 1,
+          "laneNumber": 5,
+          "swimmerName": "MOHAMMED HYDER ALI"
+        }
+      ]
+    },
+    {
+      "eventNo": 581,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 582,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "30-34",
+      "assignments": []
+    },
+    {
+      "eventNo": 583,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 584,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 585,
+      "eventName": "200m IM",
+      "distance": 50,
+      "stroke": "Individual Medley",
+      "gender": "M",
+      "ageGroup": "25-29",
+      "assignments": [
+        {
+          "heatNumber": 1,
+          "laneNumber": 4,
+          "swimmerName": "KANNEKANTI BHARGAVACHARY"
+        }
+      ]
+    },
+    {
+      "eventNo": 586,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 587,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "25-29",
+      "assignments": []
+    },
+    {
+      "eventNo": 588,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 589,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 590,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 591,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "Group A",
+      "assignments": []
+    },
+    {
+      "eventNo": 592,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 593,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 594,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 595,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "Group B",
+      "assignments": []
+    },
+    {
+      "eventNo": 596,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 597,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 598,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 599,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "Group C",
+      "assignments": []
+    },
+    {
+      "eventNo": 600,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 601,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "M",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 602,
+      "eventName": "800m Freestyle",
+      "distance": 800,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "Group D",
+      "assignments": []
+    },
+    {
+      "eventNo": 603,
+      "eventName": "1500m Freestyle",
+      "distance": 1500,
+      "stroke": "Freestyle",
+      "gender": "F",
+      "ageGroup": "Group D",
+      "assignments": []
+    }
+  ]
+}
