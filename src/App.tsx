@@ -797,7 +797,7 @@ export default function App() {
         loadLanesAndEventConfig(activeEventId, activeHeatNum, isFinals);
       }
     }
-  }, [dbSeeded, activeMeetId, activeEventId, activeHeatNum, bothEnds, isFinals]);
+  }, [dbSeeded, activeMeetId, activeEventId, activeHeatNum, bothEnds, isFinals, activeTab]);
 
   const syncToFirstUncompletedEvent = async (meetId: number | null) => {
     if (!meetId) return;
@@ -876,7 +876,9 @@ export default function App() {
   useEffect(() => {
     const handleLiveLaneUpdate = async () => {
       if (timerStatusRef.current !== 'RUNNING') {
-        await syncToFirstUncompletedEvent(activeMeetIdRef.current);
+        if (!activeEventIdRef.current) {
+          await syncToFirstUncompletedEvent(activeMeetIdRef.current);
+        }
         loadLanesAndEventConfig(activeEventIdRef.current || 1, activeHeatNumRef.current || 1, isFinalsRef.current);
       }
     };
@@ -1057,9 +1059,23 @@ export default function App() {
     targetHeatNum?: number,
     targetIsFinals?: boolean
   ) => {
-    const effEventId = targetEventId ?? activeEventIdRef.current ?? activeEventId;
+    let effEventId = targetEventId ?? activeEventIdRef.current ?? activeEventId;
     const effHeatNum = targetHeatNum ?? activeHeatNumRef.current ?? activeHeatNum;
     const effIsFinals = targetIsFinals ?? isFinalsRef.current ?? isFinals;
+
+    if (!effEventId) {
+      try {
+        const meetId = activeMeetIdRef.current || activeMeetId || 1;
+        const eventsList = await db.events.where('meetId').equals(meetId).toArray();
+        eventsList.sort((a, b) => (a.eventNo || a.id || 0) - (b.eventNo || b.id || 0));
+        if (eventsList.length > 0 && eventsList[0].id) {
+          effEventId = eventsList[0].id;
+          setActiveEventId(effEventId);
+        }
+      } catch (e) {
+        console.error('Error finding fallback event in loadLanesAndEventConfig:', e);
+      }
+    }
 
     if (!effEventId) {
       setLanes(createDefaultLanes());

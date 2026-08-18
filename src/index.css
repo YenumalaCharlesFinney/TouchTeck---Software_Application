@@ -1177,6 +1177,44 @@ select.form-control option:hover {
   animation: fadeIn 0.18s ease-out;
 }
 
+/* Hover auto-scroll for overflowing select trigger labels */
+@keyframes selectLabelScroll {
+  0% { transform: translateX(0); }
+  10% { transform: translateX(0); }
+  90% { transform: translateX(var(--scroll-distance, -50%)); }
+  100% { transform: translateX(var(--scroll-distance, -50%)); }
+}
+
+.custom-select-label-scroll {
+  position: relative;
+}
+
+.custom-select-trigger:hover .custom-select-label-inner {
+  animation: selectLabelScroll 3s ease-in-out infinite alternate;
+}
+
+.custom-select-trigger:not(:hover) .custom-select-label-inner {
+  animation: none;
+  transform: translateX(0);
+}
+
+/* Generic version of the same hover auto-scroll, for any single-line text
+   that may overflow its box (event titles, list rows, etc). --scroll-distance
+   is set to 0px by HoverScrollText when the content already fits, so the
+   animation is a no-op and nothing moves. */
+.hscroll-text {
+  position: relative;
+}
+
+.hscroll-text:hover .hscroll-text-inner {
+  animation: selectLabelScroll 3s ease-in-out infinite alternate;
+}
+
+.hscroll-text:not(:hover) .hscroll-text-inner {
+  animation: none;
+  transform: translateX(0);
+}
+
 /* Crossfade for tab switches — only used on the 6 tabs that fully unmount/remount.
    OperatorConsole is deliberately excluded (kept alive via display:none to preserve
    live timer/serial state), so it never gets this wrapper. */

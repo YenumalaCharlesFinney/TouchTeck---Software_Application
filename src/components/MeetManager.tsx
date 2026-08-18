@@ -4,6 +4,7 @@ import { db, Meet, type Event, Swimmer, LaneAssignment, seedDatabase, AgeGroup }
 import { Calendar, Plus, Users, Award, ShieldAlert, UserX, Trash2, Edit, Save, RotateCcw, ChevronDown, ChevronUp, Search, ListFilter, PlayCircle, CheckCircle2, Clock, GitMerge, Layers, Printer, Zap, Download, CheckSquare, Square, GripVertical, ArrowUp, ArrowDown, ListChecks } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import CustomSelect from './CustomSelect';
+import HoverScrollText from './HoverScrollText';
 import { LOGO_BASE64 } from '../utils/logoBase64';
 import { printHtmlDocument } from '../utils/printHelper';
 
@@ -132,13 +133,28 @@ export default function MeetManager({
 
   const handleSchedulerGenderChange = (genderVal: string) => {
     setFilterSchedulerGender(genderVal);
-    setSelectedEventId(null);
   };
 
   const handleSchedulerCategoryChange = (catVal: string) => {
     setFilterSchedulerCategory(catVal);
-    setSelectedEventId(null);
   };
+
+  // Live-sync GENDER & CATEGORY filters to match the active event
+  useEffect(() => {
+    if (selectedEventId) {
+      const activeEv = events.find(e => e.id === selectedEventId);
+      if (activeEv) {
+        setFilterSchedulerGender(activeEv.gender || 'All');
+        // Map "All Age Groups" or merged-like ageGroups to the 'Merged' filter value
+        const ag = activeEv.ageGroup;
+        if (ag === 'All Age Groups' || ag?.toLowerCase().includes('merged') || (activeEv as any)?.isMerged) {
+          setFilterSchedulerCategory('Merged');
+        } else {
+          setFilterSchedulerCategory(ag || 'All');
+        }
+      }
+    }
+  }, [selectedEventId, events]);
 
   // Meet Create Form State
   const [meetName, setMeetName] = useState('');
@@ -184,7 +200,7 @@ export default function MeetManager({
   const [savedHeatKeys, setSavedHeatKeys] = useState<Set<string>>(new Set());
   const [eventHeatsMap, setEventHeatsMap] = useState<Map<number, number[]>>(new Map());
 
-  const loadCompletedEvents = async () => {
+  const loadCompletedEvents = async (overrideSelectedEventId?: number | null, overrideSelectedHeatNum?: number) => {
     const allResults = await db.results.toArray();
     const allAssignments = await db.laneAssignments.toArray();
 
@@ -209,36 +225,29 @@ export default function MeetManager({
       }
     });
 
-    const heatsListMap = new Map<number, number[]>();
-    totalHeatsMap.forEach((set, evId) => {
-      heatsListMap.set(evId, Array.from(set).sort((a, b) => a - b));
-    });
-    setEventHeatsMap(heatsListMap);
+    const dbEvs = selectedMeetId 
+      ? await db.events.where('meetId').equals(selectedMeetId).toArray()
+      : await db.events.toArray();
+    dbEvs.sort((a, b) => (a.eventNo || a.id || 0) - (b.eventNo || b.id || 0));
 
     const doneIds = new Set<number>();
-    const allEventsList = await db.events.toArray();
+    const heatsListMap = new Map<number, number[]>();
 
-    allEventsList.forEach(ev => {
+    dbEvs.forEach(ev => {
       if (!ev.id) return;
+      const assignedSet = totalHeatsMap.get(ev.id);
       const savedSet = savedHeatsMap.get(ev.id);
-      const totalSet = totalHeatsMap.get(ev.id);
 
-      const heatSet = new Set<number>();
-      if (totalSet) totalSet.forEach(h => heatSet.add(h));
-      if (savedSet) savedSet.forEach(h => heatSet.add(h));
-      if (heatSet.size === 0) heatSet.add(1);
+      const combinedHeats = new Set<number>();
+      if (assignedSet) assignedSet.forEach(h => combinedHeats.add(h));
+      if (savedSet) savedSet.forEach(h => combinedHeats.add(h));
+      if (combinedHeats.size === 0) combinedHeats.add(1);
 
-      const heatArray = Array.from(heatSet).sort((a, b) => a - b);
+      const heatArray = Array.from(combinedHeats).sort((a, b) => a - b);
       heatsListMap.set(ev.id, heatArray);
 
       if (savedSet && savedSet.size > 0) {
-        let allSaved = true;
-        for (const h of heatArray) {
-          if (!savedSet.has(h)) {
-            allSaved = false;
-            break;
-          }
-        }
+        const allSaved = heatArray.every(h => savedSet.has(h));
         if (allSaved) {
           doneIds.add(ev.id);
         }
@@ -248,7 +257,53 @@ export default function MeetManager({
     setEventHeatsMap(heatsListMap);
     setCompletedEventIds(doneIds);
     setSavedHeatKeys(heatKeys);
+
+    // If an explicit override was provided by toggleHeatDoneStatus, use it directly
+    if (overrideSelectedEventId !== undefined) {
+      if (overrideSelectedEventId !== null) {
+        setSelectedEventId(overrideSelectedEventId);
+        if (overrideSelectedHeatNum !== undefined) {
+          setSelectedHeatNum(overrideSelectedHeatNum);
+        }
+      }
+      return;
+    }
+
+    if (dbEvs.length > 0) {
+      const savedManual = typeof window !== 'undefined' ? localStorage.getItem('touchteck_manual_done_events') : null;
+      const manualDoneIds: number[] = savedManual ? JSON.parse(savedManual).map(Number) : [];
+
+      const isDoneEvent = (eId: number) => doneIds.has(eId) || manualDoneIds.includes(eId);
+
+      if (!selectedEventId) {
+        const firstOngoing = dbEvs.find(e => e.id && !isDoneEvent(e.id));
+        const targetEv = firstOngoing || dbEvs[0];
+        if (targetEv && targetEv.id) {
+          setSelectedEventId(targetEv.id);
+          const heats = heatsListMap.get(targetEv.id) || [1];
+          const firstUnsaved = heats.find(h => !heatKeys.has(`${targetEv.id}-${h}`)) || 1;
+          setSelectedHeatNum(firstUnsaved);
+        }
+      } else if (isDoneEvent(selectedEventId)) {
+        const firstOngoing = dbEvs.find(e => e.id && !isDoneEvent(e.id));
+        if (firstOngoing && firstOngoing.id) {
+          setSelectedEventId(firstOngoing.id);
+          const heats = heatsListMap.get(firstOngoing.id) || [1];
+          const firstUnsaved = heats.find(h => !heatKeys.has(`${firstOngoing.id}-${h}`)) || 1;
+          setSelectedHeatNum(firstUnsaved);
+        }
+      } else {
+        const heats = heatsListMap.get(selectedEventId) || [1];
+        if (heatKeys.has(`${selectedEventId}-${selectedHeatNum}`)) {
+          const nextUnsaved = heats.find(h => !heatKeys.has(`${selectedEventId}-${h}`));
+          if (nextUnsaved) {
+            setSelectedHeatNum(nextUnsaved);
+          }
+        }
+      }
+    }
   };
+
 
   useEffect(() => {
     if (selectedMeetId) {
@@ -289,15 +344,16 @@ export default function MeetManager({
 
   const loadEvents = async (meetId: number) => {
     const list = await db.events.where('meetId').equals(meetId).toArray();
-    // Club all Men's events together first, and all Women's events together second,
-    // while strictly preserving each event's age group, event number & stroke!
-    list.sort((a, b) => {
-      if (a.gender !== b.gender) return a.gender === 'M' ? -1 : 1;
-      return (a.eventNo || a.id || 0) - (b.eventNo || b.id || 0);
-    });
+    list.sort((a, b) => (a.eventNo || a.id || 0) - (b.eventNo || b.id || 0));
     setEvents(list);
-    setSelectedEventId(null);
-    setSelectedHeatNum(1);
+
+    const isValidActive = selectedEventId && list.some(e => e.id === selectedEventId);
+    if (!isValidActive && list.length > 0) {
+      const firstOngoing = list.find(e => e.id && !completedEventIds.has(e.id) && !manuallyDoneEventIds.has(e.id));
+      const targetId = firstOngoing ? firstOngoing.id! : list[0].id!;
+      setSelectedEventId(targetId);
+      setSelectedHeatNum(1);
+    }
   };
 
   const loadHeatsAndAssignments = async (eventId: number, heatNum: number) => {
@@ -395,6 +451,8 @@ export default function MeetManager({
   const toggleHeatDoneStatus = async (eventId: number, heatNum: number) => {
     const heatKey = `${eventId}-${heatNum}`;
     const isDone = savedHeatKeys.has(heatKey);
+    const evHeats = eventHeatsMap.get(eventId) || [1];
+    const wasEventFullyDone = evHeats.every(h => savedHeatKeys.has(`${eventId}-${h}`));
 
     if (isDone) {
       const matchingResults = await db.results
@@ -421,7 +479,41 @@ export default function MeetManager({
       }
     }
 
-    await loadCompletedEvents();
+    // Re-check this event's completion against the DB we just wrote to, then
+    // move the active event/heat to match: finishing the active event's last
+    // heat advances to the next ongoing event, while un-marking a heat that
+    // had completed the event brings that event back into focus.
+    const remainingResults = await db.results.where('eventId').equals(eventId).toArray();
+    const doneHeats = new Set(remainingResults.map(r => r.heatNumber));
+    const isEventFullyDoneNow = evHeats.every(h => doneHeats.has(h));
+
+    let overrideEventId: number | null | undefined = undefined;
+    let overrideHeatNum: number | undefined = undefined;
+
+    if (wasEventFullyDone && !isEventFullyDoneNow) {
+      // Event was fully done, now un-done: jump back to this event
+      const firstUndone = evHeats.find(h => !doneHeats.has(h)) || heatNum;
+      overrideEventId = eventId;
+      overrideHeatNum = firstUndone;
+    } else if (!wasEventFullyDone && isEventFullyDoneNow && eventId === selectedEventId) {
+      // Active event just finished: jump to next ongoing event
+      const currentIdx = events.findIndex(e => e.id === eventId);
+      const isOtherOngoing = (e: any) => !!e.id && e.id !== eventId && !completedEventIds.has(e.id) && !manuallyDoneEventIds.has(e.id);
+      const nextOngoing = events.find((e, idx) => idx > currentIdx && isOtherOngoing(e)) || events.find(isOtherOngoing);
+      if (nextOngoing && nextOngoing.id) {
+        overrideEventId = nextOngoing.id;
+        overrideHeatNum = 1;
+      }
+    } else if (!wasEventFullyDone && !isEventFullyDoneNow && eventId === selectedEventId) {
+      // Heat within active event just completed — advance to next unsaved heat
+      const nextUnsaved = evHeats.find(h => !doneHeats.has(h));
+      if (nextUnsaved) {
+        overrideEventId = eventId;
+        overrideHeatNum = nextUnsaved;
+      }
+    }
+
+    await loadCompletedEvents(overrideEventId, overrideHeatNum);
     window.dispatchEvent(new Event('lane-assignments-updated'));
   };
 
@@ -473,6 +565,22 @@ export default function MeetManager({
     if (typeof window !== 'undefined') {
       localStorage.setItem('touchteck_manual_done_events', JSON.stringify(Array.from(nextManual)));
     }
+
+    if (isDone) {
+      // Was done, just undone: bring it back into focus as the active event.
+      setSelectedEventId(eventId);
+      setSelectedHeatNum(1);
+    } else if (eventId === selectedEventId) {
+      // Was the active event and just got marked done: advance to the next one.
+      const currentIdx = events.findIndex(e => e.id === eventId);
+      const isOtherOngoing = (e: Event) => !!e.id && e.id !== eventId && !completedEventIds.has(e.id) && !nextManual.has(e.id);
+      const nextOngoing = events.find((e, idx) => idx > currentIdx && isOtherOngoing(e)) || events.find(isOtherOngoing);
+      if (nextOngoing && nextOngoing.id) {
+        setSelectedEventId(nextOngoing.id);
+        setSelectedHeatNum(1);
+      }
+    }
+
     await loadCompletedEvents();
     window.dispatchEvent(new Event('lane-assignments-updated'));
   };
@@ -529,6 +637,25 @@ export default function MeetManager({
     if (typeof window !== 'undefined') {
       localStorage.setItem('touchteck_manual_done_events', JSON.stringify(Array.from(nextManual)));
     }
+
+    if (allSelectedAreDone) {
+      // These were done, just undone: bring the first of them back into focus.
+      const target = events.find(e => e.id && selectedIds.includes(e.id));
+      if (target && target.id) {
+        setSelectedEventId(target.id);
+        setSelectedHeatNum(1);
+      }
+    } else if (selectedEventId && selectedIds.includes(selectedEventId)) {
+      // The active event was part of the batch just marked done: advance.
+      const currentIdx = events.findIndex(e => e.id === selectedEventId);
+      const isOtherOngoing = (e: Event) => !!e.id && !nextManual.has(e.id) && !completedEventIds.has(e.id);
+      const nextOngoing = events.find((e, idx) => idx > currentIdx && isOtherOngoing(e)) || events.find(isOtherOngoing);
+      if (nextOngoing && nextOngoing.id) {
+        setSelectedEventId(nextOngoing.id);
+        setSelectedHeatNum(1);
+      }
+    }
+
     await loadCompletedEvents();
     window.dispatchEvent(new Event('lane-assignments-updated'));
   };
@@ -1026,7 +1153,9 @@ export default function MeetManager({
 
   const filteredEvents = events.filter(ev => {
     const matchG = !filterSchedulerGender || filterSchedulerGender === 'All' || ev.gender === filterSchedulerGender;
-    const matchC = !filterSchedulerCategory || filterSchedulerCategory === 'All' || ev.ageGroup === filterSchedulerCategory;
+    const isMergedEvent = ev.ageGroup === 'All Age Groups' || ev.ageGroup?.toLowerCase().includes('merged') || (ev as any)?.isMerged;
+    const matchC = !filterSchedulerCategory || filterSchedulerCategory === 'All' 
+      || (filterSchedulerCategory === 'Merged' ? isMergedEvent : ev.ageGroup === filterSchedulerCategory);
     const q = eventSearchQuery.toLowerCase().trim();
     const matchQ = !q || 
       String(ev.eventNo || ev.id).includes(q) || 
@@ -1043,10 +1172,10 @@ export default function MeetManager({
 
   return (
     <>
-      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '2rem', overflow: 'hidden' }}>
       
       {/* Sidebar: Meet and Event configuration */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4" style={{ minWidth: 0, overflow: 'hidden' }}>
         {/* Meet Setup Card */}
         <div className="glass-card">
           <h3 className="settings-header"><Calendar size={18} /> Meet Setup</h3>
@@ -1188,6 +1317,7 @@ export default function MeetManager({
                 <CustomSelect
                   options={[
                     { value: 'All', label: 'All Categories' },
+                    { value: 'Merged', label: `Merged (${ALL_AGE_GROUPS.join(', ')})` },
                     ...ALL_AGE_GROUPS.map(ag => ({ value: ag, label: ag }))
                   ]}
                   value={filterSchedulerCategory || 'All'}
@@ -1212,25 +1342,123 @@ export default function MeetManager({
                 )}
               </div>
 
-              <CustomSelect
-                options={events
-                  .filter(ev => {
-                    const matchG = !filterSchedulerGender || filterSchedulerGender === 'All' || ev.gender === filterSchedulerGender;
-                    const matchC = !filterSchedulerCategory || filterSchedulerCategory === 'All' || ev.ageGroup === filterSchedulerCategory;
-                    return matchG && matchC;
-                  })
-                  .map(ev => ({
-                    value: ev.id!,
-                    label: `Event #${ev.eventNo || ev.id}: ${ev.distance}m ${ev.stroke}`
-                  }))
-                }
-                value={selectedEventId || ''}
-                placeholder="No matching events found"
-                onChange={(val) => {
-                  setSelectedEventId(Number(val));
-                  setSelectedHeatNum(1);
-                }}
-              />
+              {(() => {
+                const currentEvIndex = events.findIndex(e => e.id === selectedEventId);
+                const hasPrevEv = currentEvIndex > 0;
+                const hasNextEv = currentEvIndex >= 0 && currentEvIndex < events.length - 1;
+                const activeEventHeats = selectedEventId ? (eventHeatsMap.get(selectedEventId) || [1]) : [1];
+
+                return (
+                  <>
+                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', minWidth: 0, overflow: 'hidden' }}>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ padding: '0.4rem 0.65rem', fontSize: '0.85rem' }}
+                        disabled={!hasPrevEv}
+                        onClick={() => {
+                          if (hasPrevEv) {
+                            const prevEv = events[currentEvIndex - 1];
+                            setSelectedEventId(prevEv.id!);
+                            setSelectedHeatNum(1);
+                          }
+                        }}
+                        title="Previous Event"
+                      >
+                        ◀
+                      </button>
+                      <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                        <CustomSelect
+                          options={(() => {
+                            const filtered = events.filter(ev => {
+                              const matchG = !filterSchedulerGender || filterSchedulerGender === 'All' || ev.gender === filterSchedulerGender;
+                              const matchC = !filterSchedulerCategory || filterSchedulerCategory === 'All' || ev.ageGroup === filterSchedulerCategory || ev.ageGroup === 'All Age Groups' || ev.ageGroup?.toLowerCase().includes('merged') || (ev as any)?.isMerged;
+                              return matchG && matchC;
+                            });
+                            const listToUse = filtered.length > 0 ? filtered : events;
+                            return listToUse.map(ev => {
+                              const isDone = completedEventIds.has(ev.id!) || manuallyDoneEventIds.has(ev.id!);
+                              const isCurrentlyActive = ev.id === selectedEventId;
+                              const statusTag = isDone ? '✓ [DONE]' : (isCurrentlyActive ? '● [ONGOING]' : '○ [UPCOMING]');
+                              return {
+                                value: ev.id!,
+                                label: `#${ev.eventNo || ev.id}: ${ev.distance}m ${ev.stroke} (${ev.gender === 'M' ? 'M' : 'W'}) ${statusTag}`
+                              };
+                            });
+                          })()}
+                          value={selectedEventId || ''}
+                          placeholder="Select Active Event..."
+                          onChange={(val) => {
+                            if (val) {
+                              setSelectedEventId(Number(val));
+                              setSelectedHeatNum(1);
+                            }
+                          }}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ padding: '0.4rem 0.65rem', fontSize: '0.85rem' }}
+                        disabled={!hasNextEv}
+                        onClick={() => {
+                          if (hasNextEv) {
+                            const nextEv = events[currentEvIndex + 1];
+                            setSelectedEventId(nextEv.id!);
+                            setSelectedHeatNum(1);
+                          }
+                        }}
+                        title="Next Event"
+                      >
+                        ▶
+                      </button>
+                    </div>
+
+                    {/* ACTIVE HEAT SELECTOR */}
+                    {selectedEventId && (
+                      <div style={{ marginTop: '0.65rem', backgroundColor: 'rgba(15, 23, 42, 0.4)', padding: '0.55rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                          <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.05em', color: '#94a3b8' }}>ACTIVE HEAT</span>
+                          <span style={{ fontSize: '0.75rem', color: '#facc15', fontWeight: 700 }}>
+                            Heat {selectedHeatNum} of {activeEventHeats.length}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                          {activeEventHeats.map(h => {
+                            const isSaved = savedHeatKeys.has(`${selectedEventId}-${h}`);
+                            return (
+                              <button
+                                key={h}
+                                type="button"
+                                className={`btn ${selectedHeatNum === h ? 'btn-yellow' : (isSaved ? 'btn-success' : 'btn-secondary')}`}
+                                style={{
+                                  padding: '0.2rem 0.55rem',
+                                  fontSize: '0.78rem',
+                                  fontWeight: selectedHeatNum === h || isSaved ? 800 : 600,
+                                  backgroundColor: selectedHeatNum === h ? '#facc15' : (isSaved ? 'rgba(34, 197, 94, 0.22)' : undefined),
+                                  borderColor: selectedHeatNum === h ? '#facc15' : (isSaved ? '#4ade80' : undefined),
+                                  color: selectedHeatNum === h ? '#0f172a' : (isSaved ? '#4ade80' : undefined),
+                                  cursor: 'pointer'
+                                }}
+                                onClick={() => setSelectedHeatNum(h)}
+                                onDoubleClick={(e) => {
+                                  e.stopPropagation();
+                                  if (selectedEventId) {
+                                    toggleHeatDoneStatus(selectedEventId, h);
+                                  }
+                                }}
+                                title={isSaved ? `Heat ${h} is DONE (Double-click to UNMARK UNDONE)` : `Heat ${h} (Single-click to select Active, Double-click to mark DONE)`}
+                              >
+                                {isSaved ? '✓ ' : ''}Heat {h}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
 
             {!isCreatingEvent ? (
@@ -1311,7 +1539,7 @@ export default function MeetManager({
       </div>
 
       {/* Main Content: Scrollable Interactive Event Order List */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4" style={{ minWidth: 0, overflow: 'hidden' }}>
         {/* Event Order Header & Filters */}
         <div className="glass-card">
           <div className="card-header flex justify-between items-center mb-4">
@@ -1356,6 +1584,7 @@ export default function MeetManager({
               <CustomSelect
                 options={[
                   { value: 'All', label: 'All Categories' },
+                  { value: 'Merged', label: `Merged (${ALL_AGE_GROUPS.join(', ')})` },
                   ...ALL_AGE_GROUPS.map(ag => ({ value: ag, label: ag }))
                 ]}
                 value={filterSchedulerCategory}
@@ -1572,8 +1801,7 @@ export default function MeetManager({
                 const isManuallyDone = manuallyDoneEventIds.has(ev.id!);
                 return !(isAutoCompleted || isManuallyDone || areAllHeatsSaved);
               });
-              const ongoingEventId = uncompletedEvents.length > 0 ? uncompletedEvents[0].id : null;
-              const upcomingEventId = uncompletedEvents.length > 1 ? uncompletedEvents[1].id : null;
+              const activeTargetId = selectedEventId || (uncompletedEvents.length > 0 ? uncompletedEvents[0].id : null);
 
               return sortedEvents.map((ev, index) => {
                 const isSelected = expandedEventId === ev.id;
@@ -1583,11 +1811,11 @@ export default function MeetManager({
                 const isAutoCompleted = completedEventIds.has(ev.id!);
                 const isManuallyDone = manuallyDoneEventIds.has(ev.id!);
                 const isCompleted = isAutoCompleted || isManuallyDone || areAllHeatsSaved;
-                const isOngoing = !isCompleted && ev.id === ongoingEventId;
-                const isUpcoming = !isCompleted && ev.id === upcomingEventId;
+                const isOngoing = !isCompleted && ev.id === activeTargetId;
+                const isUpcoming = !isCompleted && !isOngoing;
                 const isChecked = selectedEventIds.has(ev.id!);
 
-                let showStatusBadge = false;
+                let showStatusBadge = true;
                 let statusText = '';
                 let statusBg = '';
                 let statusColor = '';
@@ -1595,21 +1823,18 @@ export default function MeetManager({
                 let StatusIcon = Clock;
 
                 if (isCompleted) {
-                  showStatusBadge = true;
                   statusText = 'DONE';
                   statusBg = 'rgba(34, 197, 94, 0.25)';
                   statusColor = '#4ade80';
                   statusBorder = '1px solid #22c55e';
                   StatusIcon = CheckCircle2;
                 } else if (isOngoing) {
-                  showStatusBadge = true;
-                  statusText = 'ONGOING';
-                  statusBg = 'rgba(6, 182, 212, 0.2)';
+                  statusText = 'ACTIVE EVENT';
+                  statusBg = 'rgba(6, 182, 212, 0.25)';
                   statusColor = '#22d3ee';
                   statusBorder = '1px solid #06b6d4';
                   StatusIcon = PlayCircle;
-                } else if (isUpcoming) {
-                  showStatusBadge = true;
+                } else {
                   statusText = 'UPCOMING';
                   statusBg = 'rgba(148, 163, 184, 0.12)';
                   statusColor = '#94a3b8';
@@ -1653,7 +1878,7 @@ export default function MeetManager({
               >
                 {/* Event Header Row */}
                 <div 
-                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none', minWidth: 0, overflow: 'hidden' }}
                   onClick={() => {
                     if (isSelectMode) {
                       toggleSelectEvent(ev.id!);
@@ -1726,39 +1951,42 @@ export default function MeetManager({
                     <span 
                       style={{ 
                         background: isCompleted
-                          ? 'rgba(34, 197, 94, 0.25)'
+                          ? 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)'
                           : isSelected 
-                            ? 'var(--accent-yellow)' 
-                            : 'rgba(56, 189, 248, 0.15)', 
-                        color: isCompleted
-                          ? '#4ade80'
-                          : isSelected 
-                            ? '#0f172a' 
-                            : '#38bdf8', 
-                        border: isCompleted
-                          ? '1px solid #22c55e'
+                            ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' 
+                            : 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)', 
+                        color: '#0f172a', 
+                        border: 'none',
+                        boxShadow: isCompleted
+                          ? '0 0 10px rgba(34, 197, 94, 0.4)'
                           : isSelected
-                            ? '1px solid var(--accent-yellow)'
-                            : '1px solid rgba(56, 189, 248, 0.3)',
-                        fontWeight: 800, 
-                        padding: '0.35rem 0.65rem', 
+                            ? '0 0 10px rgba(245, 158, 11, 0.4)'
+                            : '0 0 10px rgba(6, 182, 212, 0.4)',
+                        fontWeight: 900, 
+                        padding: '0.35rem 0.75rem', 
                         borderRadius: '6px',
-                        fontSize: '0.9rem'
+                        fontSize: '0.95rem',
+                        letterSpacing: '0.02em',
+                        flexShrink: 0
                       }}
                     >
                       Event #{ev.eventNo || (index + 1)}
                     </span>
 
-                    <div>
-                      <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#f8fafc', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        {ev.distance}m {ev.stroke}
-                        {(ev.ageGroup === 'All Age Groups' || ev.ageGroup?.toLowerCase().includes('merged') || (ev as any)?.isMerged) && (
-                          <span style={{ fontSize: '0.68rem', fontWeight: 900, padding: '0.15rem 0.45rem', borderRadius: '4px', background: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)', color: '#0f172a', letterSpacing: '0.5px' }}>
-                            🔀 MERGED
+                    <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                      <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#f8fafc', fontWeight: 700, minWidth: 0 }}>
+                        <HoverScrollText>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span>{ev.distance}m {ev.stroke}</span>
+                            {(ev.ageGroup === 'All Age Groups' || ev.ageGroup?.toLowerCase().includes('merged') || (ev as any)?.isMerged) && (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.68rem', fontWeight: 900, padding: '0.15rem 0.45rem', borderRadius: '4px', background: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)', color: '#0f172a', letterSpacing: '0.5px', flexShrink: 0 }}>
+                                <GitMerge size={11} /> MERGED
+                              </span>
+                            )}
                           </span>
-                        )}
+                        </HoverScrollText>
                       </h3>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.35rem' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.35rem', overflow: 'hidden' }}>
                         <span>{ev.gender === 'M' ? 'Men' : 'Women'} ({ev.ageGroup})</span>
                         {(() => {
                           const evHeats = eventHeatsMap.get(ev.id!) || [1];
@@ -1772,6 +2000,11 @@ export default function MeetManager({
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
+                                      setSelectedEventId(ev.id!);
+                                      setSelectedHeatNum(h);
+                                    }}
+                                    onDoubleClick={(e) => {
+                                      e.stopPropagation();
                                       toggleHeatDoneStatus(ev.id!, h);
                                     }}
                                     style={{
@@ -1779,8 +2012,8 @@ export default function MeetManager({
                                       fontWeight: 800,
                                       padding: '0.15rem 0.55rem',
                                       borderRadius: '12px',
-                                      backgroundColor: isHeatDone ? 'rgba(34, 197, 94, 0.22)' : 'rgba(234, 179, 8, 0.18)',
-                                      color: isHeatDone ? '#4ade80' : '#fde047',
+                                      backgroundColor: isHeatDone ? 'rgba(34, 197, 94, 0.22)' : (selectedEventId === ev.id && selectedHeatNum === h ? '#facc15' : 'rgba(234, 179, 8, 0.18)'),
+                                      color: isHeatDone ? '#4ade80' : (selectedEventId === ev.id && selectedHeatNum === h ? '#0f172a' : '#fde047'),
                                       border: isHeatDone ? '1px solid rgba(34, 197, 94, 0.6)' : '1px solid rgba(234, 179, 8, 0.45)',
                                       display: 'inline-flex',
                                       alignItems: 'center',
@@ -1788,7 +2021,7 @@ export default function MeetManager({
                                       cursor: 'pointer',
                                       transition: 'all 0.15s ease'
                                     }}
-                                    title={isHeatDone ? `Heat ${h} is DONE (Click to unmark)` : `Click to mark Heat ${h} as DONE`}
+                                    title={isHeatDone ? `Heat ${h} is DONE (Double-click to UNMARK UNDONE)` : `Heat ${h} (Single-click to select Active, Double-click to mark DONE)`}
                                   >
                                     {isHeatDone ? '✓ ' : ''}Heat {h}
                                   </button>
@@ -1807,9 +2040,12 @@ export default function MeetManager({
                         <button
                           type="button"
                           onClick={(e) => {
+                            e.stopPropagation();
                             if (isCompleted) {
-                              e.stopPropagation();
                               toggleSingleEventDoneStatus(ev.id!);
+                            } else {
+                              setSelectedEventId(ev.id!);
+                              setSelectedHeatNum(1);
                             }
                           }}
                           style={{ 
@@ -1893,77 +2129,6 @@ export default function MeetManager({
                               <Plus size={16} />
                             </button>
                           </div>
-
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            style={{
-                              color: '#38bdf8',
-                              borderColor: 'rgba(56, 189, 248, 0.4)',
-                              backgroundColor: 'rgba(56, 189, 248, 0.1)',
-                              fontSize: '0.8rem',
-                              padding: '0.35rem 0.75rem',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.35rem',
-                              fontWeight: 700
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handlePrintHeatSheet(ev.id!, expandedHeatNum);
-                            }}
-                            title={`Print Heat Start List for Heat ${expandedHeatNum} only`}
-                          >
-                            <Printer size={14} /> Print Heat {expandedHeatNum}
-                          </button>
-
-                          {heats.length > 1 && (
-                            <button
-                              type="button"
-                              className="btn btn-secondary"
-                              style={{
-                                color: '#facc15',
-                                borderColor: 'rgba(250, 204, 21, 0.4)',
-                                backgroundColor: 'rgba(250, 204, 21, 0.1)',
-                                fontSize: '0.8rem',
-                                padding: '0.35rem 0.75rem',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.35rem',
-                                fontWeight: 700
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handlePrintHeatSheet(ev.id!, 'ALL');
-                              }}
-                              title="Print Heat Start List for ALL heats"
-                            >
-                              <Printer size={14} /> Print All Heats ({heats.length})
-                            </button>
-                          )}
-
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            style={{
-                              color: '#c084fc',
-                              borderColor: 'rgba(192, 132, 252, 0.4)',
-                              backgroundColor: 'rgba(192, 132, 252, 0.1)',
-                              fontSize: '0.8rem',
-                              padding: '0.35rem 0.75rem',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.35rem',
-                              fontWeight: 700
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleAutoSeedSpearhead(ev.id!, expandedHeatNum);
-                            }}
-                            title="Auto-seed swimmers into standard FINA Spearhead order: L4, L5, L3, L6, L2, L7, L1, L8"
-                          >
-                            <Zap size={14} /> Spearhead Auto-Seed
-                          </button>
 
                           {laneAssignments.some(a => a.swimmerId) && (
                             <button 

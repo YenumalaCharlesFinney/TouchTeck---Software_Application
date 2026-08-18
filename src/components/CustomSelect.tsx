@@ -32,8 +32,24 @@ export default function CustomSelect({
   const [searchTerm, setSearchTerm] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const labelOuterRef = useRef<HTMLSpanElement>(null);
+  const labelInnerRef = useRef<HTMLSpanElement>(null);
 
   const selectedOption = options.find(opt => String(opt.value) === String(value));
+
+  // Compute scroll distance for hover animation when text overflows
+  useEffect(() => {
+    const outer = labelOuterRef.current;
+    const inner = labelInnerRef.current;
+    if (outer && inner) {
+      const overflow = inner.scrollWidth - outer.clientWidth;
+      if (overflow > 0) {
+        outer.style.setProperty('--scroll-distance', `-${overflow + 8}px`);
+      } else {
+        outer.style.setProperty('--scroll-distance', '0px');
+      }
+    }
+  }, [selectedOption?.label]);
 
   // Determine whether to show search bar (default: if >= 5 options or searchable prop explicitly set to true)
   const shouldShowSearch = searchable !== false && (searchable === true || options.length >= 5);
@@ -89,8 +105,24 @@ export default function CustomSelect({
           borderColor: isOpen ? 'rgba(255, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.15)'
         }}
       >
-        <span className={`truncate leading-normal ${!selectedOption ? 'text-slate-400' : 'text-slate-100'}`} style={{ paddingLeft: '0.25rem' }}>
-          {selectedOption ? selectedOption.label : placeholder}
+        <span 
+          ref={labelOuterRef}
+          className={`custom-select-label-scroll leading-normal ${!selectedOption ? 'text-slate-400' : 'text-slate-100'}`} 
+          style={{ 
+            paddingLeft: '0.25rem', 
+            overflow: 'hidden', 
+            whiteSpace: 'nowrap', 
+            flex: 1,
+            minWidth: 0,
+            display: 'block',
+            position: 'relative',
+            maskImage: 'linear-gradient(to right, black 85%, transparent 100%)',
+            WebkitMaskImage: 'linear-gradient(to right, black 85%, transparent 100%)'
+          }}
+        >
+          <span ref={labelInnerRef} className="custom-select-label-inner" style={{ display: 'inline-block' }}>
+            {selectedOption ? selectedOption.label : placeholder}
+          </span>
         </span>
         <ChevronDown 
           size={16} 

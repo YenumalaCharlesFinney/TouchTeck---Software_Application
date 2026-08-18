@@ -432,9 +432,9 @@ export default function OperatorConsole({
         } catch {}
       }
 
-      // Find first uncompleted (ONGOING) event
-      const ongoingEv = list.find(e => !doneIds.has(e.id!));
-      const targetId = ongoingEv ? ongoingEv.id! : (activeEventId && list.some(e => e.id === activeEventId) ? activeEventId : list[0].id!);
+      // Respect existing activeEventId if valid; otherwise pick first uncompleted or first event
+      const isValidActive = activeEventId && list.some(e => e.id === activeEventId);
+      const targetId = isValidActive ? activeEventId! : (list.find(e => !doneIds.has(e.id!))?.id || list[0].id!);
 
       if (!activeEventId || activeEventId !== targetId) {
         setActiveEventId(targetId);
@@ -996,17 +996,9 @@ export default function OperatorConsole({
               </div>
             </div>
 
-            {/* Active ONGOING Event Details Card (Read-Only) */}
+            {/* Active Event Details Card & Selector */}
             {(() => {
-              let currentEv = events.find(e => e.id === activeEventId);
-              const isCurrentDone = currentEv && (completedEventIds.has(currentEv.id!) || manuallyDoneEventIds.has(currentEv.id!));
-              
-              if (!currentEv || isCurrentDone) {
-                const ongoingEv = events.find(e => !completedEventIds.has(e.id!) && !manuallyDoneEventIds.has(e.id!));
-                if (ongoingEv) {
-                  currentEv = ongoingEv;
-                }
-              }
+              const currentEv = events.find(e => e.id === activeEventId) || events[0];
               const isMerged = currentEv?.ageGroup === 'All Age Groups' || currentEv?.ageGroup?.toLowerCase().includes('merged') || (currentEv as any)?.isMerged;
               return (
                 <div className="form-group mb-0" style={{ minWidth: 0 }}>
@@ -1047,7 +1039,7 @@ export default function OperatorConsole({
               );
             })()}
 
-            {/* Read-Only Heat Info Badge */}
+            {/* Read-Only Heat Status Badge */}
             <div className="form-group mb-0" style={{ minWidth: 0 }}>
               <label className="form-label" style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Heat Status</label>
               <div 
