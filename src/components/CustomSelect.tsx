@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Check, Search, X } from 'lucide-react';
 
 export interface SelectOption {
@@ -30,33 +31,79 @@ export default function CustomSelect({
 }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isHovered, setIsHovered] = useState(false);
+  const [overflowAmount, setOverflowAmount] = useState(0);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number; placeAbove: boolean }>({
+    top: 0,
+    left: 0,
+    width: 0,
+    placeAbove: false
+  });
+
   const containerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const labelOuterRef = useRef<HTMLSpanElement>(null);
   const labelInnerRef = useRef<HTMLSpanElement>(null);
 
   const selectedOption = options.find(opt => String(opt.value) === String(value));
 
-  // Compute scroll distance for hover animation when text overflows
-  useEffect(() => {
+  // Compute text overflow
+  const checkOverflow = () => {
     const outer = labelOuterRef.current;
     const inner = labelInnerRef.current;
     if (outer && inner) {
-      const overflow = inner.scrollWidth - outer.clientWidth;
-      if (overflow > 0) {
-        outer.style.setProperty('--scroll-distance', `-${overflow + 8}px`);
-      } else {
-        outer.style.setProperty('--scroll-distance', '0px');
-      }
+      const diff = inner.scrollWidth - outer.clientWidth;
+      setOverflowAmount(diff > 4 ? diff + 12 : 0);
     }
-  }, [selectedOption?.label]);
+  };
+
+  useEffect(() => {
+    checkOverflow();
+    const handleResize = () => checkOverflow();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [selectedOption?.label, options, value]);
+
+  const updateMenuPosition = () => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const menuHeight = 280;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const placeAbove = spaceBelow < menuHeight && rect.top > menuHeight;
+      setMenuPos({
+        top: placeAbove ? rect.top - 6 : rect.bottom + 6,
+        left: rect.left,
+        width: rect.width,
+        placeAbove
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      updateMenuPosition();
+      const handleReposition = () => updateMenuPosition();
+      window.addEventListener('scroll', handleReposition, true);
+      window.addEventListener('resize', handleReposition);
+      return () => {
+        window.removeEventListener('scroll', handleReposition, true);
+        window.removeEventListener('resize', handleReposition);
+      };
+    }
+  }, [isOpen]);
 
   // Determine whether to show search bar (default: if >= 5 options or searchable prop explicitly set to true)
   const shouldShowSearch = searchable !== false && (searchable === true || options.length >= 5);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(target) &&
+        (!menuRef.current || !menuRef.current.contains(target))
+      ) {
         setIsOpen(false);
       }
     };
@@ -88,17 +135,27 @@ export default function CustomSelect({
     <div 
       ref={containerRef} 
       className={`relative inline-block w-full ${className}`}
-      style={{ userSelect: 'none', zIndex: isOpen ? 9999 : 'auto', ...style }}
+      style={{ userSelect: 'none', ...style }}
     >
       {/* Closed Button Header */}
       <button
         type="button"
         disabled={disabled}
-        onClick={() => !disabled && setIsOpen(!isOpen)}
+        onClick={() => {
+          if (!disabled) {
+            updateMenuPosition();
+            setIsOpen(!isOpen);
+          }
+        }}
+        onMouseEnter={() => {
+          checkOverflow();
+          setIsHovered(true);
+        }}
+        onMouseLeave={() => setIsHovered(false)}
         className={`custom-select-trigger w-full flex items-center justify-between rounded-xl bg-[#0e1626] border border-white/15 text-slate-100 text-sm font-medium transition-all hover:bg-[#131d32] focus:outline-none cursor-pointer shadow-md disabled:opacity-50 disabled:cursor-not-allowed${isOpen ? ' is-open' : ''}`}
         style={{
-          paddingLeft: '1.25rem',
-          paddingRight: '1.25rem',
+          paddingLeft: '1rem',
+          paddingRight: '1rem',
           paddingTop: '0.75rem',
           paddingBottom: '0.75rem',
           minHeight: '46px',
@@ -107,7 +164,7 @@ export default function CustomSelect({
       >
         <span 
           ref={labelOuterRef}
-          className={`custom-select-label-scroll leading-normal ${!selectedOption ? 'text-slate-400' : 'text-slate-100'}`} 
+          className={`leading-normal ${!selectedOption ? 'text-slate-400' : 'text-slate-100'}`} 
           style={{ 
             paddingLeft: '0.25rem', 
             overflow: 'hidden', 
@@ -116,25 +173,48 @@ export default function CustomSelect({
             minWidth: 0,
             display: 'block',
             position: 'relative',
-            maskImage: 'linear-gradient(to right, black 85%, transparent 100%)',
-            WebkitMaskImage: 'linear-gradient(to right, black 85%, transparent 100%)'
+            maskImage: overflowAmount > 0 
+              ? (isHovered 
+                  ? 'linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)' 
+                  : 'linear-gradient(to right, black 80%, transparent 100%)') 
+              : 'none',
+            WebkitMaskImage: overflowAmount > 0 
+              ? (isHovered 
+                  ? 'linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)' 
+                  : 'linear-gradient(to right, black 80%, transparent 100%)') 
+              : 'none'
           }}
         >
-          <span ref={labelInnerRef} className="custom-select-label-inner" style={{ display: 'inline-block' }}>
+          <span 
+            ref={labelInnerRef} 
+            style={{ 
+              display: 'inline-block',
+              whiteSpace: 'nowrap',
+              transform: isHovered && overflowAmount > 0 ? `translateX(-${overflowAmount}px)` : 'translateX(0)',
+              transition: isHovered && overflowAmount > 0 
+                ? `transform ${Math.max(2.5, overflowAmount / 32)}s cubic-bezier(0.25, 1, 0.5, 1)` 
+                : 'transform 0.35s ease-out'
+            }}
+          >
             {selectedOption ? selectedOption.label : placeholder}
           </span>
         </span>
         <ChevronDown 
           size={16} 
-          className={`text-slate-300 shrink-0 ml-3 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} 
+          className={`text-slate-300 shrink-0 ml-2 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} 
         />
       </button>
 
-      {/* Custom Rounded Floating Menu Popup */}
-      {isOpen && (
+      {/* Portal Floating Menu Popup */}
+      {isOpen && typeof document !== 'undefined' && createPortal(
         <div
-          className="custom-select-menu absolute left-0 right-0 top-full mt-2 z-[99999] bg-[#0c1322] border border-white/20 rounded-2xl shadow-2xl p-2 max-h-72 overflow-y-auto backdrop-blur-md animate-fadeIn"
+          ref={menuRef}
+          className="custom-select-menu fixed z-[999999] bg-[#0c1322] border border-white/20 rounded-2xl shadow-2xl p-2 max-h-72 overflow-y-auto backdrop-blur-md animate-fadeIn"
           style={{
+            top: menuPos.placeAbove ? 'auto' : `${menuPos.top}px`,
+            bottom: menuPos.placeAbove ? `${window.innerHeight - menuPos.top}px` : 'auto',
+            left: `${menuPos.left}px`,
+            width: `${Math.max(menuPos.width, 220)}px`,
             boxShadow: '0 16px 36px rgba(0,0,0,0.95)',
             boxSizing: 'border-box'
           }}
@@ -256,7 +336,8 @@ export default function CustomSelect({
               })}
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

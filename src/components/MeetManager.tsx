@@ -139,23 +139,6 @@ export default function MeetManager({
     setFilterSchedulerCategory(catVal);
   };
 
-  // Live-sync GENDER & CATEGORY filters to match the active event
-  useEffect(() => {
-    if (selectedEventId) {
-      const activeEv = events.find(e => e.id === selectedEventId);
-      if (activeEv) {
-        setFilterSchedulerGender(activeEv.gender || 'All');
-        // Map "All Age Groups" or merged-like ageGroups to the 'Merged' filter value
-        const ag = activeEv.ageGroup;
-        if (ag === 'All Age Groups' || ag?.toLowerCase().includes('merged') || (activeEv as any)?.isMerged) {
-          setFilterSchedulerCategory('Merged');
-        } else {
-          setFilterSchedulerCategory(ag || 'All');
-        }
-      }
-    }
-  }, [selectedEventId, events]);
-
   // Meet Create Form State
   const [meetName, setMeetName] = useState('');
   const [meetDate, setMeetDate] = useState('');
@@ -1539,7 +1522,7 @@ export default function MeetManager({
       </div>
 
       {/* Main Content: Scrollable Interactive Event Order List */}
-      <div className="flex flex-col gap-4" style={{ minWidth: 0, overflow: 'hidden' }}>
+      <div className="flex flex-col gap-4" style={{ minWidth: 0 }}>
         {/* Event Order Header & Filters */}
         <div className="glass-card">
           <div className="card-header flex justify-between items-center mb-4">
@@ -1553,8 +1536,8 @@ export default function MeetManager({
             </div>
           </div>
 
-          <div className="flex gap-3 items-center" style={{ flexWrap: 'wrap' }}>
-            <div className="form-group mb-0" style={{ flex: 1, minWidth: '220px' }}>
+          <div className="flex gap-3 items-center" style={{ flexWrap: 'nowrap' }}>
+            <div className="form-group mb-0" style={{ flex: 1, minWidth: '160px' }}>
               <div style={{ position: 'relative' }}>
                 <Search size={18} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input
@@ -1568,7 +1551,7 @@ export default function MeetManager({
               </div>
             </div>
 
-            <div className="form-group mb-0" style={{ minWidth: '150px' }}>
+            <div className="form-group mb-0" style={{ width: '140px', flexShrink: 0 }}>
               <CustomSelect
                 options={[
                   { value: 'All', label: 'All Genders' },
@@ -1580,7 +1563,7 @@ export default function MeetManager({
               />
             </div>
 
-            <div className="form-group mb-0" style={{ minWidth: '170px' }}>
+            <div className="form-group mb-0" style={{ width: '210px', flexShrink: 0 }}>
               <CustomSelect
                 options={[
                   { value: 'All', label: 'All Categories' },

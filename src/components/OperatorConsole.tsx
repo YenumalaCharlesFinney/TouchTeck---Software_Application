@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { db, Meet, type Event } from '../db';
 import { serialDriver, simulator, TimingEvent } from '../serialDriver';
 import { ScoreboardDisplayConfig, DEFAULT_SCOREBOARD_CONFIG, ScoreboardResolution } from '../types';
-import { Terminal, Cpu, Play, Square, RotateCcw, Save, ShieldAlert, Radio, HelpCircle, CheckCircle2, Plus, Activity, ShieldCheck, Power, Copy, Check, Loader2, Zap } from 'lucide-react';
+import { Terminal, Cpu, Play, Square, RotateCcw, Save, ShieldAlert, Radio, HelpCircle, CheckCircle2, Plus, Activity, ShieldCheck, Power, Copy, Check, Loader2, Zap, GitMerge } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import CustomSelect from './CustomSelect';
 import { useModalClose } from '../hooks/useModalClose';
@@ -1029,8 +1029,8 @@ export default function OperatorConsole({
                         Category: {currentEv?.ageGroup || 'All Age Groups'}
                       </span>
                       {isMerged && (
-                        <span style={{ fontSize: '0.7rem', fontWeight: 900, padding: '0.18rem 0.45rem', borderRadius: '4px', background: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)', color: '#0f172a', letterSpacing: '0.5px' }}>
-                          🔀 MERGED
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.7rem', fontWeight: 900, padding: '0.18rem 0.45rem', borderRadius: '4px', background: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)', color: '#0f172a', letterSpacing: '0.5px' }}>
+                          <GitMerge size={11} /> MERGED
                         </span>
                       )}
                     </div>
