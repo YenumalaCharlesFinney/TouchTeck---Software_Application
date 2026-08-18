@@ -41,9 +41,15 @@ nsis:
   createStartMenuShortcut: true
 
 mac:
+  # Not "universal": pdf-parse pulls in @napi-rs/canvas, which ships
+  # separate prebuilt native binaries per arch. electron-builder's universal
+  # merge step can't lipo-merge those (it sees the same arm64-only .node
+  # file show up in both per-arch builds and fails validation), so we build
+  # x64 and arm64 as separate dmgs instead of merging them into one.
   target:
     - target: dmg
       arch:
-        - universal
+        - x64
+        - arm64
   icon: build/icon.icns
   category: public.app-category.sports
