@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { db, Meet, Event, Result, Swimmer, QualifyingTime } from '../db';
-import { Award, Download, Trash2, Filter, Printer, AlertTriangle, FileText, ChevronDown, ChevronRight, Layers, Sparkles, RefreshCw } from 'lucide-react';
+import { Award, Download, Trash2, Filter, Printer, AlertTriangle, FileText, ChevronDown, ChevronRight, Layers, Sparkles, RefreshCw, CheckSquare, Square, Search, CheckCircle2, Sliders } from 'lucide-react';
 import CustomSelect from './CustomSelect';
 import ConfirmationModal from './ConfirmationModal';
 import { useModalClose } from '../hooks/useModalClose';
 import { LOGO_BASE64 } from '../utils/logoBase64';
+import { TSA_LOGO_BASE64, SAT_LOGO_BASE64 } from '../utils/reportLogos';
 import { printHtmlDocument } from '../utils/printHelper';
 
 interface ResultRow {
@@ -149,6 +150,34 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
   const [searchQuery, setSearchQuery] = useState('');
   const [eventTrees, setEventTrees] = useState<EventTreeData[]>([]);
 
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [printedEventIds, setPrintedEventIds] = useState<Set<number>>(new Set());
+
+  // Load printed event IDs
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('touchteck_printed_events');
+      if (saved) {
+        try {
+          setPrintedEventIds(new Set(JSON.parse(saved).map(Number)));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+  }, []);
+
+  const handleMarkPrinted = () => {
+    if (selectedEventIdsForPrint.length === 0) return;
+    const next = new Set(printedEventIds);
+    selectedEventIdsForPrint.forEach(id => next.add(id));
+    setPrintedEventIds(next);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('touchteck_printed_events', JSON.stringify(Array.from(next)));
+    }
+    showNotice('Events Marked as Printed', `Successfully marked ${selectedEventIdsForPrint.length} event(s) as printed.`);
+  };
+
   // Expanded card state tracking
   const [expandedEventIds, setExpandedEventIds] = useState<Set<number>>(new Set());
   const [expandedHeatKeys, setExpandedHeatKeys] = useState<Set<string>>(new Set());
@@ -156,6 +185,8 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
   // Deletion modals
   const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
+  const [isBatchDeleting, setIsBatchDeleting] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isClearingAll, setIsClearingAll] = useState(false);
 
@@ -184,7 +215,7 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
       db.events.where('meetId').equals(selectedMeetId).toArray().then(eList => {
         eList.sort((a, b) => (a.eventNo || a.id || 0) - (b.eventNo || b.id || 0));
         setEvents(eList);
-        setSelectedEventIdsForPrint(eList.map(e => e.id!));
+        setSelectedEventIdsForPrint([]);
       });
     } else {
       setEvents([]);
@@ -250,16 +281,41 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
         if (selectedStage !== 'All' && (r.stage || 'Heats') !== selectedStage) continue;
         if (selectedHeatFilter !== 'All' && r.heatNumber !== Number(selectedHeatFilter)) continue;
 
+        // Robust lookup for qualifying standard
         const qt = await db.qualifyingTimes
-          .where('[distance+stroke+gender+ageGroup]')
-          .equals([ev.distance, ev.stroke, ev.gender, ev.ageGroup])
-          .and(q => q.meetId === ev.meetId)
+          .filter(q => 
+            q.distance === ev.distance &&
+            q.stroke === ev.stroke &&
+            q.gender === (swimmer?.gender || ev.gender || 'M') &&
+            (
+              q.ageGroup === ageGroup || 
+              q.ageGroup === ev.ageGroup || 
+              q.ageGroup === 'All Age Groups' || 
+              q.ageGroup === 'General' || 
+              q.ageGroup === 'Group A' ||
+              !q.ageGroup
+            ) &&
+            (!ev.meetId || !q.meetId || q.meetId === ev.meetId)
+          )
+          .first() || await db.qualifyingTimes
+          .filter(q => 
+            q.distance === ev.distance &&
+            q.stroke === ev.stroke &&
+            q.gender === (swimmer?.gender || ev.gender || 'M') &&
+            (!ev.meetId || !q.meetId || q.meetId === ev.meetId)
+          )
+          .first() || await db.qualifyingTimes
+          .filter(q => 
+            q.distance === ev.distance &&
+            q.stroke === ev.stroke &&
+            q.gender === (swimmer?.gender || ev.gender || 'M')
+          )
           .first();
 
         const finalTime = r.finalTime || 0;
         const rawStatus = r.status || 'OK';
         const status = (rawStatus === 'OK' && finalTime <= 0) ? 'NT' : rawStatus;
-        const isQualified = (status === 'OK' && finalTime > 0 && qt) ? finalTime <= qt.time : false;
+        const isQualified = (status === 'OK' && finalTime > 0 && qt && qt.time > 0) ? finalTime <= qt.time : false;
         const rStage = r.stage || 'Heats';
 
         rows.push({
@@ -376,17 +432,7 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
 
     setEventsWithResultsCount(countsMap);
     setEventTrees(trees);
-
-    // Auto-expand all event cards that have saved results so user sees saved results immediately
-    const autoExpandedEvs = new Set<number>();
-    const autoExpandedHeats = new Set<string>();
-    trees.forEach(t => {
-      if (t.event.id) autoExpandedEvs.add(t.event.id);
-      t.heats.forEach(h => autoExpandedHeats.add(`${t.event.id}-H${h.heatNumber}`));
-      if (t.finals) autoExpandedHeats.add(`${t.event.id}-FINALS`);
-    });
-    setExpandedEventIds(autoExpandedEvs);
-    setExpandedHeatKeys(autoExpandedHeats);
+    // Events and heats remain collapsed by default for a clean overview
   };
 
   // Expand / Collapse Helpers
@@ -446,6 +492,30 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
     }
   };
 
+  const confirmBatchDeleteResults = async () => {
+    if (selectedEventIdsForPrint.length === 0) return;
+    setIsBatchDeleting(true);
+    try {
+      for (const evId of selectedEventIdsForPrint) {
+        await db.results.where('eventId').equals(evId).delete();
+      }
+      const nextPrinted = new Set(printedEventIds);
+      selectedEventIdsForPrint.forEach(id => nextPrinted.delete(id));
+      setPrintedEventIds(nextPrinted);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('touchteck_printed_events', JSON.stringify(Array.from(nextPrinted)));
+      }
+      await loadResultsTree();
+      setShowBatchDeleteConfirm(false);
+      showNotice('Results Deleted', `Successfully deleted all timing results for ${selectedEventIdsForPrint.length} selected event(s).`);
+    } catch (err) {
+      console.error('Batch delete error:', err);
+      showNotice('Delete Error', 'Failed to delete timing results for selected events.');
+    } finally {
+      setIsBatchDeleting(false);
+    }
+  };
+
   const confirmClearAllResults = async () => {
     setIsClearingAll(true);
     try {
@@ -473,14 +543,28 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
   const buildHeatTableHTML = (agSections: AgeGroupSection[], showT1T2Flag: boolean) => {
     let html = '';
     agSections.forEach(ag => {
+      const hasAnyQT = ag.rows.some(r => r.qualifyingTime && r.qualifyingTime > 0);
+
       const rowsHtml = ag.rows.map(r => {
         const isRanked = r.rank !== 999;
-        const rankDisplay = r.rank === 1 ? '🥇 1' : (r.rank === 2 ? '🥈 2' : (r.rank === 3 ? '🥉 3' : (isRanked ? `#${r.rank}` : '--')));
+        const rankDisplay = r.rank === 1 
+          ? `<span style="display: inline-block; min-width: 20px; padding: 1px 6px; border-radius: 4px; background: #fef08a; color: #854d0e; font-weight: 900; border: 1px solid #facc15;">1</span>`
+          : r.rank === 2
+          ? `<span style="display: inline-block; min-width: 20px; padding: 1px 6px; border-radius: 4px; background: #f1f5f9; color: #334155; font-weight: 900; border: 1px solid #cbd5e1;">2</span>`
+          : r.rank === 3
+          ? `<span style="display: inline-block; min-width: 20px; padding: 1px 6px; border-radius: 4px; background: #fed7aa; color: #9a3412; font-weight: 900; border: 1px solid #fdba74;">3</span>`
+          : (isRanked ? `<span style="font-weight: 700; color: #334155;">${r.rank}</span>` : '--');
         const methodBadge = r.status === 'OK' && r.finalTime > 0 
           ? `<span style="font-weight: 700; padding: 2px 5px; border-radius: 3px; font-size: 10px; background: ${r.timingMethod === 'T2' ? '#fef3c7' : '#ecfeff'}; color: ${r.timingMethod === 'T2' ? '#b45309' : '#0891b2'}; border: 1px solid ${r.timingMethod === 'T2' ? '#fde68a' : '#a5f3fc'};">${r.timingMethod || 'T1'}</span>`
           : '--';
         const t1Str = r.t1Time ? formatSecondsToTime(r.t1Time) : '--';
         const t2Str = r.t2Time ? formatSecondsToTime(r.t2Time) : '--';
+        const cutoffStr = r.qualifyingTime ? formatSecondsToTime(r.qualifyingTime) : '--';
+        const qStatusBadge = r.qualifyingTime && r.status === 'OK' && r.finalTime > 0
+          ? (r.isQualified 
+              ? '<span style="font-weight: 900; color: #16a34a; background: #dcfce7; padding: 1px 6px; border-radius: 3px; border: 1px solid #86efac; font-size: 9px;">Q</span>' 
+              : '<span style="font-weight: 900; color: #dc2626; background: #fee2e2; padding: 1px 6px; border-radius: 3px; border: 1px solid #fca5a5; font-size: 9px;">NQ</span>')
+          : '--';
 
         return `
           <tr>
@@ -492,6 +576,7 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
             ${showT1T2Flag ? `<td style="text-align: right; color: #0891b2; font-weight: bold;">${t1Str}</td>` : ''}
             ${showT1T2Flag ? `<td style="text-align: right; color: #b45309; font-weight: bold;">${t2Str}</td>` : ''}
             <td style="text-align: right; font-weight: bold; color: #0284c7;">${r.status === 'OK' ? formatSecondsToTime(r.finalTime) : r.status}</td>
+            ${hasAnyQT ? `<td style="text-align: right; color: #64748b; font-weight: 600;">${cutoffStr}</td><td style="text-align: center;">${qStatusBadge}</td>` : ''}
             <td style="text-align: center;">${methodBadge}</td>
           </tr>
         `;
@@ -513,6 +598,7 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
                 ${showT1T2Flag ? '<th style="width: 75px; text-align: right;">T1 (Touchpad)</th>' : ''}
                 ${showT1T2Flag ? '<th style="width: 75px; text-align: right;">T2 (Backup)</th>' : ''}
                 <th style="width: 90px; text-align: right;">Final Time</th>
+                ${hasAnyQT ? '<th style="width: 75px; text-align: right;">Cutoff (QT)</th><th style="width: 50px; text-align: center;">Status</th>' : ''}
                 <th style="width: 55px; text-align: center;">Method</th>
               </tr>
             </thead>
@@ -525,6 +611,49 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
     });
     return html;
   };
+
+  const buildOfficialReportHeader = (meetName: string, eventName: string, subTitle?: string, reportType?: string) => `
+    <div class="header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2.5px solid #0f172a; padding-bottom: 10px; margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; justify-content: center; width: 105px; flex-shrink: 0;">
+        <img src="${TSA_LOGO_BASE64}" width="100" height="100" style="object-fit: contain;" alt="Telangana Swimming Association" />
+      </div>
+
+      <div class="title-area" style="flex: 1; text-align: center; padding: 0 15px;">
+        <h1 style="font-size: 14.5pt; margin: 0 0 2px 0; color: #0f172a; text-transform: uppercase; font-weight: 900; letter-spacing: 0.5px;">${meetName}</h1>
+        <h2 style="font-size: 11.5pt; margin: 0 0 2px 0; color: #0284c7; font-weight: 800;">${eventName}</h2>
+        ${subTitle ? `<h3 style="font-size: 11pt; margin: 2px 0 0 0; color: #FFE600; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;">${subTitle}</h3>` : ''}
+        <div class="meta" style="font-size: 8pt; color: #64748b; margin-top: 3px; font-weight: 600;">
+          ${reportType || 'Official Timing & Results Report'} • Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; justify-content: center; width: 120px; flex-shrink: 0;">
+        <img src="${SAT_LOGO_BASE64}" width="118" height="118" style="object-fit: contain;" alt="Sports Authority of Telangana" />
+      </div>
+    </div>
+  `;
+
+  const buildOfficialReportFooter = () => `
+    <div class="footer-attribution" style="margin-top: 18px; border-top: 1.5px dashed #cbd5e1; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; gap: 40px; page-break-inside: avoid;">
+      <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
+        <div style="display: flex; flex-direction: column; align-items: center;">
+          <img src="${LOGO_BASE64}" width="46" height="46" style="object-fit: contain;" alt="TouchTeck" />
+          <div style="font-size: 8.5pt; font-weight: 900; letter-spacing: 1.5px; margin-top: 2px; text-transform: uppercase;">
+            <span style="color: #000000;">TOUCH</span><span style="color: #FFE600; font-weight: 900;">TECK</span>
+          </div>
+        </div>
+        <div style="font-size: 8pt; color: #64748b; line-height: 1.35;">
+          <div style="font-weight: 700; color: #0f172a; font-size: 8.5pt;">Official Electronic Meet Management</div>
+          <div>Certified Results by TouchTeck</div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 40px; margin-left: auto; flex-shrink: 0;">
+        <div class="sig-line" style="width: 150px; border-top: 1.5px solid #0f172a; text-align: center; font-size: 8.5pt; font-weight: 700; color: #0f172a; padding-top: 4px;">Meet Official</div>
+        <div class="sig-line" style="width: 150px; border-top: 1.5px solid #0f172a; text-align: center; font-size: 8.5pt; font-weight: 700; color: #0f172a; padding-top: 4px;">TouchTeck Official</div>
+      </div>
+    </div>
+  `;
 
   // 1. PRINT SINGLE HEAT ONLY
   const handlePrintSingleHeat = (ev: Event, heat: HeatResults) => {
@@ -542,44 +671,23 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
           <meta charset="utf-8">
           <title>${titleStr} - ${eventNameStr}</title>
           <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 11pt; color: #0f172a; margin: 0; padding: 20px; line-height: 1.4; }
-            .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2.5px solid #0f172a; padding-bottom: 10px; margin-bottom: 15px; }
-            .title-area h1 { font-size: 16pt; margin: 0 0 4px 0; color: #0f172a; text-transform: uppercase; font-weight: 800; }
-            .title-area h2 { font-size: 13pt; margin: 0 0 4px 0; color: #0284c7; font-weight: 700; }
-            .title-area h3 { font-size: 11pt; margin: 0; color: #eab308; font-weight: 800; text-transform: uppercase; }
-            .meta { font-size: 9pt; color: #64748b; margin-top: 6px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 10pt; }
-            th { background-color: #0f172a; color: #ffffff; font-weight: 700; text-align: left; padding: 6px 8px; border: 1px solid #0f172a; text-transform: uppercase; font-size: 8.5pt; }
-            td { padding: 6px 8px; border: 1px solid #cbd5e1; color: #334155; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 10pt; color: #0f172a; margin: 0; padding: 12px 18px; line-height: 1.35; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 9pt; }
+            th { background-color: #0f172a; color: #ffffff; font-weight: 700; text-align: left; padding: 5px 7px; border: 1px solid #0f172a; text-transform: uppercase; font-size: 8pt; }
+            td { padding: 4px 7px; border: 1px solid #cbd5e1; color: #334155; }
             tr:nth-child(even) { background-color: #f8fafc; }
-            .signatures { margin-top: 40px; display: flex; justify-content: space-between; font-size: 9.5pt; color: #475569; font-weight: 600; }
-            .sig-line { width: 200px; border-top: 1.5px solid #94a3b8; text-align: center; padding-top: 4px; margin-top: 35px; }
             @media print {
-              body { padding: 0; }
-              @page { size: portrait; margin: 12mm; }
+              body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              @page { size: portrait; margin: 6mm 8mm; }
             }
           </style>
         </head>
         <body>
-          <div class="header">
-            <div class="title-area">
-              <h1>${meetNameStr}</h1>
-              <h2>${eventNameStr}</h2>
-              <h3>${titleStr}</h3>
-              <div class="meta">
-                Date Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} | Heat-wise Official Timing Report
-              </div>
-            </div>
-            <img src="${LOGO_BASE64}" width="60" height="60" style="object-fit: contain;" />
-          </div>
+          ${buildOfficialReportHeader(meetNameStr, eventNameStr, titleStr, 'Heat-wise Official Timing Report')}
 
           ${tablesHtml}
 
-          <div class="signatures">
-            <div class="sig-line">Chief Timekeeper Signature</div>
-            <div class="sig-line">Referee Signature</div>
-            <div class="sig-line">Meet Director Signature</div>
-          </div>
+          ${buildOfficialReportFooter()}
         </body>
       </html>
     `;
@@ -598,10 +706,10 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
     // Heats first
     tree.heats.forEach(h => {
       contentHtml += `
-        <div style="margin-top: 15px; margin-bottom: 20px; page-break-inside: avoid;">
-          <h3 style="font-size: 12pt; background: #0f172a; color: #ffffff; padding: 6px 12px; margin: 0 0 8px 0; border-radius: 4px; font-weight: 800;">
-            🔥 HEAT ${h.heatNumber} (${h.swimmerCount} Swimmers)
-          </h3>
+        <div style="margin-top: 14px; margin-bottom: 16px; page-break-inside: avoid;">
+          <div style="background-color: #0f172a !important; color: #ffffff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; padding: 6px 12px; border-radius: 3px; font-weight: 800; font-size: 11pt; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 6px 0;">
+            HEAT ${h.heatNumber} (${h.swimmerCount} SWIMMERS)
+          </div>
           ${buildHeatTableHTML(h.ageGroups, showT1T2)}
         </div>
       `;
@@ -610,10 +718,10 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
     // Finals placed at the VERY END of the heats list for each event!
     if (tree.finals) {
       contentHtml += `
-        <div style="margin-top: 25px; margin-bottom: 20px; page-break-inside: avoid; border: 2px solid #eab308; padding: 10px; border-radius: 6px; background: #fefce8;">
-          <h3 style="font-size: 13pt; background: #ca8a04; color: #ffffff; padding: 8px 12px; margin: 0 0 10px 0; border-radius: 4px; font-weight: 900; text-transform: uppercase;">
-            🏆 FINALS RESULTS
-          </h3>
+        <div style="margin-top: 18px; margin-bottom: 16px; page-break-inside: avoid; border: 1.5px solid #0284c7; padding: 8px; border-radius: 4px; background: #f0f9ff !important; -webkit-print-color-adjust: exact !important;">
+          <div style="background-color: #0284c7 !important; color: #ffffff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; padding: 6px 12px; border-radius: 3px; font-weight: 800; font-size: 11.5pt; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 8px 0;">
+            FINALS RESULTS
+          </div>
           ${buildHeatTableHTML(tree.finals.ageGroups, showT1T2)}
         </div>
       `;
@@ -626,42 +734,23 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
           <meta charset="utf-8">
           <title>${eventNameStr} - Full Event Results</title>
           <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 11pt; color: #0f172a; margin: 0; padding: 20px; line-height: 1.4; }
-            .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2.5px solid #0f172a; padding-bottom: 10px; margin-bottom: 15px; }
-            .title-area h1 { font-size: 16pt; margin: 0 0 4px 0; color: #0f172a; text-transform: uppercase; font-weight: 800; }
-            .title-area h2 { font-size: 13pt; margin: 0 0 4px 0; color: #0284c7; font-weight: 700; }
-            .meta { font-size: 9pt; color: #64748b; margin-top: 6px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 10pt; }
-            th { background-color: #0f172a; color: #ffffff; font-weight: 700; text-align: left; padding: 6px 8px; border: 1px solid #0f172a; text-transform: uppercase; font-size: 8.5pt; }
-            td { padding: 6px 8px; border: 1px solid #cbd5e1; color: #334155; }
-            tr:nth-child(even) { background-color: #f8fafc; }
-            .signatures { margin-top: 40px; display: flex; justify-content: space-between; font-size: 9.5pt; color: #475569; font-weight: 600; }
-            .sig-line { width: 200px; border-top: 1.5px solid #94a3b8; text-align: center; padding-top: 4px; margin-top: 35px; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 10pt; color: #0f172a; margin: 0; padding: 12px 18px; line-height: 1.35; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 9pt; }
+            th { background-color: #0f172a !important; color: #ffffff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; font-weight: 700; text-align: left; padding: 5px 7px; border: 1px solid #0f172a; text-transform: uppercase; font-size: 8pt; }
+            td { padding: 4px 7px; border: 1px solid #cbd5e1; color: #334155; }
+            tr:nth-child(even) { background-color: #f8fafc !important; -webkit-print-color-adjust: exact !important; }
             @media print {
-              body { padding: 0; }
-              @page { size: portrait; margin: 12mm; }
+              body { padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+              @page { size: portrait; margin: 6mm 8mm; }
             }
           </style>
         </head>
         <body>
-          <div class="header">
-            <div class="title-area">
-              <h1>${meetNameStr}</h1>
-              <h2>${eventNameStr}</h2>
-              <div class="meta">
-                Date Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} | Official Event Results Report
-              </div>
-            </div>
-            <img src="${LOGO_BASE64}" width="60" height="60" style="object-fit: contain;" />
-          </div>
+          ${buildOfficialReportHeader(meetNameStr, eventNameStr, 'OFFICIAL EVENT RESULTS & RANKINGS', 'Full Event Official Results Report')}
 
           ${contentHtml}
 
-          <div class="signatures">
-            <div class="sig-line">Chief Timekeeper Signature</div>
-            <div class="sig-line">Referee Signature</div>
-            <div class="sig-line">Meet Director Signature</div>
-          </div>
+          ${buildOfficialReportFooter()}
         </body>
       </html>
     `;
@@ -687,10 +776,10 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
 
       tree.heats.forEach(h => {
         eventContentHtml += `
-          <div style="margin-top: 10px; margin-bottom: 15px; page-break-inside: avoid;">
-            <h4 style="font-size: 11pt; background: #0f172a; color: #ffffff; padding: 5px 10px; margin: 0 0 6px 0; border-radius: 3px; font-weight: 700;">
-              🔥 HEAT ${h.heatNumber} (${h.swimmerCount} Swimmers)
-            </h4>
+          <div style="margin-top: 12px; margin-bottom: 14px; page-break-inside: avoid;">
+            <div style="background-color: #0f172a !important; color: #ffffff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; padding: 6px 12px; border-radius: 3px; font-weight: 800; font-size: 11pt; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 6px 0;">
+              HEAT ${h.heatNumber} (${h.swimmerCount} SWIMMERS)
+            </div>
             ${buildHeatTableHTML(h.ageGroups, showT1T2)}
           </div>
         `;
@@ -698,10 +787,10 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
 
       if (tree.finals) {
         eventContentHtml += `
-          <div style="margin-top: 15px; margin-bottom: 15px; page-break-inside: avoid; border: 1.5px solid #eab308; padding: 8px; border-radius: 5px; background: #fefce8;">
-            <h4 style="font-size: 12pt; background: #ca8a04; color: #ffffff; padding: 6px 10px; margin: 0 0 8px 0; border-radius: 3px; font-weight: 800; text-transform: uppercase;">
-              🏆 FINALS RESULTS
-            </h4>
+          <div style="margin-top: 14px; margin-bottom: 14px; page-break-inside: avoid; border: 1.5px solid #0284c7; padding: 8px; border-radius: 4px; background: #f0f9ff !important; -webkit-print-color-adjust: exact !important;">
+            <div style="background-color: #0284c7 !important; color: #ffffff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; padding: 6px 12px; border-radius: 3px; font-weight: 800; font-size: 11.5pt; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 8px 0;">
+              FINALS RESULTS
+            </div>
             ${buildHeatTableHTML(tree.finals.ageGroups, showT1T2)}
           </div>
         `;
@@ -709,24 +798,11 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
 
       multiHtml += `
         <div style="page-break-after: always; ${idx === selectedTrees.length - 1 ? 'page-break-after: auto;' : ''}">
-          <div class="header">
-            <div class="title-area">
-              <h1>${meetNameStr}</h1>
-              <h2>${tree.eventName}</h2>
-              <div class="meta">
-                Date Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} | Official Competition Results
-              </div>
-            </div>
-            <img src="${LOGO_BASE64}" width="55" height="55" style="object-fit: contain;" />
-          </div>
+          ${buildOfficialReportHeader(meetNameStr, tree.eventName, 'OFFICIAL CONSOLIDATED RESULTS', 'Championship Results Report')}
 
           ${eventContentHtml}
 
-          <div class="signatures">
-            <div class="sig-line">Chief Timekeeper Signature</div>
-            <div class="sig-line">Referee Signature</div>
-            <div class="sig-line">Meet Director Signature</div>
-          </div>
+          ${buildOfficialReportFooter()}
         </div>
       `;
     });
@@ -738,20 +814,14 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
           <meta charset="utf-8">
           <title>${meetNameStr} - Consolidated Results Report</title>
           <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 11pt; color: #0f172a; margin: 0; padding: 20px; line-height: 1.4; }
-            .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2.5px solid #0f172a; padding-bottom: 10px; margin-bottom: 15px; }
-            .title-area h1 { font-size: 15pt; margin: 0 0 4px 0; color: #0f172a; text-transform: uppercase; font-weight: 800; }
-            .title-area h2 { font-size: 12pt; margin: 0 0 4px 0; color: #0284c7; font-weight: 700; }
-            .meta { font-size: 8.5pt; color: #64748b; margin-top: 4px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 9.5pt; }
-            th { background-color: #0f172a; color: #ffffff; font-weight: 700; text-align: left; padding: 5px 7px; border: 1px solid #0f172a; text-transform: uppercase; font-size: 8pt; }
-            td { padding: 5px 7px; border: 1px solid #cbd5e1; color: #334155; }
-            tr:nth-child(even) { background-color: #f8fafc; }
-            .signatures { margin-top: 35px; display: flex; justify-content: space-between; font-size: 9pt; color: #475569; font-weight: 600; }
-            .sig-line { width: 180px; border-top: 1.5px solid #94a3b8; text-align: center; padding-top: 4px; margin-top: 30px; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 10pt; color: #0f172a; margin: 0; padding: 12px 18px; line-height: 1.35; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 9pt; }
+            th { background-color: #0f172a !important; color: #ffffff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; font-weight: 700; text-align: left; padding: 5px 7px; border: 1px solid #0f172a; text-transform: uppercase; font-size: 8pt; }
+            td { padding: 4px 7px; border: 1px solid #cbd5e1; color: #334155; }
+            tr:nth-child(even) { background-color: #f8fafc !important; -webkit-print-color-adjust: exact !important; }
             @media print {
-              body { padding: 0; }
-              @page { size: portrait; margin: 12mm; }
+              body { padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+              @page { size: portrait; margin: 6mm 8mm; }
             }
           </style>
         </head>
@@ -765,7 +835,7 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
   };
 
   return (
-    <div className="card shadow-lg p-6 rounded-xl border border-border bg-card">
+    <div style={{ width: '100%' }}>
       <NoticeModal
         isOpen={notice.isOpen}
         title={notice.title}
@@ -785,6 +855,17 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
       />
 
       <ConfirmationModal
+        isOpen={showBatchDeleteConfirm}
+        title="Delete Results Confirmation"
+        message={`Are you sure you want to delete all saved timing results for the ${selectedEventIdsForPrint.length} selected event(s)?\n\nThis will permanently remove the results data for these events. This action cannot be undone.`}
+        confirmText={isBatchDeleting ? 'Deleting...' : 'Yes, Delete Results'}
+        cancelText="Cancel"
+        confirmVariant="danger"
+        onConfirm={confirmBatchDeleteResults}
+        onCancel={() => setShowBatchDeleteConfirm(false)}
+      />
+
+      <ConfirmationModal
         isOpen={showClearConfirm}
         title="Clear All Timing Results"
         message="Are you sure you want to delete ALL timing results for this competition? This will reset official results data."
@@ -795,58 +876,31 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
         onCancel={() => setShowClearConfirm(false)}
       />
 
-      {/* Header Bar */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-        <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2 text-cyan">
-            <Award className="w-6 h-6 text-cyan" /> Results & Medalists Management
-          </h2>
-          <p className="text-sm text-text-secondary mt-1">
-            Hierarchical event & heat-wise results grouped by age category with 1-click printable reports.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={expandAll}
-            style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
-          >
-            <Layers size={14} /> Expand All
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={collapseAll}
-            style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
-          >
-            Collapse All
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={handlePrintMultiSelection}
-            disabled={selectedEventIdsForPrint.length === 0}
-            style={{ padding: '0.45rem 1rem', fontSize: '0.85rem', fontWeight: 700 }}
-          >
-            <Printer size={16} /> Print Selected Reports ({selectedEventIdsForPrint.length})
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary text-red hover:bg-red/10"
-            onClick={() => setShowClearConfirm(true)}
-            style={{ padding: '0.45rem 0.85rem', fontSize: '0.8rem', borderColor: 'rgba(239, 68, 68, 0.4)', color: '#f87171' }}
-          >
-            <Trash2 size={14} /> Clear All
-          </button>
-        </div>
+      {/* Header Bar - Clean Centered Title */}
+      <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
+        <h2 className="text-2xl font-bold flex items-center justify-center gap-2 text-cyan" style={{ fontSize: '1.65rem', letterSpacing: '0.02em', marginBottom: '0.35rem' }}>
+          <Award className="w-7 h-7 text-cyan" /> Results & Medalists Management
+        </h2>
+        <p className="text-sm text-text-secondary" style={{ fontSize: '0.9rem', color: '#94a3b8' }}>
+          Hierarchical event & heat-wise results grouped by age category with 1-click printable reports.
+        </p>
       </div>
 
       {/* Filters Bar */}
-      <div className="glass-card flex flex-wrap gap-4 p-4 items-end mb-6">
-        <div className="form-group mb-0" style={{ flex: '2 1 240px' }}>
-          <label className="form-label">Swim Meet</label>
+      <div 
+        className="glass-card"
+        style={{
+          padding: '1rem 1.25rem',
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'flex-end',
+          gap: '1rem',
+          marginBottom: '1.5rem',
+          width: '100%'
+        }}
+      >
+        <div className="form-group mb-0" style={{ flex: '1.2 1 180px' }}>
+          <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>SWIM MEET</label>
           <CustomSelect
             options={meets.map(m => ({ value: m.id!, label: m.name }))}
             value={selectedMeetId || ''}
@@ -855,19 +909,23 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
           />
         </div>
 
-        <div className="form-group mb-0" style={{ flex: '2.5 1 280px' }}>
-          <label className="form-label">🔍 Quick Search Options</label>
-          <input
-            type="text"
-            className="form-control"
-            placeholder="Search by Swimmer Name, District, Event, Heat..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+        <div className="form-group mb-0" style={{ flex: '1.4 1 200px' }}>
+          <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>SEARCH</label>
+          <div style={{ position: 'relative' }}>
+            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input
+              type="text"
+              className="form-control"
+              style={{ paddingLeft: '36px' }}
+              placeholder="Search Swimmer, District, Event..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
 
-        <div className="form-group mb-0" style={{ flex: '2.5 1 280px' }}>
-          <label className="form-label">Filter Event</label>
+        <div className="form-group mb-0" style={{ flex: '1.8 1 240px' }}>
+          <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>FILTER EVENT</label>
           <CustomSelect
             options={[
               { value: -1, label: `All Events (${events.length} Events)` },
@@ -881,8 +939,8 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
           />
         </div>
 
-        <div className="form-group mb-0" style={{ flex: '1 1 120px' }}>
-          <label className="form-label">Stage</label>
+        <div className="form-group mb-0" style={{ flex: '0.9 1 130px' }}>
+          <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>STAGE</label>
           <CustomSelect
             options={[
               { value: 'All', label: 'All Stages' },
@@ -894,74 +952,162 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
           />
         </div>
 
-        <div className="form-group mb-0" style={{ flex: '1 1 120px' }}>
-          <label className="form-label">Heat Filter</label>
-          <CustomSelect
-            options={[
-              { value: 'All', label: 'All Heats' },
-              ...Array.from({ length: 8 }, (_, i) => ({ value: i + 1, label: `Heat ${i + 1}` }))
-            ]}
-            value={selectedHeatFilter}
-            onChange={(val) => setSelectedHeatFilter(val === 'All' ? 'All' : Number(val))}
-          />
+        <div className="form-group mb-0" style={{ flexShrink: 0, marginLeft: 'auto' }}>
+          <button
+            type="button"
+            className={`btn ${isSelectMode ? 'btn-cyan' : 'btn-secondary'}`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              color: isSelectMode ? '#0f172a' : '#06b6d4',
+              borderColor: 'rgba(6, 182, 212, 0.5)',
+              backgroundColor: isSelectMode ? '#06b6d4' : 'rgba(6, 182, 212, 0.12)',
+              fontWeight: 800,
+              fontSize: '0.85rem',
+              padding: '0.55rem 1.15rem',
+              borderRadius: '20px',
+              whiteSpace: 'nowrap',
+              height: '40px'
+            }}
+            onClick={() => setIsSelectMode(prev => !prev)}
+            title="Toggle batch selection mode"
+          >
+            <CheckSquare size={16} /> {isSelectMode ? 'Exit Select' : 'Select'}
+          </button>
         </div>
       </div>
 
-      {/* Multi-Event Print Checklist Panel */}
-      {selectedEventId === -1 && (
+      {/* Batch Select Operations Control Panel */}
+      {isSelectMode && (
         <div 
-          className="glass-card mb-6" 
+          className="glass-card mb-5" 
           style={{ 
-            borderColor: 'rgba(250, 204, 21, 0.4)', 
-            backgroundColor: 'rgba(250, 204, 21, 0.04)',
-            padding: '1rem'
+            background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(15, 23, 42, 0.85) 100%)',
+            border: '1.5px solid rgba(6, 182, 212, 0.5)',
+            borderRadius: '14px',
+            padding: '0.9rem 1.25rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.75rem',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)'
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-            <div>
-              <h4 style={{ margin: 0, color: '#facc15', fontWeight: 800, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Printer size={18} /> Multi-Print Checklist Selection ({selectedEventIdsForPrint.length} of {events.length} Selected)
-              </h4>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0 0' }}>
-                Check individual events to include in your consolidated print report.
-              </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <CheckSquare size={20} style={{ color: 'var(--accent-cyan)' }} />
+              <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '0.02em' }}>
+                Batch Selection Mode ({selectedEventIdsForPrint.length} Selected)
+              </span>
             </div>
 
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <button
                 type="button"
                 className="btn btn-secondary"
-                style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem', color: '#4ade80', borderColor: 'rgba(74, 222, 128, 0.4)' }}
+                style={{ padding: '0.3rem 0.75rem', fontSize: '0.78rem', fontWeight: 700, borderColor: 'rgba(56,189,248,0.4)', color: '#38bdf8' }}
                 onClick={() => setSelectedEventIdsForPrint(events.map(e => e.id!))}
               >
-                Select All ({events.length})
+                Select All
               </button>
               <button
                 type="button"
                 className="btn btn-secondary"
-                style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.4)' }}
-                onClick={() => {
-                  const withResults = events.filter(e => eventsWithResultsCount.get(e.id!)! > 0).map(e => e.id!);
-                  setSelectedEventIdsForPrint(withResults);
-                }}
-              >
-                Events with Results Only ({events.filter(e => (eventsWithResultsCount.get(e.id!) || 0) > 0).length})
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem', color: '#f87171', borderColor: 'rgba(248, 113, 113, 0.4)' }}
+                style={{ padding: '0.3rem 0.75rem', fontSize: '0.78rem', fontWeight: 700, borderColor: 'rgba(248,113,113,0.4)', color: '#f87171' }}
                 onClick={() => setSelectedEventIdsForPrint([])}
               >
                 Deselect All
               </button>
             </div>
           </div>
+
+          <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleMarkPrinted}
+              disabled={selectedEventIdsForPrint.length === 0}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                padding: '0.45rem 1rem',
+                fontSize: '0.84rem',
+                fontWeight: 700,
+                color: '#4ade80',
+                borderColor: 'rgba(74, 222, 128, 0.4)',
+                backgroundColor: 'rgba(74, 222, 128, 0.1)'
+              }}
+            >
+              <CheckCircle2 size={16} /> Mark Printed ({selectedEventIdsForPrint.length})
+            </button>
+            <button
+              type="button"
+              className="btn btn-cyan"
+              onClick={handlePrintMultiSelection}
+              disabled={selectedEventIdsForPrint.length === 0}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                padding: '0.45rem 1.1rem',
+                fontSize: '0.84rem',
+                fontWeight: 800
+              }}
+            >
+              <Printer size={16} /> Print Heat Sheet ({selectedEventIdsForPrint.length})
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary text-red hover:bg-red/10"
+              onClick={() => setShowBatchDeleteConfirm(true)}
+              disabled={selectedEventIdsForPrint.length === 0}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                padding: '0.45rem 1rem',
+                fontSize: '0.84rem',
+                fontWeight: 700,
+                color: '#f87171',
+                borderColor: 'rgba(239, 68, 68, 0.4)',
+                backgroundColor: 'rgba(239, 68, 68, 0.08)'
+              }}
+            >
+              <Trash2 size={16} /> Delete Results ({selectedEventIdsForPrint.length})
+            </button>
+
+            {/* T1 & T2 Backup Times Toggle Button */}
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setShowT1T2(prev => !prev)}
+              style={{
+                marginLeft: 'auto',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                padding: '0.45rem 1.15rem',
+                fontSize: '0.84rem',
+                fontWeight: 800,
+                borderRadius: '20px',
+                color: showT1T2 ? '#0f172a' : '#38bdf8',
+                backgroundColor: showT1T2 ? '#38bdf8' : 'rgba(56, 189, 248, 0.12)',
+                borderColor: 'rgba(56, 189, 248, 0.6)',
+                borderWidth: '1.5px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              title="Toggle inclusion of T1 (Touchpad) and T2 (Backup) columns in printed reports"
+            >
+              <Sliders size={16} /> {showT1T2 ? 'T1 & T2 Columns: ON' : 'T1 & T2 Columns: OFF'}
+            </button>
+          </div>
         </div>
       )}
 
       {/* Main Hierarchical Tree View: Event Cards -> Heat Cards -> Age Group Tables */}
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', marginTop: '0.75rem' }}>
         {eventTrees.length === 0 ? (
           <div className="glass-card p-12 text-center" style={{ color: 'var(--text-muted)' }}>
             <Filter size={36} className="mx-auto mb-3 text-cyan opacity-50" />
@@ -973,27 +1119,67 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
         ) : (
           eventTrees.map(tree => {
             const isEventExpanded = expandedEventIds.has(tree.event.id!);
+            const isChecked = selectedEventIdsForPrint.includes(tree.event.id!);
 
             return (
               <div 
                 key={tree.event.id}
-                className="glass-card p-0 overflow-hidden border border-border"
+                className="glass-card p-0 overflow-hidden"
                 style={{
-                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
-                  borderColor: isEventExpanded ? 'var(--accent-cyan)' : 'var(--border-color)',
-                  transition: 'all 0.2s ease'
+                  boxShadow: isChecked ? '0 0 16px rgba(6, 182, 212, 0.25)' : '0 2px 10px rgba(0, 0, 0, 0.25)',
+                  borderColor: isChecked ? '#06b6d4' : 'rgba(255, 255, 255, 0.1)',
+                  backgroundColor: isChecked ? 'rgba(6, 182, 212, 0.06)' : 'rgba(15, 23, 42, 0.65)',
+                  transition: 'all 0.2s ease',
+                  marginBottom: '0.5rem'
                 }}
               >
                 {/* Event Card Header */}
                 <div 
                   className="flex flex-wrap items-center justify-between p-4 cursor-pointer select-none"
                   style={{
-                    backgroundColor: isEventExpanded ? 'rgba(6, 182, 212, 0.12)' : 'rgba(255, 255, 255, 0.02)',
-                    borderBottom: isEventExpanded ? '1px solid rgba(6, 182, 212, 0.3)' : 'none'
+                    backgroundColor: isChecked 
+                      ? 'rgba(6, 182, 212, 0.1)' 
+                      : 'transparent',
+                    borderBottom: isEventExpanded ? '1px solid rgba(255, 255, 255, 0.08)' : 'none'
                   }}
                   onClick={() => toggleEventExpand(tree.event.id!)}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    const next = new Set(selectedEventIdsForPrint);
+                    if (next.has(tree.event.id!)) {
+                      next.delete(tree.event.id!);
+                    } else {
+                      next.add(tree.event.id!);
+                    }
+                    setSelectedEventIdsForPrint(Array.from(next));
+                  }}
+                  title="Click to expand/collapse. Double-click to select/deselect for batch report."
                 >
                   <div className="flex items-center gap-3">
+                    {/* Checkbox for Print Selection - only in Select mode */}
+                    {isSelectMode && (
+                      <div 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const next = new Set(selectedEventIdsForPrint);
+                          if (next.has(tree.event.id!)) {
+                            next.delete(tree.event.id!);
+                          } else {
+                            next.add(tree.event.id!);
+                          }
+                          setSelectedEventIdsForPrint(Array.from(next));
+                        }}
+                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', paddingRight: '0.25rem' }}
+                        title={isChecked ? 'Deselect event from print report' : 'Select event for print report'}
+                      >
+                        {isChecked ? (
+                          <CheckSquare size={22} style={{ color: '#06b6d4' }} />
+                        ) : (
+                          <Square size={22} style={{ color: 'rgba(255,255,255,0.3)' }} />
+                        )}
+                      </div>
+                    )}
+
                     <button 
                       className="p-1 rounded hover:bg-white/10 text-cyan transition-colors"
                       onClick={(e) => {
@@ -1008,15 +1194,45 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
                         <span className="px-2 py-0.5 rounded text-xs font-bold bg-cyan/20 text-cyan border border-cyan/40">
                           Event #{tree.event.eventNo || tree.event.id}
                         </span>
+                        {printedEventIds.has(tree.event.id!) && (
+                          <span className="px-2 py-0.5 rounded text-[11px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 flex items-center gap-1">
+                            <CheckCircle2 size={12} /> PRINTED
+                          </span>
+                        )}
                         <h3 className="text-base font-bold text-text-primary margin-0">
                           {tree.event.distance}m {tree.event.stroke} - {tree.event.gender === 'M' ? 'Men' : 'Women'} ({tree.event.ageGroup})
                         </h3>
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-text-secondary mt-1">
-                        <span>👥 {tree.totalSwimmers} Swimmers</span>
+                      <div className="flex items-center gap-3 text-xs text-text-secondary mt-1.5 flex-wrap">
+                        <span>{tree.totalSwimmers} Swimmers</span>
                         <span>•</span>
-                        <span>🔥 {tree.heats.length} Heat{tree.heats.length > 1 ? 's' : ''}</span>
-                        {tree.finals && <span className="text-amber font-bold">• 🏆 Finals Available</span>}
+                        <span>{tree.heats.length} Heat{tree.heats.length > 1 ? 's' : ''}</span>
+                        {/* Interactive Heat Pills with Results Checkmarks */}
+                        <div className="flex items-center gap-1.5 ml-1">
+                          {tree.heats.map(h => {
+                            const hasResults = h.ageGroups.some(ag => ag.rows.some(r => r.finalTime > 0));
+                            return (
+                              <button
+                                key={h.heatNumber}
+                                type="button"
+                                className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1 transition-all ${
+                                  hasResults 
+                                    ? 'bg-emerald-950/70 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-900/80' 
+                                    : 'bg-amber-950/70 text-amber-300 border border-amber-500/50 hover:bg-amber-900/80'
+                                }`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePrintSingleHeat(tree.event, h);
+                                }}
+                                title={hasResults ? `Click to print results for Heat ${h.heatNumber}` : `Heat ${h.heatNumber} (No timing results yet)`}
+                              >
+                                {hasResults && <span>✓</span>}
+                                Heat {h.heatNumber}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {tree.finals && <span className="text-amber font-bold">• Finals Available</span>}
                       </div>
                     </div>
                   </div>
@@ -1036,235 +1252,226 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
                       style={{ padding: '0.4rem 0.75rem', fontSize: '0.8rem' }}
                       onClick={() => toggleEventExpand(tree.event.id!)}
                     >
-                      {isEventExpanded ? 'Collapse ▲' : 'View Heats ▼'}
+                      {isEventExpanded ? 'Close ▲' : 'View Heats ▼'}
                     </button>
                   </div>
                 </div>
 
-                {/* Event Details Content (Heats list + Finals at end) */}
+                {/* Event Details Content (Clean Direct Heats + Results Table) */}
                 {isEventExpanded && (
-                  <div className="p-4 flex flex-col gap-6 bg-background/50">
+                  <div style={{ padding: '1.25rem 1.75rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', backgroundColor: 'rgba(15, 23, 42, 0.55)' }}>
                     {/* Render Heats in Sequential Order (Heat 1, Heat 2, Heat 3...) */}
-                    {tree.heats.map(heat => {
-                      const heatKey = `${tree.event.id}-H${heat.heatNumber}`;
-                      const isHeatExpanded = expandedHeatKeys.has(heatKey);
+                    {tree.heats.map(heat => (
+                      <div key={heat.heatNumber} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                        {/* Clean Heat Divider Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.4rem', borderBottom: '1.5px solid rgba(6, 182, 212, 0.3)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                            <span style={{ fontWeight: 900, fontSize: '0.92rem', color: '#38bdf8', letterSpacing: '0.02em' }}>
+                              HEAT {heat.heatNumber}
+                            </span>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                              • {heat.swimmerCount} Swimmer{heat.swimmerCount > 1 ? 's' : ''} in {heat.ageGroups.length} Category{heat.ageGroups.length > 1 ? 's' : ''}
+                            </span>
+                          </div>
 
-                      return (
-                        <div 
-                          key={heat.heatNumber}
-                          className="rounded-lg border border-border/80 overflow-hidden bg-card/60"
-                        >
-                          {/* Heat Sub-Header Bar */}
-                          <div 
-                            className="flex items-center justify-between p-3.5 bg-cyan/5 border-b border-border cursor-pointer"
-                            onClick={() => toggleHeatExpand(heatKey)}
+                          <button
+                            type="button"
+                            className="btn btn-cyan btn-sm"
+                            style={{ padding: '0.3rem 0.75rem', fontSize: '0.78rem', fontWeight: 700, borderRadius: '16px' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePrintSingleHeat(tree.event, heat);
+                            }}
                           >
-                            <div className="flex items-center gap-2.5">
-                              <button 
-                                className="p-1 text-cyan hover:bg-white/10 rounded"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleHeatExpand(heatKey);
-                                }}
-                              >
-                                {isHeatExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-                              </button>
-                              <span className="font-bold text-sm text-cyan flex items-center gap-1.5">
-                                🔥 HEAT {heat.heatNumber}
-                              </span>
-                              <span className="text-xs text-text-muted">
-                                ({heat.swimmerCount} Swimmers in {heat.ageGroups.length} Age Category{heat.ageGroups.length > 1 ? 's' : ''})
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                              <button
-                                type="button"
-                                className="btn btn-cyan btn-sm"
-                                style={{ padding: '0.3rem 0.75rem', fontSize: '0.78rem', fontWeight: 700 }}
-                                onClick={() => handlePrintSingleHeat(tree.event, heat)}
-                              >
-                                <Printer size={14} /> Print Heat {heat.heatNumber} Results
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Age Group Sections inside this Heat */}
-                          {isHeatExpanded && (
-                            <div className="p-3 flex flex-col gap-4">
-                              {heat.ageGroups.map(ag => (
-                                <div key={ag.ageGroup} className="rounded border border-border/60 p-3 bg-background/80">
-                                  <div className="text-xs font-bold text-amber uppercase tracking-wider mb-2.5 pb-1 border-b border-border/40 flex justify-between items-center">
-                                    <span>🏷️ AGE GROUP: {ag.ageGroup} ({ag.gender === 'M' ? 'Men' : 'Women'})</span>
-                                    <span className="text-text-muted font-normal">{ag.rows.length} Swimmer{ag.rows.length > 1 ? 's' : ''}</span>
-                                  </div>
-
-                                  <div className="overflow-x-auto">
-                                    <table className="data-table w-full text-xs">
-                                      <thead>
-                                        <tr>
-                                          <th style={{ width: '60px', textAlign: 'center' }}>Rank</th>
-                                          <th style={{ width: '50px', textAlign: 'center' }}>Lane</th>
-                                          <th>Swimmer Name</th>
-                                          <th>District / Club</th>
-                                          <th style={{ width: '80px', textAlign: 'center' }}>Age Group</th>
-                                          <th style={{ textAlign: 'right', width: '100px' }}>Final Time</th>
-                                          <th style={{ width: '70px', textAlign: 'center' }}>Method</th>
-                                          <th style={{ width: '50px', textAlign: 'center' }}>Action</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {ag.rows.map(r => {
-                                          const isRanked = r.rank !== 999;
-                                          return (
-                                            <tr key={r.id || `${r.laneNumber}-${r.swimmerName}`}>
-                                              <td style={{ textAlign: 'center', fontWeight: 800, color: r.rank === 1 ? 'var(--accent-amber)' : 'var(--text-primary)' }}>
-                                                {r.rank === 1 ? '🥇 #1' : (r.rank === 2 ? '🥈 #2' : (r.rank === 3 ? '🥉 #3' : (isRanked ? `#${r.rank}` : '--')))}
-                                              </td>
-                                              <td style={{ textAlign: 'center', fontFamily: 'var(--font-mono)' }}>L{r.laneNumber}</td>
-                                              <td className="font-bold text-text-primary">{r.swimmerName}</td>
-                                              <td>{r.club}</td>
-                                              <td style={{ textAlign: 'center' }}>
-                                                <span className="pill-info">{r.ageGroup}</span>
-                                              </td>
-                                              <td style={{ textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-                                                {r.status === 'OK' && r.finalTime > 0 ? (
-                                                  <span className="text-green">{formatSecondsToTime(r.finalTime)}</span>
-                                                ) : (
-                                                  <span className="text-red">{r.status}</span>
-                                                )}
-                                              </td>
-                                              <td style={{ textAlign: 'center' }}>
-                                                {r.status === 'OK' && r.finalTime > 0 ? (
-                                                  <span className="pill-info" style={{ fontSize: '0.68rem', color: r.timingMethod === 'T2' ? 'var(--accent-amber)' : 'var(--accent-cyan)' }}>
-                                                    {r.timingMethod || 'T1'}
-                                                  </span>
-                                                ) : '--'}
-                                              </td>
-                                              <td style={{ textAlign: 'center' }}>
-                                                <button
-                                                  type="button"
-                                                  className="p-1 text-red hover:bg-red/10 rounded transition-colors"
-                                                  onClick={() => handleDeleteResult(r.id)}
-                                                  title="Delete Result"
-                                                >
-                                                  <Trash2 size={14} />
-                                                </button>
-                                              </td>
-                                            </tr>
-                                          );
-                                        })}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-
-                    {/* FINALS RESULTS (Kept at the VERY END of heats for each event) */}
-                    {tree.finals && (
-                      <div className="rounded-lg border-2 border-amber/60 overflow-hidden bg-amber/5 mt-2">
-                        <div 
-                          className="flex items-center justify-between p-3.5 bg-amber/15 border-b border-amber/40 cursor-pointer"
-                          onClick={() => toggleHeatExpand(`${tree.event.id}-FINALS`)}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <button 
-                              className="p-1 text-amber hover:bg-white/10 rounded"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleHeatExpand(`${tree.event.id}-FINALS`);
-                              }}
-                            >
-                              {expandedHeatKeys.has(`${tree.event.id}-FINALS`) ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-                            </button>
-                            <span className="font-bold text-sm text-amber flex items-center gap-1.5 uppercase tracking-wider">
-                              🏆 FINALS RESULTS
-                            </span>
-                            <span className="text-xs text-text-muted">
-                              ({tree.finals.swimmerCount} Finalists)
-                            </span>
-                            {tree.isFinalsOutdated && (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red/20 text-red border border-red/40">
-                                Outdated (Heats Re-run)
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              type="button"
-                              className="btn btn-yellow btn-sm"
-                              style={{ padding: '0.3rem 0.75rem', fontSize: '0.78rem', fontWeight: 800 }}
-                              onClick={() => handlePrintSingleHeat(tree.event, tree.finals!)}
-                            >
-                              <Printer size={14} /> Print Finals Results
-                            </button>
-                          </div>
+                            <Printer size={13} /> Print Heat {heat.heatNumber} Results
+                          </button>
                         </div>
 
-                        {/* Age group sections for Finals */}
-                        {expandedHeatKeys.has(`${tree.event.id}-FINALS`) && (
-                          <div className="p-3 flex flex-col gap-4">
-                            {tree.finals.ageGroups.map(ag => (
-                              <div key={ag.ageGroup} className="rounded border border-amber/40 p-3 bg-background/90">
-                                <div className="text-xs font-bold text-amber uppercase tracking-wider mb-2.5 pb-1 border-b border-amber/30">
-                                  🏆 FINALS — AGE GROUP: {ag.ageGroup} ({ag.gender === 'M' ? 'Men' : 'Women'})
-                                </div>
-                                <div className="overflow-x-auto">
-                                  <table className="data-table w-full text-xs">
-                                    <thead>
-                                      <tr>
-                                        <th style={{ width: '60px', textAlign: 'center' }}>Rank</th>
-                                        <th style={{ width: '50px', textAlign: 'center' }}>Lane</th>
-                                        <th>Swimmer Name</th>
-                                        <th>District / Club</th>
-                                        <th style={{ width: '80px', textAlign: 'center' }}>Age Group</th>
-                                        <th style={{ textAlign: 'right', width: '100px' }}>Final Time</th>
-                                        <th style={{ width: '70px', textAlign: 'center' }}>Method</th>
-                                        <th style={{ width: '50px', textAlign: 'center' }}>Action</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {ag.rows.map(r => (
+                        {/* Age Group Results Tables */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                          {heat.ageGroups.map(ag => (
+                            <div key={ag.ageGroup}>
+                              <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#facc15', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.4rem', display: 'flex', justifyContent: 'space-between' }}>
+                                <span>AGE GROUP: {ag.ageGroup} (${ag.gender === 'M' ? 'Men' : 'Women'})</span>
+                                <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>{ag.rows.length} Swimmer{ag.rows.length > 1 ? 's' : ''}</span>
+                              </div>
+
+                              <div className="overflow-x-auto" style={{ borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                                <table className="data-table w-full text-xs">
+                                  <thead>
+                                    <tr>
+                                      <th style={{ width: '60px', textAlign: 'center' }}>Rank</th>
+                                      <th style={{ width: '50px', textAlign: 'center' }}>Lane</th>
+                                      <th>Swimmer Name</th>
+                                      <th>District / Club</th>
+                                      <th style={{ width: '80px', textAlign: 'center' }}>Age Group</th>
+                                      <th style={{ textAlign: 'right', width: '90px' }}>Final Time</th>
+                                      <th style={{ textAlign: 'right', width: '80px' }}>Cutoff</th>
+                                      <th style={{ width: '65px', textAlign: 'center' }}>Status</th>
+                                      <th style={{ width: '65px', textAlign: 'center' }}>Method</th>
+                                      <th style={{ width: '45px', textAlign: 'center' }}>Action</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {ag.rows.map(r => {
+                                      const isRanked = r.rank !== 999;
+                                      return (
                                         <tr key={r.id || `${r.laneNumber}-${r.swimmerName}`}>
-                                          <td style={{ textAlign: 'center', fontWeight: 800, color: 'var(--accent-amber)' }}>
-                                            {r.rank === 1 ? '🥇 #1' : (r.rank === 2 ? '🥈 #2' : (r.rank === 3 ? '🥉 #3' : `#${r.rank}`))}
+                                          <td style={{ textAlign: 'center', fontWeight: 800, color: r.rank === 1 ? 'var(--accent-amber)' : 'var(--text-primary)' }}>
+                                            {r.rank === 1 ? '🥇 #1' : (r.rank === 2 ? '🥈 #2' : (r.rank === 3 ? '🥉 #3' : (isRanked ? `#${r.rank}` : '--')))}
                                           </td>
                                           <td style={{ textAlign: 'center', fontFamily: 'var(--font-mono)' }}>L{r.laneNumber}</td>
                                           <td className="font-bold text-text-primary">{r.swimmerName}</td>
                                           <td>{r.club}</td>
-                                          <td style={{ textAlign: 'center' }}><span className="pill-info">{r.ageGroup}</span></td>
+                                          <td style={{ textAlign: 'center' }}>
+                                            <span className="pill-info">{r.ageGroup}</span>
+                                          </td>
                                           <td style={{ textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-                                            <span className="text-green">{formatSecondsToTime(r.finalTime)}</span>
+                                            {r.status === 'OK' && r.finalTime > 0 ? (
+                                              <span className="text-green">{formatSecondsToTime(r.finalTime)}</span>
+                                            ) : (
+                                              <span className="text-red">{r.status}</span>
+                                            )}
+                                          </td>
+                                          <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
+                                            {r.qualifyingTime ? formatSecondsToTime(r.qualifyingTime) : '--'}
                                           </td>
                                           <td style={{ textAlign: 'center' }}>
-                                            <span className="pill-info" style={{ fontSize: '0.68rem', color: 'var(--accent-amber)' }}>
-                                              {r.timingMethod || 'T1'}
-                                            </span>
+                                            {r.qualifyingTime && r.status === 'OK' && r.finalTime > 0 ? (
+                                              r.isQualified ? (
+                                                <span style={{ fontWeight: 800, color: '#4ade80', backgroundColor: 'rgba(74, 222, 128, 0.15)', padding: '2px 7px', borderRadius: '4px', border: '1px solid rgba(74, 222, 128, 0.4)', fontSize: '0.72rem' }}>✓ Q</span>
+                                              ) : (
+                                                <span style={{ fontWeight: 800, color: '#f87171', backgroundColor: 'rgba(239, 68, 68, 0.15)', padding: '2px 7px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.4)', fontSize: '0.72rem' }}>NQ</span>
+                                              )
+                                            ) : (
+                                              <span style={{ color: 'var(--text-muted)' }}>--</span>
+                                            )}
+                                          </td>
+                                          <td style={{ textAlign: 'center' }}>
+                                            {r.status === 'OK' && r.finalTime > 0 ? (
+                                              <span className="pill-info" style={{ fontSize: '0.68rem', color: r.timingMethod === 'T2' ? 'var(--accent-amber)' : 'var(--accent-cyan)' }}>
+                                                {r.timingMethod || 'T1'}
+                                              </span>
+                                            ) : '--'}
                                           </td>
                                           <td style={{ textAlign: 'center' }}>
                                             <button
                                               type="button"
                                               className="p-1 text-red hover:bg-red/10 rounded transition-colors"
                                               onClick={() => handleDeleteResult(r.id)}
+                                              title="Delete Result"
                                             >
                                               <Trash2 size={14} />
                                             </button>
                                           </td>
                                         </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
                               </div>
-                            ))}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* FINALS RESULTS (At the end of heats for the event) */}
+                    {tree.finals && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', marginTop: '0.5rem', borderTop: '2px solid rgba(234, 179, 8, 0.4)', paddingTop: '1rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontWeight: 900, fontSize: '0.95rem', color: '#facc15', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            🏆 FINALS RESULTS
+                          </span>
+                          <button
+                            type="button"
+                            className="btn btn-yellow btn-sm"
+                            style={{ padding: '0.3rem 0.75rem', fontSize: '0.78rem', fontWeight: 700, borderRadius: '16px' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePrintSingleHeat(tree.event, tree.finals!);
+                            }}
+                          >
+                            <Printer size={13} /> Print Finals Results
+                          </button>
+                        </div>
+
+                        {tree.finals.ageGroups.map(ag => (
+                          <div key={ag.ageGroup} className="overflow-x-auto" style={{ borderRadius: '8px', border: '1px solid rgba(234, 179, 8, 0.25)' }}>
+                            <table className="data-table w-full text-xs">
+                              <thead>
+                                <tr>
+                                  <th style={{ width: '60px', textAlign: 'center' }}>Rank</th>
+                                  <th style={{ width: '50px', textAlign: 'center' }}>Lane</th>
+                                  <th>Swimmer Name</th>
+                                  <th>District / Club</th>
+                                  <th style={{ width: '80px', textAlign: 'center' }}>Age Group</th>
+                                  <th style={{ textAlign: 'right', width: '90px' }}>Final Time</th>
+                                  <th style={{ textAlign: 'right', width: '80px' }}>Cutoff</th>
+                                  <th style={{ width: '65px', textAlign: 'center' }}>Status</th>
+                                  <th style={{ width: '65px', textAlign: 'center' }}>Method</th>
+                                  <th style={{ width: '45px', textAlign: 'center' }}>Action</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {ag.rows.map(r => {
+                                  const isRanked = r.rank !== 999;
+                                  return (
+                                    <tr key={r.id || `${r.laneNumber}-${r.swimmerName}`}>
+                                      <td style={{ textAlign: 'center', fontWeight: 800, color: r.rank === 1 ? 'var(--accent-amber)' : 'var(--text-primary)' }}>
+                                        {r.rank === 1 ? '🥇 #1' : (r.rank === 2 ? '🥈 #2' : (r.rank === 3 ? '🥉 #3' : (isRanked ? `#${r.rank}` : '--')))}
+                                      </td>
+                                      <td style={{ textAlign: 'center', fontFamily: 'var(--font-mono)' }}>L{r.laneNumber}</td>
+                                      <td className="font-bold text-text-primary">{r.swimmerName}</td>
+                                      <td>{r.club}</td>
+                                      <td style={{ textAlign: 'center' }}>
+                                        <span className="pill-info">{r.ageGroup}</span>
+                                      </td>
+                                      <td style={{ textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                                        {r.status === 'OK' && r.finalTime > 0 ? (
+                                          <span className="text-green">{formatSecondsToTime(r.finalTime)}</span>
+                                        ) : (
+                                          <span className="text-red">{r.status}</span>
+                                        )}
+                                      </td>
+                                      <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
+                                        {r.qualifyingTime ? formatSecondsToTime(r.qualifyingTime) : '--'}
+                                      </td>
+                                      <td style={{ textAlign: 'center' }}>
+                                        {r.qualifyingTime && r.status === 'OK' && r.finalTime > 0 ? (
+                                          r.isQualified ? (
+                                            <span style={{ fontWeight: 800, color: '#4ade80', backgroundColor: 'rgba(74, 222, 128, 0.15)', padding: '2px 7px', borderRadius: '4px', border: '1px solid rgba(74, 222, 128, 0.4)', fontSize: '0.72rem' }}>✓ Q</span>
+                                          ) : (
+                                            <span style={{ fontWeight: 800, color: '#f87171', backgroundColor: 'rgba(239, 68, 68, 0.15)', padding: '2px 7px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.4)', fontSize: '0.72rem' }}>NQ</span>
+                                          )
+                                        ) : (
+                                          <span style={{ color: 'var(--text-muted)' }}>--</span>
+                                        )}
+                                      </td>
+                                      <td style={{ textAlign: 'center' }}>
+                                        {r.status === 'OK' && r.finalTime > 0 ? (
+                                          <span className="pill-info" style={{ fontSize: '0.68rem', color: r.timingMethod === 'T2' ? 'var(--accent-amber)' : 'var(--accent-cyan)' }}>
+                                            {r.timingMethod || 'T1'}
+                                          </span>
+                                        ) : '--'}
+                                      </td>
+                                      <td style={{ textAlign: 'center' }}>
+                                        <button
+                                              type="button"
+                                              className="p-1 text-red hover:bg-red/10 rounded transition-colors"
+                                              onClick={() => handleDeleteResult(r.id)}
+                                              title="Delete Result"
+                                            >
+                                              <Trash2 size={14} />
+                                            </button>
+                                          </td>
+                                        </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
                           </div>
-                        )}
+                        ))}
                       </div>
                     )}
                   </div>

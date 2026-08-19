@@ -6,6 +6,7 @@ import ConfirmationModal from './ConfirmationModal';
 import CustomSelect from './CustomSelect';
 import HoverScrollText from './HoverScrollText';
 import { LOGO_BASE64 } from '../utils/logoBase64';
+import { TSA_LOGO_BASE64, SAT_LOGO_BASE64 } from '../utils/reportLogos';
 import { printHtmlDocument } from '../utils/printHelper';
 
 interface MeetManagerProps {
@@ -106,8 +107,8 @@ export default function MeetManager({
   const [eventSearchQuery, setEventSearchQuery] = useState<string>('');
   const [swimmerSearchQuery, setSwimmerSearchQuery] = useState<string>('');
   const [assignedSwimmerIdsForEvent, setAssignedSwimmerIdsForEvent] = useState<Set<number>>(new Set());
-  const [filterSchedulerGender, setFilterSchedulerGender] = useState<string>('All');
-  const [filterSchedulerCategory, setFilterSchedulerCategory] = useState<string>('All');
+  const [mainListGender, setMainListGender] = useState<string>('All');
+  const [mainListCategory, setMainListCategory] = useState<string>('All');
 
   const [expandedEventId, setExpandedEventId] = useState<number | null>(null);
   const [expandedHeatNum, setExpandedHeatNum] = useState<number>(1);
@@ -132,11 +133,27 @@ export default function MeetManager({
   };
 
   const handleSchedulerGenderChange = (genderVal: string) => {
-    setFilterSchedulerGender(genderVal);
+    if (genderVal === 'All') return;
+    const targetEv = events.find(e => e.gender === genderVal && !completedEventIds.has(e.id!) && !manuallyDoneEventIds.has(e.id!)) 
+      || events.find(e => e.gender === genderVal);
+    if (targetEv && targetEv.id) {
+      setSelectedEventId(targetEv.id);
+    }
   };
 
   const handleSchedulerCategoryChange = (catVal: string) => {
-    setFilterSchedulerCategory(catVal);
+    if (catVal === 'All') return;
+    const targetEv = events.find(e => {
+      const isMerged = e.ageGroup === 'All Age Groups' || e.ageGroup?.toLowerCase().includes('merged');
+      const matchCat = catVal === 'Merged' ? isMerged : e.ageGroup === catVal;
+      return matchCat && !completedEventIds.has(e.id!) && !manuallyDoneEventIds.has(e.id!);
+    }) || events.find(e => {
+      const isMerged = e.ageGroup === 'All Age Groups' || e.ageGroup?.toLowerCase().includes('merged');
+      return catVal === 'Merged' ? isMerged : e.ageGroup === catVal;
+    });
+    if (targetEv && targetEv.id) {
+      setSelectedEventId(targetEv.id);
+    }
   };
 
   // Meet Create Form State
@@ -801,16 +818,25 @@ export default function MeetManager({
         }
 
         fullPagesHtml += `
-          <div class="heat-page" style="margin-bottom: 16px; break-inside: avoid;">
-            <div class="header" style="position: relative; border-bottom: 1px solid #0f172a; padding-bottom: 6px; margin-bottom: 10px;">
-              <img src="${LOGO_BASE64}" style="position: absolute; right: 0; top: 0; height: 44px; width: auto; max-width: 90px; object-fit: contain;" />
-              <div style="padding-right: 100px;">
-                <h1 style="font-size: 16px; font-weight: 800; text-transform: uppercase; margin: 0; color: #0f172a;">${meetNameStr}</h1>
-                <h2 style="font-size: 12px; font-weight: 700; color: #0284c7; margin: 2px 0 0 0;">OFFICIAL HEAT START LIST — HEAT ${hNum} OF ${heatNumbers.length}</h2>
+          <div class="heat-page" style="margin-bottom: 20px; break-inside: avoid;">
+            <div class="header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2.5px solid #0f172a; padding-bottom: 12px; margin-bottom: 14px;">
+              <div style="display: flex; align-items: center; justify-content: center; width: 105px; flex-shrink: 0;">
+                <img src="${TSA_LOGO_BASE64}" width="100" height="100" style="object-fit: contain;" alt="TSA" />
               </div>
-              <div class="meta-info" style="display: flex; justify-content: space-between; font-size: 11px; color: #475569; margin-top: 6px; background: #f8fafc; padding: 5px 10px; border-radius: 4px; border: 1px solid #e2e8f0;">
-                <span><strong>Event #${ev.eventNo || ev.id}:</strong> ${ev.distance}m ${ev.stroke} • ${ev.gender === 'M' ? 'Men' : 'Women'} (${ev.ageGroup})</span>
-                <span>Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+
+              <div style="flex: 1; text-align: center; padding: 0 14px;">
+                <h1 style="font-size: 15pt; margin: 0 0 2px 0; color: #0f172a; text-transform: uppercase; font-weight: 900; letter-spacing: 0.5px;">${meetNameStr}</h1>
+                <h2 style="font-size: 11.5pt; margin: 0 0 2px 0; color: #0284c7; font-weight: 800;">OFFICIAL HEAT START LIST — HEAT ${hNum} OF ${heatNumbers.length}</h2>
+                <div style="font-size: 9pt; font-weight: 700; color: #334155;">
+                  Event #${ev.eventNo || ev.id}: ${ev.distance}m ${ev.stroke} • ${ev.gender === 'M' ? 'Men' : 'Women'} (${ev.ageGroup})
+                </div>
+                <div style="font-size: 8pt; color: #64748b; margin-top: 3px;">
+                  Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+
+              <div style="display: flex; align-items: center; justify-content: center; width: 120px; flex-shrink: 0;">
+                <img src="${SAT_LOGO_BASE64}" width="118" height="118" style="object-fit: contain;" alt="SAT" />
               </div>
             </div>
 
@@ -830,6 +856,25 @@ export default function MeetManager({
                 ${tableRows}
               </tbody>
             </table>
+
+            <div style="margin-top: 35px; border-top: 1.5px dashed #cbd5e1; padding-top: 14px; display: flex; justify-content: space-between; align-items: center; gap: 45px;">
+              <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
+                <div style="display: flex; flex-direction: column; align-items: center;">
+                  <img src="${LOGO_BASE64}" width="50" height="50" style="object-fit: contain;" alt="TouchTeck" />
+                  <div style="font-size: 8.5pt; font-weight: 900; letter-spacing: 1.5px; margin-top: 2px; text-transform: uppercase;">
+                    <span style="color: #000000;">TOUCH</span><span style="color: #FFE600; font-weight: 900;">TECK</span>
+                  </div>
+                </div>
+                <div style="font-size: 8pt; color: #64748b; line-height: 1.35;">
+                  <div style="font-weight: 700; color: #0f172a; font-size: 8.5pt;">Official Electronic Meet Management</div>
+                  <div>Certified Results by TouchTeck</div>
+                </div>
+              </div>
+              <div style="display: flex; gap: 40px; margin-left: auto; flex-shrink: 0;">
+                <div style="width: 150px; border-top: 1.5px solid #0f172a; text-align: center; font-size: 8.5pt; font-weight: 700; color: #0f172a; padding-top: 4px;">Meet Official</div>
+                <div style="width: 150px; border-top: 1.5px solid #0f172a; text-align: center; font-size: 8.5pt; font-weight: 700; color: #0f172a; padding-top: 4px;">TouchTeck Official</div>
+              </div>
+            </div>
           </div>
         `;
       }
@@ -910,19 +955,34 @@ export default function MeetManager({
     }
 
     const finalHtml = `
-      <div class="header" style="position: relative; border-bottom: 1px solid #0f172a; padding-bottom: 6px; margin-bottom: 10px;">
-        <img src="${LOGO_BASE64}" style="position: absolute; right: 0; top: 0; height: 44px; width: auto; max-width: 90px; object-fit: contain;" />
-        <div style="padding-right: 100px;">
-          <h1 style="font-size: 16px; font-weight: 800; text-transform: uppercase; margin: 0; color: #0f172a;">${meetNameStr}</h1>
-          <h2 style="font-size: 12px; font-weight: 700; color: #0284c7; margin: 2px 0 0 0;">OFFICIAL MASTER MEET START LIST (PAPER-SAVER SUMMARY) — ${selectedEvs.length} EVENTS</h2>
+      <div class="header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 10px;">
+        <div style="display: flex; align-items: center; justify-content: center; width: 55px; flex-shrink: 0;">
+          <img src="${TSA_LOGO_BASE64}" width="50" height="50" style="object-fit: contain;" alt="TSA" />
         </div>
-        <div style="font-size: 9px; text-align: right; color: #64748b; margin-top: 4px;">
-          Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+
+        <div style="flex: 1; text-align: center; padding: 0 10px;">
+          <h1 style="font-size: 14px; font-weight: 800; text-transform: uppercase; margin: 0; color: #0f172a;">${meetNameStr}</h1>
+          <h2 style="font-size: 11px; font-weight: 700; color: #0284c7; margin: 2px 0 0 0;">OFFICIAL MASTER MEET START LIST (PAPER-SAVER SUMMARY) — ${selectedEvs.length} EVENTS</h2>
+          <div style="font-size: 8px; color: #64748b; margin-top: 2px;">
+            Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: center; width: 55px; flex-shrink: 0;">
+          <img src="${SAT_LOGO_BASE64}" width="50" height="50" style="object-fit: contain;" alt="SAT" />
         </div>
       </div>
 
       <div class="compact-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
         ${masterHtml}
+      </div>
+
+      <div style="margin-top: 15px; border-top: 1px dashed #cbd5e1; padding-top: 6px; display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <img src="${LOGO_BASE64}" width="22" height="22" style="object-fit: contain;" alt="TouchTeck" />
+          <span style="font-size: 7pt; font-weight: 900; color: #0891b2; letter-spacing: 1px; text-transform: uppercase;">TOUCHTECK TIMING</span>
+        </div>
+        <div style="font-size: 7.5pt; color: #64748b;">Official Championship Paper-Saver Summary</div>
       </div>
     `;
 
@@ -1135,10 +1195,10 @@ export default function MeetManager({
   };
 
   const filteredEvents = events.filter(ev => {
-    const matchG = !filterSchedulerGender || filterSchedulerGender === 'All' || ev.gender === filterSchedulerGender;
+    const matchG = !mainListGender || mainListGender === 'All' || ev.gender === mainListGender;
     const isMergedEvent = ev.ageGroup === 'All Age Groups' || ev.ageGroup?.toLowerCase().includes('merged') || (ev as any)?.isMerged;
-    const matchC = !filterSchedulerCategory || filterSchedulerCategory === 'All' 
-      || (filterSchedulerCategory === 'Merged' ? isMergedEvent : ev.ageGroup === filterSchedulerCategory);
+    const matchC = !mainListCategory || mainListCategory === 'All' 
+      || (mainListCategory === 'Merged' ? isMergedEvent : ev.ageGroup === mainListCategory);
     const q = eventSearchQuery.toLowerCase().trim();
     const matchQ = !q || 
       String(ev.eventNo || ev.id).includes(q) || 
@@ -1280,34 +1340,41 @@ export default function MeetManager({
           <div className="glass-card">
             <h3 className="settings-header"><Award size={18} /> Event Scheduler</h3>
             
-            {/* Separate Gender & Category Filters for Event Scheduler */}
-            <div className="form-row mb-3">
-              <div className="form-group mb-0">
-                <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>GENDER</label>
-                <CustomSelect
-                  options={[
-                    { value: 'All', label: 'All Genders' },
-                    { value: 'M', label: 'Men' },
-                    { value: 'F', label: 'Women' }
-                  ]}
-                  value={filterSchedulerGender || 'All'}
-                  onChange={(val) => handleSchedulerGenderChange(val)}
-                />
-              </div>
+            {/* Live Feed Gender & Category for Event Scheduler */}
+            {(() => {
+              const activeEvObj = events.find(e => e.id === selectedEventId);
+              const isMergedActive = activeEvObj ? (activeEvObj.ageGroup === 'All Age Groups' || activeEvObj.ageGroup?.toLowerCase().includes('merged') || (activeEvObj as any)?.isMerged) : false;
+              const activeGenderVal = activeEvObj ? activeEvObj.gender : 'M';
+              const activeCategoryVal = activeEvObj ? (isMergedActive ? 'Merged' : activeEvObj.ageGroup) : 'Merged';
 
-              <div className="form-group mb-0">
-                <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>CATEGORY / GROUP</label>
-                <CustomSelect
-                  options={[
-                    { value: 'All', label: 'All Categories' },
-                    { value: 'Merged', label: `Merged (${ALL_AGE_GROUPS.join(', ')})` },
-                    ...ALL_AGE_GROUPS.map(ag => ({ value: ag, label: ag }))
-                  ]}
-                  value={filterSchedulerCategory || 'All'}
-                  onChange={(val) => handleSchedulerCategoryChange(val)}
-                />
-              </div>
-            </div>
+              return (
+                <div className="form-row mb-3">
+                  <div className="form-group mb-0">
+                    <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>GENDER</label>
+                    <CustomSelect
+                      options={[
+                        { value: 'M', label: 'Men' },
+                        { value: 'F', label: 'Women' }
+                      ]}
+                      value={activeGenderVal}
+                      onChange={(val) => handleSchedulerGenderChange(val)}
+                    />
+                  </div>
+
+                  <div className="form-group mb-0">
+                    <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>CATEGORY / GROUP</label>
+                    <CustomSelect
+                      options={[
+                        { value: 'Merged', label: `Merged (${ALL_AGE_GROUPS.join(', ')})` },
+                        ...ALL_AGE_GROUPS.map(ag => ({ value: ag, label: ag }))
+                      ]}
+                      value={activeCategoryVal}
+                      onChange={(val) => handleSchedulerCategoryChange(val)}
+                    />
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="form-group">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
@@ -1352,23 +1419,15 @@ export default function MeetManager({
                       </button>
                       <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
                         <CustomSelect
-                          options={(() => {
-                            const filtered = events.filter(ev => {
-                              const matchG = !filterSchedulerGender || filterSchedulerGender === 'All' || ev.gender === filterSchedulerGender;
-                              const matchC = !filterSchedulerCategory || filterSchedulerCategory === 'All' || ev.ageGroup === filterSchedulerCategory || ev.ageGroup === 'All Age Groups' || ev.ageGroup?.toLowerCase().includes('merged') || (ev as any)?.isMerged;
-                              return matchG && matchC;
-                            });
-                            const listToUse = filtered.length > 0 ? filtered : events;
-                            return listToUse.map(ev => {
-                              const isDone = completedEventIds.has(ev.id!) || manuallyDoneEventIds.has(ev.id!);
-                              const isCurrentlyActive = ev.id === selectedEventId;
-                              const statusTag = isDone ? '✓ [DONE]' : (isCurrentlyActive ? '● [ONGOING]' : '○ [UPCOMING]');
-                              return {
-                                value: ev.id!,
-                                label: `#${ev.eventNo || ev.id}: ${ev.distance}m ${ev.stroke} (${ev.gender === 'M' ? 'M' : 'W'}) ${statusTag}`
-                              };
-                            });
-                          })()}
+                          options={events.map(ev => {
+                            const isDone = completedEventIds.has(ev.id!) || manuallyDoneEventIds.has(ev.id!);
+                            const isCurrentlyActive = ev.id === selectedEventId;
+                            const statusTag = isDone ? '✓ [DONE]' : (isCurrentlyActive ? '● [ACTIVE]' : '');
+                            return {
+                              value: ev.id!,
+                              label: `#${ev.eventNo || ev.id}: ${ev.distance}m ${ev.stroke} (${ev.gender === 'M' ? 'M' : 'W'})${statusTag ? ' ' + statusTag : ''}`
+                            };
+                          })}
                           value={selectedEventId || ''}
                           placeholder="Select Active Event..."
                           onChange={(val) => {
@@ -1558,8 +1617,8 @@ export default function MeetManager({
                   { value: 'M', label: 'Men' },
                   { value: 'F', label: 'Women' }
                 ]}
-                value={filterSchedulerGender}
-                onChange={(val) => handleSchedulerGenderChange(val)}
+                value={mainListGender}
+                onChange={(val) => setMainListGender(val)}
               />
             </div>
 
@@ -1570,8 +1629,8 @@ export default function MeetManager({
                   { value: 'Merged', label: `Merged (${ALL_AGE_GROUPS.join(', ')})` },
                   ...ALL_AGE_GROUPS.map(ag => ({ value: ag, label: ag }))
                 ]}
-                value={filterSchedulerCategory}
-                onChange={(val) => handleSchedulerCategoryChange(val)}
+                value={mainListCategory}
+                onChange={(val) => setMainListCategory(val)}
               />
             </div>
 
@@ -1785,6 +1844,13 @@ export default function MeetManager({
                 return !(isAutoCompleted || isManuallyDone || areAllHeatsSaved);
               });
               const activeTargetId = selectedEventId || (uncompletedEvents.length > 0 ? uncompletedEvents[0].id : null);
+              
+              // Only the event immediately following the active ongoing event is designated as UPCOMING
+              const activeIdxInUncompleted = uncompletedEvents.findIndex(e => e.id === activeTargetId);
+              const nextUpcomingEv = activeIdxInUncompleted >= 0 && activeIdxInUncompleted < uncompletedEvents.length - 1
+                ? uncompletedEvents[activeIdxInUncompleted + 1]
+                : (activeIdxInUncompleted === -1 && uncompletedEvents.length > 0 ? uncompletedEvents[0] : null);
+              const upcomingTargetId = nextUpcomingEv ? nextUpcomingEv.id : null;
 
               return sortedEvents.map((ev, index) => {
                 const isSelected = expandedEventId === ev.id;
@@ -1795,10 +1861,10 @@ export default function MeetManager({
                 const isManuallyDone = manuallyDoneEventIds.has(ev.id!);
                 const isCompleted = isAutoCompleted || isManuallyDone || areAllHeatsSaved;
                 const isOngoing = !isCompleted && ev.id === activeTargetId;
-                const isUpcoming = !isCompleted && !isOngoing;
+                const isUpcoming = !isCompleted && !isOngoing && ev.id === upcomingTargetId;
                 const isChecked = selectedEventIds.has(ev.id!);
 
-                let showStatusBadge = true;
+                let showStatusBadge = isCompleted || isOngoing || isUpcoming;
                 let statusText = '';
                 let statusBg = '';
                 let statusColor = '';
@@ -1817,7 +1883,7 @@ export default function MeetManager({
                   statusColor = '#22d3ee';
                   statusBorder = '1px solid #06b6d4';
                   StatusIcon = PlayCircle;
-                } else {
+                } else if (isUpcoming) {
                   statusText = 'UPCOMING';
                   statusBg = 'rgba(148, 163, 184, 0.12)';
                   statusColor = '#94a3b8';

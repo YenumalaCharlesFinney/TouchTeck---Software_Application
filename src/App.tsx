@@ -1096,6 +1096,7 @@ export default function App() {
       ? Math.max(1, Math.ceil(ev.distance / 50)) 
       : Math.max(1, Math.ceil(ev.distance / 100));
     setEventLaps(laps);
+    eventLapsRef.current = laps;
 
     const resolvedLanes = await resolveLanesFromDB(numEventId, numHeatNum, effIsFinals);
 
@@ -1538,15 +1539,25 @@ export default function App() {
 
                 // Determine if this touch is the final finish line touch for the lane
                 // Final touch occurs if:
-                // 1) event explicitly signals FINISH or isManualForce
-                // 2) timingMethod === 'T2' (timekeeper hand button pressed)
-                // 3) event.lap reaches eventLapsRef
-                // 4) splits count + 1 reaches target laps
-                const isFinalLap = (l.splits.length + 1) >= eventLapsRef.current;
-                const isFinal = event.isManualForce || timingMethod === 'T2' || event.type === 'FINISH' || (event.lap ? event.lap >= eventLapsRef.current : isFinalLap);
+                // 1) event explicitly signals FINISH (e.g. Force Finish or hardware final touch)
+                // 2) timingMethod === 'T2' (backup button pressed at finish)
+                // 3) Hardware packet reports lap >= targetLaps
+                // 4) Splits count + 1 reaches the exact required target laps for this race distance
+                const targetLaps = Math.max(1, eventLapsRef.current);
+                const isFinalLap = (l.splits.length + 1) >= targetLaps;
+
+                let isFinal = false;
+                if (event.type === 'FINISH') {
+                  isFinal = true;
+                } else if (timingMethod === 'T2') {
+                  isFinal = true;
+                } else if (event.lap && event.lap >= targetLaps) {
+                  isFinal = true;
+                } else if (isFinalLap) {
+                  isFinal = true;
+                }
 
                 // If this touch is NOT the final finish touch, record it strictly as an intermediate SPLIT time
-                // Intermediate splits are ALWAYS touchpad (T1) touches (timekeepers do not press T2 for splits)
                 if (!isFinal) {
                   const updatedSplits = [...l.splits];
                   if (!updatedSplits.includes(touchTime)) {
@@ -1555,8 +1566,7 @@ export default function App() {
                   return {
                     ...l,
                     splits: updatedSplits,
-                    t1Time: timingMethod === 'T1' ? touchTime : l.t1Time,
-                    // Keep timingMethod untouched or default to T1 for splits, do not switch badge on split
+                    t1Time: timingMethod === 'T1' ? touchTime : (l.t1Time || touchTime),
                     timingMethod: l.timingMethod || 'T1',
                     isRunning: true,
                     lastSplitTime: touchTime,

@@ -10,11 +10,14 @@ interface QualifyingStandardsProps {
 export default function QualifyingStandards({ activeMeetId }: QualifyingStandardsProps) {
   const [qualifyingTimes, setQualifyingTimes] = useState<QualifyingTime[]>([]);
   const [meetName, setMeetName] = useState<string>('');
+  const [availableAgeGroups, setAvailableAgeGroups] = useState<string[]>([
+    'All Age Groups', 'Group A', 'Group B', 'Group C', 'Group D', 'General'
+  ]);
 
   // Selection/Filter States
   const [selectedStroke, setSelectedStroke] = useState<QualifyingTime['stroke']>('Freestyle');
   const [selectedGender, setSelectedGender] = useState<QualifyingTime['gender']>('M');
-  const [selectedAgeGroup, setSelectedAgeGroup] = useState<QualifyingTime['ageGroup']>('Group A');
+  const [selectedAgeGroup, setSelectedAgeGroup] = useState<QualifyingTime['ageGroup']>('All Age Groups');
   const [selectedDistance, setSelectedDistance] = useState<number | 'all'>('all');
 
   // Get active distances based on selected stroke
@@ -59,13 +62,25 @@ export default function QualifyingStandards({ activeMeetId }: QualifyingStandard
       if (meet) setMeetName(meet.name);
     }
 
+    try {
+      const evs = activeMeetId ? await db.events.where('meetId').equals(activeMeetId).toArray() : await db.events.toArray();
+      const sws = activeMeetId ? await db.swimmers.where('meetId').equals(activeMeetId).toArray() : await db.swimmers.toArray();
+      const agSet = new Set<string>(['All Age Groups', 'General', 'Group A', 'Group B', 'Group C', 'Group D']);
+      evs.forEach(e => { if (e.ageGroup) agSet.add(e.ageGroup); });
+      sws.forEach(s => { if (s.ageGroup) agSet.add(s.ageGroup); });
+      ['30-34', '35-39', '40-44', '45-49', '50-54', '55-59', '60-64', '65-69', '70-74', '75-79', '80+'].forEach(g => agSet.add(g));
+      setAvailableAgeGroups(Array.from(agSet));
+    } catch (e) {
+      console.warn('Error loading dynamic age groups for standards:', e);
+    }
+
     const list = await db.qualifyingTimes
       .where('stroke')
       .equals(selectedStroke)
       .filter(qt => 
         qt.gender === selectedGender && 
-        qt.ageGroup === selectedAgeGroup &&
-        (!activeMeetId || qt.meetId === activeMeetId)
+        (qt.ageGroup === selectedAgeGroup || (!qt.ageGroup && selectedAgeGroup === 'All Age Groups')) &&
+        (!activeMeetId || !qt.meetId || qt.meetId === activeMeetId)
       )
       .toArray();
 
@@ -238,12 +253,7 @@ export default function QualifyingStandards({ activeMeetId }: QualifyingStandard
           <div className="form-group mb-0" style={{ flex: 1 }}>
             <label className="form-label">Age Group</label>
             <CustomSelect
-              options={[
-                { value: 'Group A', label: 'Group A' },
-                { value: 'Group B', label: 'Group B' },
-                { value: 'Group C', label: 'Group C' },
-                { value: 'Group D', label: 'Group D' }
-              ]}
+              options={availableAgeGroups.map(ag => ({ value: ag, label: ag }))}
               value={selectedAgeGroup}
               onChange={(val) => setSelectedAgeGroup(val as QualifyingTime['ageGroup'])}
             />
