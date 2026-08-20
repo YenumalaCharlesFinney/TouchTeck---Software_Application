@@ -960,53 +960,9 @@ export default function App() {
       return resolvedLanes;
     } else {
       // REGULAR HEATS STAGE: Get assignments & recorded results for this heat
-      let assignments = await db.laneAssignments
+      const assignments = await db.laneAssignments
         .filter(a => Number(a.eventId) === numEventId && Number(a.heatNumber) === numHeatNum)
         .toArray();
-
-      // Fallback: If no laneAssignments exist for this event/heat (or no swimmers are assigned), auto-seed eligible swimmers!
-      const assignedSwimmerIds = assignments.map(a => a.swimmerId).filter(Boolean);
-      if (assignments.length === 0 || assignedSwimmerIds.length === 0) {
-        const allSwimmers = await db.swimmers.toArray();
-        const isMergedOrAll = ev.ageGroup === 'All Age Groups' || ev.ageGroup?.toLowerCase().includes('merged') || (ev as any)?.isMerged;
-        let eligible = allSwimmers.filter(s => s.gender === ev.gender && (isMergedOrAll || s.ageGroup === ev.ageGroup));
-        if (eligible.length === 0) {
-          eligible = allSwimmers.filter(s => s.gender === ev.gender);
-        }
-        if (eligible.length === 0) {
-          eligible = allSwimmers;
-        }
-
-        const SPEARHEAD_LANES = [4, 5, 3, 6, 2, 7, 1, 8];
-        const heatSwimmers = eligible.slice((numHeatNum - 1) * 8, numHeatNum * 8);
-
-        const syntheticAssignments: LaneAssignment[] = [];
-        for (let idx = 0; idx < heatSwimmers.length; idx++) {
-          const sw = heatSwimmers[idx];
-          if (idx < SPEARHEAD_LANES.length && sw.id) {
-            const la: LaneAssignment = {
-              eventId: numEventId,
-              heatNumber: numHeatNum,
-              laneNumber: SPEARHEAD_LANES[idx],
-              swimmerId: sw.id
-            };
-            syntheticAssignments.push(la);
-            try {
-              const existing = await db.laneAssignments
-                .filter(a => Number(a.eventId) === numEventId && Number(a.heatNumber) === numHeatNum && a.laneNumber === SPEARHEAD_LANES[idx])
-                .first();
-              if (!existing) {
-                await db.laneAssignments.add(la);
-              }
-            } catch (e) {}
-          }
-        }
-        if (syntheticAssignments.length > 0) {
-          assignments = await db.laneAssignments
-            .filter(a => Number(a.eventId) === numEventId && Number(a.heatNumber) === numHeatNum)
-            .toArray();
-        }
-      }
 
       const savedResults = await db.results
         .filter(r => Number(r.eventId) === numEventId && Number(r.heatNumber) === numHeatNum && (r.stage || 'Heats') === 'Heats')

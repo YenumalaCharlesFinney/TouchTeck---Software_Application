@@ -22,6 +22,12 @@ contextBridge.exposeInMainWorld('touchteckApp', {
   printHtml: (html: string): Promise<boolean> =>
     ipcRenderer.invoke('touchteck:print-html', html),
 
+  openDataFolder: (meetName?: string): Promise<string | null> =>
+    ipcRenderer.invoke('touchteck:open-data-folder', meetName),
+
+  writeEventFile: (meetName: string, fileName: string, content: string): Promise<string | null> =>
+    ipcRenderer.invoke('touchteck:write-event-file', meetName, fileName, content),
+
   // Send a sync message to every other window.
   sendSync: (message: unknown) => ipcRenderer.send('touchteck:sync', message),
 

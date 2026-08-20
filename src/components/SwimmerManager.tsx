@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { db, Swimmer, AgeGroup, seedDatabase } from '../db';
-import { UserPlus, Trash2, Edit, Search, RotateCcw, Plus, X, Award, CheckSquare, Square, Calendar, User, Activity, Filter, Save, Check } from 'lucide-react';
+import { UserPlus, Trash2, Edit, Search, RotateCcw, Plus, X, Award, CheckSquare, Square, Calendar, User, Activity, Filter, Save, Check, AlertTriangle, CheckCheck, GitMerge, Zap, ArrowRight, ShieldCheck, UploadCloud, FolderOpen } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import CustomSelect from './CustomSelect';
+import SmartImportModal from './SmartImportModal';
 import { useModalClose } from '../hooks/useModalClose';
 
 interface SwimmerManagerProps {
@@ -23,23 +24,62 @@ interface SwimmerEventState {
   assignmentId?: number;
 }
 
+export interface MergeCandidate {
+  candidateId: string;
+  existingSwimmer: Swimmer;
+  importedSwimmer: {
+    sfiUid?: string;
+    name: string;
+    gender: 'M' | 'F';
+    birthYear: number;
+    ageGroup: AgeGroup;
+    club: string;
+    eventsToAdd: { eventId: number; eventName: string; heatNumber: number; laneNumber: number }[];
+  };
+  similarity: number;
+  matchType: string;
+}
+
 const ALL_AGE_GROUPS: AgeGroup[] = [
   'Group A', 'Group B', 'Group C', 'Group D',
   '25-29', '30-34', '35-39', '40-44', '45-49',
   '50-54', '55-59', '60-64', '65-69', '70-74', '75-79', '80 & above'
 ];
 
+function computeSimilarity(a: string, b: string): number {
+  const normA = a.toLowerCase().replace(/[^a-z0-9]/g, ' ').trim();
+  const normB = b.toLowerCase().replace(/[^a-z0-9]/g, ' ').trim();
+  if (normA === normB) return 1.0;
+  
+  const tokensA = new Set(normA.split(/\s+/).filter(Boolean));
+  const tokensB = new Set(normB.split(/\s+/).filter(Boolean));
+  
+  let intersection = 0;
+  tokensA.forEach(t => {
+    if (tokensB.has(t)) intersection++;
+  });
+  
+  const union = new Set([...tokensA, ...tokensB]).size;
+  if (union === 0) return 0;
+  return intersection / union;
+}
+
 export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
   const [swimmers, setSwimmers] = useState<Swimmer[]>([]);
   const [meetName, setMeetName] = useState<string>('');
+  const [mergeCandidates, setMergeCandidates] = useState<MergeCandidate[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
   
   // Add Swimmer State
   const [sfiUid, setSfiUid] = useState('');
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [gender, setGender] = useState<'M' | 'F'>('M');
   const [birthYear, setBirthYear] = useState(1980);
   const [ageGroup, setAgeGroup] = useState<AgeGroup>('75-79');
   const [club, setClub] = useState('Hyderabad');
+  const [showImportModal, setShowImportModal] = useState<boolean>(false);
   const [addSwimmerEvents, setAddSwimmerEvents] = useState<SwimmerEventState[]>([]);
   const [activeAddTab, setActiveAddTab] = useState<'info' | 'events'>('info');
   const [addEventSearchQuery, setAddEventSearchQuery] = useState<string>('');
@@ -47,6 +87,8 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
   
   // Edit Swimmer State
   const [editingSwimmer, setEditingSwimmer] = useState<Swimmer | null>(null);
+  const [editFirstName, setEditFirstName] = useState('');
+  const [editLastName, setEditLastName] = useState('');
   const [swimmerEvents, setSwimmerEvents] = useState<SwimmerEventState[]>([]);
   const [eventSearchQuery, setEventSearchQuery] = useState<string>('');
   const [activeEditTab, setActiveEditTab] = useState<'info' | 'events'>('info');
@@ -107,7 +149,8 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
 
   const handleOpenAddModal = async () => {
     setSfiUid('');
-    setName('');
+    setFirstName('');
+    setLastName('');
     setGender('M');
     setBirthYear(1980);
     setAgeGroup('75-79');
@@ -158,6 +201,11 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
 
   const handleOpenEditModal = async (swimmer: Swimmer) => {
     setEditingSwimmer(swimmer);
+    const parts = (swimmer.name || '').trim().split(/\s+/);
+    const fName = parts[0] || '';
+    const lName = parts.slice(1).join(' ') || '';
+    setEditFirstName(fName);
+    setEditLastName(lName);
     setActiveEditTab('info');
     setEventSearchQuery('');
 
@@ -213,13 +261,14 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
 
   const handleAddSwimmer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !club.trim()) return;
+    const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ');
+    if (!fullName.trim() || !club.trim()) return;
 
     const targetMeetId = activeMeetId || 1;
     const newSwimmerId = (await db.swimmers.add({
       meetId: targetMeetId,
       sfiUid: sfiUid.trim() || `SFI-2026-TS-${1000 + swimmers.length + 1}`,
-      name: name.trim(),
+      name: fullName,
       gender,
       birthYear: Number(birthYear),
       ageGroup,
@@ -249,11 +298,12 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
     if (!editingSwimmer || !editingSwimmer.id) return;
 
     const swimmerId = editingSwimmer.id;
+    const updatedFullName = [editFirstName.trim(), editLastName.trim()].filter(Boolean).join(' ') || editingSwimmer.name;
 
     // 1. Update basic swimmer details
     await db.swimmers.update(swimmerId, {
       sfiUid: editingSwimmer.sfiUid?.trim(),
-      name: editingSwimmer.name.trim(),
+      name: updatedFullName,
       gender: editingSwimmer.gender,
       birthYear: Number(editingSwimmer.birthYear),
       ageGroup: editingSwimmer.ageGroup,
@@ -307,6 +357,138 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
     }
   };
 
+  // Smart Sync & Merge Scanner
+  const handleSyncExcelData = async () => {
+    setIsSyncing(true);
+    try {
+      const targetMeetId = activeMeetId || 1;
+      const currentSwimmers = await db.swimmers.filter(s => s.meetId === targetMeetId).toArray();
+      const existingAssigns = await db.laneAssignments.toArray();
+      const allEvents = await db.events.toArray();
+      
+      const candidates: MergeCandidate[] = [];
+      
+      // Intelligent duplicate and merge detection
+      for (let i = 0; i < currentSwimmers.length; i++) {
+        for (let j = i + 1; j < currentSwimmers.length; j++) {
+          const s1 = currentSwimmers[i];
+          const s2 = currentSwimmers[j];
+          
+          const hasExactUid = Boolean(s1.sfiUid && s2.sfiUid && s1.sfiUid.toLowerCase().trim() === s2.sfiUid.toLowerCase().trim());
+          const sim = computeSimilarity(s1.name, s2.name);
+          const sameBirthYear = s1.birthYear === s2.birthYear;
+          const sameGender = s1.gender === s2.gender;
+          
+          if (hasExactUid || (sim >= 0.8 && sameBirthYear && sameGender)) {
+            // Found potential merge candidate
+            const s2Assigns = existingAssigns.filter(a => a.swimmerId === s2.id);
+            const s1Assigns = existingAssigns.filter(a => a.swimmerId === s1.id);
+            const s1EventIds = new Set(s1Assigns.map(a => Number(a.eventId)));
+            
+            const eventsToAdd = s2Assigns
+              .filter(a => a.eventId && !s1EventIds.has(Number(a.eventId)))
+              .map(a => {
+                const evObj = allEvents.find(e => e.id === a.eventId);
+                return {
+                  eventId: Number(a.eventId),
+                  eventName: evObj ? `Event #${evObj.eventNo || evObj.id}: ${evObj.distance}m ${evObj.stroke}` : `Event #${a.eventId}`,
+                  heatNumber: a.heatNumber,
+                  laneNumber: a.laneNumber
+                };
+              });
+
+            candidates.push({
+              candidateId: `cand-${s1.id}-${s2.id}`,
+              existingSwimmer: s1,
+              importedSwimmer: {
+                sfiUid: s2.sfiUid,
+                name: s2.name,
+                gender: s2.gender,
+                birthYear: s2.birthYear || s1.birthYear || 1980,
+                ageGroup: s2.ageGroup,
+                club: s2.club,
+                eventsToAdd
+              },
+              similarity: hasExactUid ? 1.0 : sim,
+              matchType: hasExactUid ? `Exact SFI UID: ${s1.sfiUid}` : `${Math.round(sim * 100)}% Name & Category Match`
+            });
+          }
+        }
+      }
+      
+      if (candidates.length > 0) {
+        setMergeCandidates(candidates);
+      } else {
+        await seedDatabase(true);
+        await loadSwimmers();
+        setSyncNotice('✓ Excel Sync Complete: All athlete profiles & heat entries verified with 0 duplicate collisions!');
+        setTimeout(() => setSyncNotice(null), 5000);
+      }
+    } catch (e) {
+      console.error('Error during sync:', e);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleMergeCandidate = async (candidate: MergeCandidate) => {
+    const targetSwimmerId = candidate.existingSwimmer.id!;
+    
+    await db.swimmers.update(targetSwimmerId, {
+      club: candidate.importedSwimmer.club || candidate.existingSwimmer.club,
+      sfiUid: candidate.importedSwimmer.sfiUid || candidate.existingSwimmer.sfiUid
+    });
+    
+    for (const ev of candidate.importedSwimmer.eventsToAdd) {
+      await db.laneAssignments.add({
+        eventId: ev.eventId,
+        heatNumber: ev.heatNumber,
+        laneNumber: ev.laneNumber,
+        swimmerId: targetSwimmerId
+      });
+    }
+    
+    setMergeCandidates(prev => prev.filter(c => c.candidateId !== candidate.candidateId));
+    await loadSwimmers();
+    window.dispatchEvent(new CustomEvent('lane-assignments-updated'));
+  };
+
+  const handleAddCandidateAsNew = async (candidate: MergeCandidate) => {
+    const newId = await db.swimmers.add({
+      meetId: activeMeetId || 1,
+      sfiUid: candidate.importedSwimmer.sfiUid,
+      name: candidate.importedSwimmer.name,
+      gender: candidate.importedSwimmer.gender,
+      birthYear: candidate.importedSwimmer.birthYear,
+      ageGroup: candidate.importedSwimmer.ageGroup,
+      club: candidate.importedSwimmer.club
+    });
+    
+    for (const ev of candidate.importedSwimmer.eventsToAdd) {
+      await db.laneAssignments.add({
+        eventId: ev.eventId,
+        heatNumber: ev.heatNumber,
+        laneNumber: ev.laneNumber,
+        swimmerId: Number(newId)
+      });
+    }
+    
+    setMergeCandidates(prev => prev.filter(c => c.candidateId !== candidate.candidateId));
+    await loadSwimmers();
+    window.dispatchEvent(new CustomEvent('lane-assignments-updated'));
+  };
+
+  const handleDismissCandidate = (candidateId: string) => {
+    setMergeCandidates(prev => prev.filter(c => c.candidateId !== candidateId));
+  };
+
+  const handleMergeAllCandidates = async () => {
+    for (const candidate of mergeCandidates) {
+      await handleMergeCandidate(candidate);
+    }
+    setMergeCandidates([]);
+  };
+
   const filteredSwimmers = swimmers.filter(swimmer => {
     const matchesSearch = swimmer.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           (swimmer.sfiUid && swimmer.sfiUid.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -331,23 +513,152 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
             </span>
           )}
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button
             className="btn btn-secondary"
-            style={{ color: '#38bdf8', borderColor: 'rgba(56,189,248,0.3)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-            onClick={async () => {
-              await seedDatabase(true);
-              loadSwimmers();
-            }}
-            title="Reload official Excel athlete dataset"
+            style={{ color: '#facc15', borderColor: 'rgba(250, 204, 21, 0.45)', background: 'rgba(250, 204, 21, 0.1)', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+            onClick={() => setShowImportModal(true)}
+            title="Import entries from Excel (.xlsx, .xls), CSV, or Event JSON"
           >
-            <RotateCcw size={16} /> Sync Excel Data
+            <UploadCloud size={16} /> Import File
+          </button>
+          <button
+            className="btn btn-secondary"
+            style={{ color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.35)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+            onClick={() => {
+              if (window.touchteckApp?.openDataFolder) {
+                window.touchteckApp.openDataFolder(meetName);
+              }
+            }}
+            title="Open Meet Data Folder in Windows File Explorer"
+          >
+            <FolderOpen size={15} /> Open Meet Folder
           </button>
           <button className="btn btn-yellow" onClick={handleOpenAddModal}>
             <UserPlus size={18} /> Register Swimmer
           </button>
         </div>
       </div>
+
+      {/* Sync Success Notification Notice */}
+      {syncNotice && (
+        <div style={{ background: 'rgba(74, 222, 128, 0.1)', border: '1px solid rgba(74, 222, 128, 0.4)', color: '#4ade80', padding: '0.65rem 1rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <ShieldCheck size={18} /> {syncNotice}
+        </div>
+      )}
+
+      {/* SMART MERGE & REVIEW INTERACTIVE BANNER (Yellow / Orange Container) */}
+      {mergeCandidates.length > 0 && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(217, 119, 6, 0.08))',
+          border: '1.5px solid #f59e0b',
+          borderRadius: '10px',
+          padding: '1rem 1.25rem',
+          marginBottom: '1.25rem',
+          boxShadow: '0 8px 24px rgba(245, 158, 11, 0.15)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <span style={{ background: '#f59e0b', color: '#000', padding: '0.2rem 0.55rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <AlertTriangle size={14} /> SMART MERGE DETECTED
+              </span>
+              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#fef08a' }}>
+                {mergeCandidates.length} Potential Duplicate / Multi-Event Swimmer{mergeCandidates.length > 1 ? 's' : ''} Found
+              </h3>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                className="btn btn-yellow"
+                style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                onClick={handleMergeAllCandidates}
+                title="Merge all detected matches and append events"
+              >
+                <CheckCheck size={15} /> Merge All Verified Matches
+              </button>
+              <button
+                className="btn btn-secondary"
+                style={{ padding: '0.35rem 0.6rem', fontSize: '0.78rem' }}
+                onClick={() => setMergeCandidates([])}
+                title="Dismiss merge review"
+              >
+                ✕ Dismiss
+              </button>
+            </div>
+          </div>
+
+          <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.82rem', color: '#fde68a', lineHeight: 1.4 }}>
+            The system detected swimmers in the updated data that match existing athletes in the registry. Choose whether to <strong>Merge Profile & Add New Events</strong> or <strong>Keep as Separate Swimmer</strong>:
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', maxHeight: '280px', overflowY: 'auto', paddingRight: '4px' }}>
+            {mergeCandidates.map((cand) => (
+              <div 
+                key={cand.candidateId}
+                style={{
+                  background: 'rgba(15, 23, 42, 0.75)',
+                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                  borderRadius: '8px',
+                  padding: '0.75rem 1rem',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '1rem',
+                  flexWrap: 'wrap'
+                }}
+              >
+                <div style={{ flex: 1, minWidth: '220px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                    <span style={{ fontSize: '0.7rem', background: 'rgba(245, 158, 11, 0.25)', color: '#facc15', border: '1px solid rgba(245, 158, 11, 0.5)', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
+                      {cand.matchType}
+                    </span>
+                    <strong style={{ fontSize: '0.92rem', color: '#fff' }}>{cand.existingSwimmer.name}</strong>
+                    <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>({cand.existingSwimmer.club})</span>
+                  </div>
+
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                    UID: <span style={{ color: '#67e8f9', fontWeight: 700 }}>{cand.existingSwimmer.sfiUid || 'NO-UID'}</span> • Category: {cand.existingSwimmer.gender === 'M' ? 'Men' : 'Women'} ({cand.existingSwimmer.ageGroup})
+                    {cand.importedSwimmer.eventsToAdd.length > 0 && (
+                      <div style={{ marginTop: '0.25rem', color: '#4ade80', fontWeight: 700 }}>
+                        + Adding {cand.importedSwimmer.eventsToAdd.length} Event{cand.importedSwimmer.eventsToAdd.length > 1 ? 's' : ''}: {cand.importedSwimmer.eventsToAdd.map(e => e.eventName).join(', ')}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexShrink: 0 }}>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ padding: '0.35rem 0.7rem', fontSize: '0.75rem', color: '#4ade80', borderColor: 'rgba(74, 222, 128, 0.4)', backgroundColor: 'rgba(74, 222, 128, 0.1)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                    onClick={() => handleMergeCandidate(cand)}
+                    title="Merge profile details and add any newly registered events"
+                  >
+                    <Check size={14} /> Merge & Add Events
+                  </button>
+
+                  <button
+                    className="btn btn-secondary"
+                    style={{ padding: '0.35rem 0.7rem', fontSize: '0.75rem', color: '#60a5fa', borderColor: 'rgba(96, 165, 250, 0.4)', fontWeight: 700 }}
+                    onClick={() => handleAddCandidateAsNew(cand)}
+                    title="Keep as separate registered athlete"
+                  >
+                    + Keep Separate
+                  </button>
+
+                  <button
+                    className="btn btn-secondary"
+                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', color: '#94a3b8' }}
+                    onClick={() => handleDismissCandidate(cand.candidateId)}
+                    title="Skip"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filter Toolbar */}
       <div className="flex gap-4 items-center mb-4 mt-4" style={{ flexWrap: 'wrap' }}>
@@ -482,7 +793,7 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
                   <UserPlus size={18} /> Register New Swimmer
                 </h3>
                 <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  {name.trim() || 'New Athlete'} • {club.trim() || 'No Club'} ({gender === 'M' ? 'Men' : 'Women'}, {ageGroup})
+                  {[firstName, lastName].filter(Boolean).join(' ') || 'New Athlete'} • {club.trim() || 'No Club'} ({gender === 'M' ? 'Men' : 'Women'}, {ageGroup})
                 </p>
               </div>
               <button
@@ -530,16 +841,29 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
                       />
                     </div>
 
-                    <div className="form-group">
-                      <label className="form-label">FULL NAME</label>
-                      <input
-                        type="text"
-                        required
-                        className="form-control"
-                        placeholder="Enter full athlete name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                      />
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label className="form-label">FIRST NAME</label>
+                        <input
+                          type="text"
+                          required
+                          className="form-control"
+                          placeholder="e.g. LAKSHMI"
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">LAST NAME</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          placeholder="e.g. NARAYANA"
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                        />
+                      </div>
                     </div>
 
                     <div className="form-row">
@@ -621,7 +945,7 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--accent-cyan)' }}>
-                        Select events to register {name.trim() || 'swimmer'}
+                        Select events to register {[firstName, lastName].filter(Boolean).join(' ') || 'swimmer'}
                       </span>
                       <span className="pill-info" style={{ borderColor: 'rgba(6,182,212,0.4)', color: '#67e8f9', fontSize: '0.75rem' }}>
                         {addSwimmerEvents.filter(e => e.isParticipating).length} Checked
@@ -793,7 +1117,7 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
                 )}
               </div>
 
-              <div className="modal-footer" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem' }}>
+              <div className="modal-footer" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                 <button
                   type="button"
                   className="btn btn-secondary"
@@ -868,15 +1192,29 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
                       />
                     </div>
 
-                    <div className="form-group">
-                      <label className="form-label">Full Name</label>
-                      <input
-                        type="text"
-                        required
-                        className="form-control"
-                        value={editingSwimmer.name}
-                        onChange={(e) => setEditingSwimmer({ ...editingSwimmer, name: e.target.value })}
-                      />
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label className="form-label">FIRST NAME</label>
+                        <input
+                          type="text"
+                          required
+                          className="form-control"
+                          placeholder="First Name"
+                          value={editFirstName}
+                          onChange={(e) => setEditFirstName(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">LAST NAME</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          placeholder="Last Name"
+                          value={editLastName}
+                          onChange={(e) => setEditLastName(e.target.value)}
+                        />
+                      </div>
                     </div>
 
                     <div className="form-row">
@@ -1127,7 +1465,7 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
                 )}
               </div>
 
-              <div className="modal-footer" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem' }}>
+              <div className="modal-footer" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                 <button
                   type="button"
                   className="btn btn-secondary"
@@ -1154,6 +1492,13 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
         cancelLabel="Cancel"
         onConfirm={handleConfirmDeleteSwimmer}
         onCancel={() => setDeleteSwimmerId(null)}
+      />
+
+      <SmartImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        activeMeetId={activeMeetId}
+        onImportComplete={loadSwimmers}
       />
     </div>
   );

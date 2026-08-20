@@ -1,6 +1,7 @@
-import { app, BrowserWindow, Menu, ipcMain } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain, shell } from 'electron';
 import { fork, ChildProcess } from 'node:child_process';
 import path from 'node:path';
+import fs from 'node:fs';
 import log from 'electron-log/main';
 
 log.initialize();
@@ -170,6 +171,41 @@ function wireWindowIpc() {
     );
 
     return true;
+  });
+
+  ipcMain.handle('touchteck:open-data-folder', async (_event, meetName?: string) => {
+    try {
+      const desktopDir = app.getPath('desktop');
+      const baseDir = path.join(desktopDir, 'TouchTeck_Data');
+      const cleanMeet = (meetName || 'Default_Meet').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const meetEventsDir = path.join(baseDir, 'Meets', cleanMeet, 'events');
+      if (!fs.existsSync(meetEventsDir)) {
+        fs.mkdirSync(meetEventsDir, { recursive: true });
+      }
+      shell.openPath(meetEventsDir);
+      return meetEventsDir;
+    } catch (e) {
+      log.error('Failed to open data folder:', e);
+      return null;
+    }
+  });
+
+  ipcMain.handle('touchteck:write-event-file', async (_event, meetName: string, fileName: string, content: string) => {
+    try {
+      const desktopDir = app.getPath('desktop');
+      const baseDir = path.join(desktopDir, 'TouchTeck_Data');
+      const cleanMeet = (meetName || 'Default_Meet').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const meetEventsDir = path.join(baseDir, 'Meets', cleanMeet, 'events');
+      if (!fs.existsSync(meetEventsDir)) {
+        fs.mkdirSync(meetEventsDir, { recursive: true });
+      }
+      const filePath = path.join(meetEventsDir, fileName);
+      fs.writeFileSync(filePath, content, 'utf8');
+      return filePath;
+    } catch (e) {
+      log.error('Failed to write event file:', e);
+      return null;
+    }
   });
 
   ipcMain.on('touchteck:sync', (event, message) => {

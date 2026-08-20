@@ -3,10 +3,12 @@ import { createPortal } from 'react-dom';
 import { db, Meet, type Event } from '../db';
 import { serialDriver, simulator, TimingEvent } from '../serialDriver';
 import { ScoreboardDisplayConfig, DEFAULT_SCOREBOARD_CONFIG, ScoreboardResolution } from '../types';
-import { Terminal, Cpu, Play, Square, RotateCcw, Save, ShieldAlert, Radio, HelpCircle, CheckCircle2, Plus, Activity, ShieldCheck, Power, Copy, Check, Loader2, Zap, GitMerge } from 'lucide-react';
+import { Terminal, Cpu, Play, Square, RotateCcw, Save, ShieldAlert, Radio, HelpCircle, CheckCircle2, Plus, Activity, ShieldCheck, Power, Copy, Check, Loader2, Zap, GitMerge, FileText, Download, FolderOpen, RefreshCw, UploadCloud } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import CustomSelect from './CustomSelect';
+import SmartImportModal from './SmartImportModal';
 import { useModalClose } from '../hooks/useModalClose';
+import { exportEventJsonFile, exportEventCsvFile, getEventFilePath } from '../utils/eventStorage';
 
 interface Swimmer {
   id?: number;
@@ -100,6 +102,14 @@ export default function OperatorConsole({
   const [selectedMeetId, setSelectedMeetId] = useState<number | null>(activeMeetId);
   const [availableHeats, setAvailableHeats] = useState<number[]>([1]);
   const [baudRate, setBaudRate] = useState(9600);
+  const [showImportModal, setShowImportModal] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (activeMeetId && activeMeetId !== selectedMeetId) {
+      setSelectedMeetId(activeMeetId);
+      loadEvents(activeMeetId);
+    }
+  }, [activeMeetId]);
 
   useEffect(() => {
     if (activeEventId) {
@@ -999,7 +1009,7 @@ export default function OperatorConsole({
             {/* Active Event Details Card & Selector */}
             {(() => {
               const currentEv = events.find(e => e.id === activeEventId) || events[0];
-              const isMerged = currentEv?.ageGroup === 'All Age Groups' || currentEv?.ageGroup?.toLowerCase().includes('merged') || (currentEv as any)?.isMerged;
+              const isMerged = Boolean((currentEv as any)?.isMerged || currentEv?.ageGroup?.toLowerCase().includes('merged'));
               return (
                 <div className="form-group mb-0" style={{ minWidth: 0 }}>
                   <label className="form-label" style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--accent-cyan)' }}>Ongoing Event Details</label>
@@ -1115,6 +1125,100 @@ export default function OperatorConsole({
               </div>
             </div>
           </div>
+
+          {/* Transparent Event-Wise Data Location Inspector */}
+          {(() => {
+            const currentEv = events.find(e => e.id === activeEventId) || events[0];
+            const currentMeet = meets.find(m => m.id === (selectedMeetId || activeMeetId));
+            const filePath = currentEv ? getEventFilePath(currentMeet?.name || 'Championship_Meet', currentEv) : 'No Active File';
+
+            return (
+              <div 
+                style={{
+                  marginTop: '0.65rem',
+                  padding: '0.45rem 0.85rem',
+                  borderRadius: '8px',
+                  background: 'rgba(15, 23, 42, 0.75)',
+                  border: '1px solid rgba(6, 182, 212, 0.25)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'nowrap',
+                  gap: '0.75rem',
+                  fontSize: '0.75rem'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, overflow: 'hidden' }}>
+                  <FolderOpen size={14} style={{ color: '#facc15', flexShrink: 0 }} />
+                  <span style={{ color: 'var(--text-muted)', fontWeight: 600, flexShrink: 0 }}>Event Data File:</span>
+                  <code 
+                    onClick={() => {
+                      if (window.touchteckApp?.openDataFolder) {
+                        window.touchteckApp.openDataFolder(currentMeet?.name);
+                      }
+                    }}
+                    style={{ color: '#facc15', background: 'rgba(250, 204, 21, 0.1)', border: '1px solid rgba(250, 204, 21, 0.25)', padding: '0.2rem 0.55rem', borderRadius: '4px', fontSize: '0.73rem', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '380px', cursor: 'pointer' }}
+                    title="Click to Open this meet's data folder in Windows File Explorer"
+                  >
+                    {filePath}
+                  </code>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', color: '#4ade80', fontWeight: 700, fontSize: '0.7rem', marginLeft: '0.3rem', flexShrink: 0 }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#4ade80' }} />
+                    Live Sandboxed
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ padding: '0.2rem 0.55rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.3rem', color: '#facc15', borderColor: 'rgba(250, 204, 21, 0.4)', background: 'rgba(250, 204, 21, 0.1)', fontWeight: 800 }}
+                    title="Import Excel (.xlsx), CSV, or Event JSON into this meet"
+                    onClick={() => setShowImportModal(true)}
+                  >
+                    <UploadCloud size={12} /> Import File
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ padding: '0.2rem 0.55rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.3rem', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.35)' }}
+                    title="Open Meet Data Folder in Windows File Explorer"
+                    onClick={() => {
+                      if (window.touchteckApp?.openDataFolder) {
+                        window.touchteckApp.openDataFolder(currentMeet?.name);
+                      }
+                    }}
+                  >
+                    <FolderOpen size={12} /> Open Folder
+                  </button>
+
+                  {currentEv && (
+                    <>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ padding: '0.2rem 0.55rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                        title="Export this event's start list and times as JSON"
+                        onClick={() => exportEventJsonFile(currentEv.id!)}
+                      >
+                        <Download size={12} /> Event JSON
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ padding: '0.2rem 0.55rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                        title="Export this event's results as CSV"
+                        onClick={() => exportEventCsvFile(currentEv.id!)}
+                      >
+                        <FileText size={12} /> Event CSV
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Lanes overview with manual override triggers */}
@@ -1979,6 +2083,17 @@ export default function OperatorConsole({
           </div>
         </div>
       )}
+
+      <SmartImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        activeMeetId={selectedMeetId || activeMeetId}
+        onImportComplete={() => {
+          if (selectedMeetId || activeMeetId) {
+            loadEvents(selectedMeetId || activeMeetId!);
+          }
+        }}
+      />
     </>
   );
 }

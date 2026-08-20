@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { db, Meet, type Event, Swimmer, LaneAssignment, seedDatabase, AgeGroup } from '../db';
-import { Calendar, Plus, Users, Award, ShieldAlert, UserX, Trash2, Edit, Save, RotateCcw, ChevronDown, ChevronUp, Search, ListFilter, PlayCircle, CheckCircle2, Clock, GitMerge, Layers, Printer, Zap, Download, CheckSquare, Square, GripVertical, ArrowUp, ArrowDown, ListChecks } from 'lucide-react';
+import { Calendar, Plus, Users, Award, ShieldAlert, UserX, Trash2, Edit, Save, RotateCcw, ChevronDown, ChevronUp, Search, ListFilter, PlayCircle, CheckCircle2, Clock, GitMerge, Layers, Printer, Zap, Download, CheckSquare, Square, GripVertical, ArrowUp, ArrowDown, ListChecks, X, Waves, UploadCloud, FolderOpen } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import CustomSelect from './CustomSelect';
 import HoverScrollText from './HoverScrollText';
+import SmartImportModal from './SmartImportModal';
 import { LOGO_BASE64 } from '../utils/logoBase64';
 import { TSA_LOGO_BASE64, SAT_LOGO_BASE64 } from '../utils/reportLogos';
 import { printHtmlDocument } from '../utils/printHelper';
@@ -24,6 +25,43 @@ const ALL_AGE_GROUPS: AgeGroup[] = [
   '50-54', '55-59', '60-64', '65-69', '70-74', '75-79', '80 & above'
 ];
 
+export interface PresetEventOption {
+  id: string;
+  distance: number;
+  stroke: Event['stroke'];
+  label: string;
+  enabled: boolean;
+}
+
+export const DEFAULT_PRESET_EVENTS: PresetEventOption[] = [
+  // Freestyle
+  { id: 'free-50', distance: 50, stroke: 'Freestyle', label: '50m Free', enabled: true },
+  { id: 'free-100', distance: 100, stroke: 'Freestyle', label: '100m Free', enabled: true },
+  { id: 'free-200', distance: 200, stroke: 'Freestyle', label: '200m Free', enabled: true },
+  { id: 'free-400', distance: 400, stroke: 'Freestyle', label: '400m Free', enabled: true },
+  { id: 'free-800', distance: 800, stroke: 'Freestyle', label: '800m Free', enabled: true },
+  { id: 'free-1500', distance: 1500, stroke: 'Freestyle', label: '1500m Free', enabled: true },
+
+  // Backstroke
+  { id: 'back-50', distance: 50, stroke: 'Backstroke', label: '50m Back', enabled: true },
+  { id: 'back-100', distance: 100, stroke: 'Backstroke', label: '100m Back', enabled: true },
+  { id: 'back-200', distance: 200, stroke: 'Backstroke', label: '200m Back', enabled: true },
+
+  // Breaststroke
+  { id: 'breast-50', distance: 50, stroke: 'Breaststroke', label: '50m Breast', enabled: true },
+  { id: 'breast-100', distance: 100, stroke: 'Breaststroke', label: '100m Breast', enabled: true },
+  { id: 'breast-200', distance: 200, stroke: 'Breaststroke', label: '200m Breast', enabled: true },
+
+  // Butterfly
+  { id: 'fly-50', distance: 50, stroke: 'Butterfly', label: '50m Fly', enabled: true },
+  { id: 'fly-100', distance: 100, stroke: 'Butterfly', label: '100m Fly', enabled: true },
+  { id: 'fly-200', distance: 200, stroke: 'Butterfly', label: '200m Fly', enabled: true },
+
+  // Individual Medley
+  { id: 'im-200', distance: 200, stroke: 'Individual Medley', label: '200m IM', enabled: true },
+  { id: 'im-400', distance: 400, stroke: 'Individual Medley', label: '400m IM', enabled: true }
+];
+
 export default function MeetManager({
   activeMeetId,
   setActiveMeetId,
@@ -39,7 +77,7 @@ export default function MeetManager({
     loadMeets();
   }, []);
 
-  const loadMeets = async () => {
+  const loadMeets = async (preferredMeetId?: number) => {
     try {
       let list = await db.meets.toArray();
       if (list.length === 0) {
@@ -48,8 +86,12 @@ export default function MeetManager({
       }
       setMeets(list);
       if (list.length > 0) {
-        const targetId = (activeMeetId !== undefined && activeMeetId !== null) ? activeMeetId : list[0].id!;
-        setInternalMeetId(targetId);
+        const targetId = preferredMeetId !== undefined 
+          ? preferredMeetId 
+          : ((selectedMeetId && list.some(m => m.id === selectedMeetId)) 
+            ? selectedMeetId 
+            : ((activeMeetId !== undefined && activeMeetId !== null && list.some(m => m.id === activeMeetId)) ? activeMeetId : list[0].id!));
+        setSelectedMeetId(targetId);
         if (setActiveMeetId && activeMeetId !== targetId) setActiveMeetId(targetId);
         await loadEvents(targetId);
         await loadAllSwimmers(targetId);
@@ -180,10 +222,25 @@ export default function MeetManager({
     }
   };
 
-  // Meet Create Form State
+  // Meet Create & Setup Wizard Form State
   const [meetName, setMeetName] = useState('');
   const [meetDate, setMeetDate] = useState('');
   const [meetLocation, setMeetLocation] = useState('');
+  const [meetPoolType, setMeetPoolType] = useState<'50m' | '25m'>('50m');
+  const [meetLanes, setMeetLanes] = useState<number>(8); // Default is 8 lanes!
+  const [meetCategoryPreset, setMeetCategoryPreset] = useState<'masters' | 'juniors' | 'open'>('masters');
+  const [meetAutoEvents, setMeetAutoEvents] = useState<boolean>(true);
+  const [presetEvents, setPresetEvents] = useState<PresetEventOption[]>(DEFAULT_PRESET_EVENTS);
+
+  const togglePresetEvent = (id: string) => {
+    setPresetEvents(prev => prev.map(pe => pe.id === id ? { ...pe, enabled: !pe.enabled } : pe));
+  };
+
+  const selectAllPresetEvents = (enabled: boolean) => {
+    setPresetEvents(prev => prev.map(pe => ({ ...pe, enabled })));
+  };
+
+  const [showImportModal, setShowImportModal] = useState<boolean>(false);
 
   // Event Create Form State
   const [distance, setDistance] = useState<number>(50);
@@ -244,8 +301,9 @@ export default function MeetManager({
     const totalHeatsMap = new Map<number, Set<number>>();
     allAssignments.forEach(a => {
       if (a.eventId) {
-        if (!totalHeatsMap.has(a.eventId)) totalHeatsMap.set(a.eventId, new Set());
-        if (a.heatNumber) totalHeatsMap.get(a.eventId)!.add(a.heatNumber);
+        const evId = Number(a.eventId);
+        if (!totalHeatsMap.has(evId)) totalHeatsMap.set(evId, new Set());
+        if (a.heatNumber) totalHeatsMap.get(evId)!.add(Number(a.heatNumber));
       }
     });
 
@@ -259,8 +317,9 @@ export default function MeetManager({
 
     dbEvs.forEach(ev => {
       if (!ev.id) return;
-      const assignedSet = totalHeatsMap.get(ev.id);
-      const savedSet = savedHeatsMap.get(ev.id);
+      const evId = Number(ev.id);
+      const assignedSet = totalHeatsMap.get(evId);
+      const savedSet = savedHeatsMap.get(evId);
 
       const combinedHeats = new Set<number>();
       if (assignedSet) assignedSet.forEach(h => combinedHeats.add(h));
@@ -268,12 +327,12 @@ export default function MeetManager({
       if (combinedHeats.size === 0) combinedHeats.add(1);
 
       const heatArray = Array.from(combinedHeats).sort((a, b) => a - b);
-      heatsListMap.set(ev.id, heatArray);
+      heatsListMap.set(evId, heatArray);
 
       if (savedSet && savedSet.size > 0) {
         const allSaved = heatArray.every(h => savedSet.has(h));
         if (allSaved) {
-          doneIds.add(ev.id);
+          doneIds.add(evId);
         }
       }
     });
@@ -1058,6 +1117,10 @@ export default function MeetManager({
     setMeetName(current.name);
     setMeetLocation(current.location || '');
     setMeetDate(current.date || '');
+    setMeetPoolType(current.poolType || '50m');
+    setMeetLanes(current.lanes || 8);
+    setMeetCategoryPreset(current.categoryPreset || 'masters');
+    setMeetAutoEvents(false);
     setIsCreatingMeet(true);
   };
 
@@ -1077,22 +1140,68 @@ export default function MeetManager({
       await db.meets.update(editingMeetId, {
         name: meetName,
         date: meetDate || new Date().toISOString().split('T')[0],
-        location: meetLocation
+        location: meetLocation,
+        poolType: meetPoolType,
+        lanes: meetLanes,
+        categoryPreset: meetCategoryPreset
       });
       setEditingMeetId(null);
     } else {
       const id = await db.meets.add({
         name: meetName,
         date: meetDate || new Date().toISOString().split('T')[0],
-        location: meetLocation
+        location: meetLocation,
+        poolType: meetPoolType,
+        lanes: meetLanes,
+        categoryPreset: meetCategoryPreset
       });
-      setSelectedMeetId(id);
+      const newMeetId = Number(id);
+      setSelectedMeetId(newMeetId);
+      if (setActiveMeetId) setActiveMeetId(newMeetId);
+
+      // Auto-generate standard competition event list if selected
+      if (meetAutoEvents) {
+        const selectedPresetEvents = presetEvents.filter(pe => pe.enabled);
+        let eventNumber = 1;
+        if (meetCategoryPreset === 'juniors') {
+          const juniorGroups = ['Group A', 'Group B', 'Group C', 'Group D'];
+          for (const ev of selectedPresetEvents) {
+            for (const grp of juniorGroups) {
+              for (const g of ['M', 'F'] as ('M' | 'F')[]) {
+                await db.events.add({
+                  meetId: newMeetId,
+                  eventNo: eventNumber,
+                  distance: ev.distance,
+                  stroke: ev.stroke,
+                  gender: g,
+                  ageGroup: grp
+                });
+                eventNumber++;
+              }
+            }
+          }
+        } else {
+          for (const ev of selectedPresetEvents) {
+            for (const g of ['M', 'F'] as ('M' | 'F')[]) {
+              await db.events.add({
+                meetId: newMeetId,
+                eventNo: eventNumber,
+                distance: ev.distance,
+                stroke: ev.stroke,
+                gender: g,
+                ageGroup: meetCategoryPreset === 'open' ? 'Open' : (meetCategoryPreset === 'masters' ? 'Masters' : 'Open')
+              });
+              eventNumber++;
+            }
+          }
+        }
+      }
+      setIsCreatingMeet(false);
+      setMeetName('');
+      setMeetLocation('');
+      setMeetDate('');
+      await loadMeets(newMeetId);
     }
-    setIsCreatingMeet(false);
-    setMeetName('');
-    setMeetLocation('');
-    setMeetDate('');
-    loadMeets();
   };
 
   const handleConfirmDeleteMeet = async () => {
@@ -1271,85 +1380,58 @@ export default function MeetManager({
               options={meets.map(m => ({ value: m.id!, label: m.name }))}
               value={selectedMeetId || ''}
               onChange={(val) => {
-                setSelectedMeetId(Number(val));
+                const newMeetId = Number(val);
+                setSelectedMeetId(newMeetId);
+                if (setActiveMeetId) setActiveMeetId(newMeetId);
               }}
             />
           </div>
 
-          {!isCreatingMeet ? (
-            <div className="flex flex-col gap-2 mt-3">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', borderStyle: 'dashed' }}
-                onClick={() => {
-                  setEditingMeetId(null);
-                  setMeetName('');
-                  setMeetLocation('');
-                  setMeetDate('');
-                  setIsCreatingMeet(true);
-                }}
-              >
-                <Plus size={16} /> Create New Meet
-              </button>
+          <div className="flex flex-col gap-2 mt-3">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', borderStyle: 'dashed' }}
+              onClick={() => {
+                setEditingMeetId(null);
+                setMeetName('');
+                setMeetLocation('');
+                setMeetDate(new Date().toISOString().split('T')[0]);
+                setMeetPoolType('50m');
+                setMeetLanes(8);
+                setMeetCategoryPreset('masters');
+                setMeetAutoEvents(true);
+                setIsCreatingMeet(true);
+              }}
+            >
+              <Plus size={16} /> Create New Meet
+            </button>
 
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', color: '#38bdf8', borderColor: 'rgba(56,189,248,0.3)' }}
-                onClick={handleResetDemoData}
-                title="Restore 109 Registered Swimmers Data"
-              >
-                <RotateCcw size={15} /> Restore Demo Data
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={handleSaveMeet} style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '1rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                  {editingMeetId ? 'Edit Meet Details' : 'Create New Meet'}
-                </span>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ padding: '0.15rem 0.4rem', fontSize: '0.7rem' }}
-                  onClick={handleCancelEditMeet}
-                >
-                  Cancel
-                </button>
-              </div>
-              <div className="form-group mt-2">
-                <input
-                  type="text"
-                  placeholder="Meet Name"
-                  required
-                  className="form-control"
-                  value={meetName}
-                  onChange={(e) => setMeetName(e.target.value)}
-                />
-              </div>
-              <div className="form-group">
-                <input
-                  type="text"
-                  placeholder="Location"
-                  className="form-control"
-                  value={meetLocation}
-                  onChange={(e) => setMeetLocation(e.target.value)}
-                />
-              </div>
-              <div className="form-group">
-                <input
-                  type="date"
-                  className="form-control"
-                  value={meetDate}
-                  onChange={(e) => setMeetDate(e.target.value)}
-                />
-              </div>
-              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-                {editingMeetId ? <Save size={16} /> : <Plus size={16} />} {editingMeetId ? 'Save Changes' : 'Save Meet'}
-              </button>
-            </form>
-          )}
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', color: '#facc15', borderColor: 'rgba(250, 204, 21, 0.45)', fontWeight: 800, background: 'rgba(250, 204, 21, 0.1)' }}
+              onClick={() => setShowImportModal(true)}
+              title="Import Excel, CSV, or Event JSON files into this meet"
+            >
+              <UploadCloud size={16} /> Import File
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.35)', fontWeight: 700 }}
+              onClick={() => {
+                const activeMeetObj = meets.find(m => m.id === selectedMeetId);
+                if (window.touchteckApp?.openDataFolder) {
+                  window.touchteckApp.openDataFolder(activeMeetObj?.name);
+                }
+              }}
+              title="Open Meet Data Folder in Windows Explorer"
+            >
+              <FolderOpen size={15} /> Open Meet Folder
+            </button>
+          </div>
         </div>
 
         {/* Event Scheduler Card */}
@@ -1601,16 +1683,46 @@ export default function MeetManager({
       <div className="flex flex-col gap-4" style={{ minWidth: 0 }}>
         {/* Event Order Header & Filters */}
         <div className="glass-card">
-          <div className="card-header flex justify-between items-center mb-4">
-            <div>
-              <h2 className="card-title" style={{ borderBottom: 'none', marginBottom: 0, paddingBottom: 0 }}>
-                Order Of Events — 11th Telangana Masters IDSC 2026
-              </h2>
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-cyan)', fontWeight: 600 }}>
-                {sortedEvents.length} Championship Events • Ordered Strictly by Official Schedule
-              </span>
-            </div>
-          </div>
+          {(() => {
+            const activeMeetObj = meets.find(m => m.id === selectedMeetId);
+            return (
+              <div className="card-header flex justify-between items-center mb-4" style={{ flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div>
+                  <h2 className="card-title" style={{ borderBottom: 'none', marginBottom: 0, paddingBottom: 0 }}>
+                    Order Of Events — {activeMeetObj?.name || 'Championship Events'}
+                  </h2>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-cyan)', fontWeight: 600 }}>
+                    {sortedEvents.length} Championship Events • Ordered Strictly by Official Schedule
+                  </span>
+                </div>
+
+                {/* Top Right Pool Course & Lanes Badge */}
+                <div style={{ display: 'flex', alignItems: 'center', marginTop: '-0.3rem' }}>
+                  <div 
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.18), rgba(59, 130, 246, 0.18))',
+                      border: '1.5px solid rgba(6, 182, 212, 0.55)',
+                      color: '#67e8f9',
+                      borderRadius: '20px',
+                      padding: '0.35rem 0.95rem',
+                      fontSize: '0.82rem',
+                      fontWeight: 800,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.55rem',
+                      letterSpacing: '0.4px',
+                      boxShadow: '0 0 16px rgba(6, 182, 212, 0.2)'
+                    }}
+                  >
+                    <Waves size={15} style={{ color: '#38bdf8', flexShrink: 0 }} />
+                    <span>{activeMeetObj?.poolType === '25m' ? '25m (Short Course)' : '50m (Long Course)'}</span>
+                    <span style={{ opacity: 0.35 }}>•</span>
+                    <span style={{ color: '#facc15' }}>{activeMeetObj?.lanes || 8} Lanes</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="flex gap-3 items-center" style={{ flexWrap: 'nowrap' }}>
             <div className="form-group mb-0" style={{ flex: 1, minWidth: '160px' }}>
@@ -1842,16 +1954,18 @@ export default function MeetManager({
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Try adjusting your search query or gender/category filters.</p>
           </div>
         ) : (
-          <div 
-            style={{ 
-              maxHeight: '620px', 
-              overflowY: 'auto', 
-              display: 'flex', 
-              flexDirection: 'column', 
-              gap: '0.75rem', 
-              paddingRight: '0.4rem' 
-            }}
-          >
+          <div style={{ position: 'relative' }}>
+            <div 
+              style={{ 
+                maxHeight: '620px', 
+                overflowY: 'auto', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '0.75rem', 
+                paddingRight: '0.4rem',
+                paddingBottom: '2.5rem'
+              }}
+            >
             {(() => {
               const uncompletedEvents = sortedEvents.filter(ev => {
                 const evHeats = eventHeatsMap.get(ev.id!) || [1];
@@ -2044,7 +2158,7 @@ export default function MeetManager({
                         <HoverScrollText>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
                             <span>{ev.distance}m {ev.stroke}</span>
-                            {(ev.ageGroup === 'All Age Groups' || ev.ageGroup?.toLowerCase().includes('merged') || (ev as any)?.isMerged) && (
+                            {Boolean((ev as any)?.isMerged || ev.ageGroup?.toLowerCase().includes('merged')) && (
                               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.68rem', fontWeight: 900, padding: '0.15rem 0.45rem', borderRadius: '4px', background: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)', color: '#0f172a', letterSpacing: '0.5px', flexShrink: 0 }}>
                                 <GitMerge size={11} /> MERGED
                               </span>
@@ -2055,7 +2169,7 @@ export default function MeetManager({
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.35rem', overflow: 'hidden' }}>
                         <span>{ev.gender === 'M' ? 'Men' : 'Women'} ({ev.ageGroup})</span>
                         {(() => {
-                          const evHeats = eventHeatsMap.get(ev.id!) || [1];
+                          const evHeats = eventHeatsMap.get(Number(ev.id)) || (isSelected && heats.length > 0 ? heats : [1]);
                           return (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', marginLeft: '0.4rem' }}>
                               {evHeats.map(h => {
@@ -2343,6 +2457,20 @@ export default function MeetManager({
               );
             });
           })()}
+            </div>
+            {/* Smooth Bottom Fade Gradient */}
+            <div 
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: '42px',
+                background: 'linear-gradient(to bottom, rgba(13, 19, 34, 0) 0%, rgba(13, 19, 34, 0.95) 100%)',
+                pointerEvents: 'none',
+                borderRadius: '0 0 12px 12px'
+              }}
+            />
           </div>
         )}
       </div>
@@ -2523,6 +2651,367 @@ export default function MeetManager({
       </div>,
       document.body
     )}
+
+    {/* Create / Edit Meet Setup Wizard Modal Popup */}
+    {isCreatingMeet && createPortal(
+      <div 
+        className="modal-overlay"
+        onClick={handleCancelEditMeet}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999
+        }}
+      >
+        <div 
+          className="modal-content"
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            maxWidth: '620px',
+            width: '92vw',
+            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.98))',
+            border: '1.5px solid rgba(250, 204, 21, 0.4)',
+            boxShadow: '0 25px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(250, 204, 21, 0.2)',
+            borderRadius: '16px',
+            padding: '1.5rem'
+          }}
+        >
+          <div className="modal-header flex justify-between items-center" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
+            <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'var(--accent-yellow)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Calendar size={20} /> {editingMeetId ? 'Edit Meet Details' : 'Create New Meet & Championship Setup'}
+            </h3>
+            <button 
+              type="button"
+              className="btn btn-secondary" 
+              style={{ padding: '0.2rem 0.5rem' }}
+              onClick={handleCancelEditMeet}
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <form onSubmit={handleSaveMeet}>
+            <div className="modal-body" style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: '4px' }}>
+              <div className="form-group mb-3">
+                <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)' }}>MEET NAME</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 11th State Aquatic Championship 2026"
+                  required
+                  className="form-control"
+                  value={meetName}
+                  onChange={(e) => setMeetName(e.target.value)}
+                />
+              </div>
+
+              <div className="form-row mb-3">
+                <div className="form-group mb-0">
+                  <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)' }}>LOCATION / VENUE</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. GHMC Swimming Pool, Amberpet"
+                    className="form-control"
+                    value={meetLocation}
+                    onChange={(e) => setMeetLocation(e.target.value)}
+                  />
+                </div>
+
+                <div className="form-group mb-0">
+                  <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)' }}>START DATE</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={meetDate}
+                    onChange={(e) => setMeetDate(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="form-row mb-3">
+                <div className="form-group mb-0">
+                  <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)' }}>POOL COURSE</label>
+                  <CustomSelect
+                    options={[
+                      { value: '50m', label: '50m (Long Course / Olympic)' },
+                      { value: '25m', label: '25m (Short Course)' }
+                    ]}
+                    value={meetPoolType}
+                    onChange={(val) => setMeetPoolType(val as '50m' | '25m')}
+                  />
+                </div>
+
+                <div className="form-group mb-0">
+                  <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)' }}>LANES (DEFAULT 8)</label>
+                  <CustomSelect
+                    options={[
+                      { value: '6', label: '6 Lanes' },
+                      { value: '8', label: '8 Lanes (Standard)' },
+                      { value: '10', label: '10 Lanes' }
+                    ]}
+                    value={String(meetLanes)}
+                    onChange={(val) => setMeetLanes(Number(val))}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group mb-3">
+                <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)' }}>CATEGORY TEMPLATE</label>
+                <CustomSelect
+                  options={[
+                    { value: 'masters', label: 'Masters Swimming (25-29, 30-34 ... 80+)' },
+                    { value: 'juniors', label: 'Junior / Sub-Junior (Group A, Group B, Group C, Group D)' },
+                    { value: 'open', label: 'Universal / Open (All Age Groups)' }
+                  ]}
+                  value={meetCategoryPreset}
+                  onChange={(val) => setMeetCategoryPreset(val as 'masters' | 'juniors' | 'open')}
+                />
+              </div>
+
+              {!editingMeetId && (
+                <div className="form-group mb-3" style={{ background: 'rgba(8, 12, 22, 0.85)', padding: '0.85rem 1rem', borderRadius: '10px', border: '1.5px solid rgba(250, 204, 21, 0.35)', boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: meetAutoEvents ? '0.75rem' : 0 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', fontSize: '0.85rem', color: '#facc15', margin: 0, fontWeight: 800 }}>
+                      <input
+                        type="checkbox"
+                        checked={meetAutoEvents}
+                        onChange={(e) => setMeetAutoEvents(e.target.checked)}
+                        style={{ accentColor: '#facc15', width: '17px', height: '17px' }}
+                      />
+                      Auto-generate official competition events ({presetEvents.filter(pe => pe.enabled).length} active)
+                    </label>
+
+                    {meetAutoEvents && (
+                      <div style={{ display: 'flex', gap: '0.35rem' }}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ padding: '0.15rem 0.55rem', fontSize: '0.7rem', color: '#facc15', borderColor: 'rgba(250, 204, 21, 0.3)', fontWeight: 700 }}
+                          onClick={() => selectAllPresetEvents(true)}
+                        >
+                          Select All
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ padding: '0.15rem 0.55rem', fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', borderColor: 'rgba(255,255,255,0.15)' }}
+                          onClick={() => selectAllPresetEvents(false)}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {meetAutoEvents && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem', borderTop: '1px solid rgba(250, 204, 21, 0.15)', paddingTop: '0.7rem' }}>
+                      {/* Freestyle Section */}
+                      <div>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#facc15', marginBottom: '0.3rem', letterSpacing: '0.6px', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#facc15' }} />
+                          FREESTYLE
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                          {presetEvents.filter(pe => pe.stroke === 'Freestyle').map(pe => (
+                            <button
+                              key={pe.id}
+                              type="button"
+                              onClick={() => togglePresetEvent(pe.id)}
+                              style={{
+                                padding: '0.25rem 0.65rem',
+                                borderRadius: '6px',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                border: pe.enabled ? '1.5px solid #facc15' : '1px solid rgba(255,255,255,0.12)',
+                                background: pe.enabled ? 'linear-gradient(135deg, rgba(250, 204, 21, 0.22) 0%, rgba(202, 138, 4, 0.15) 100%)' : 'rgba(255,255,255,0.02)',
+                                color: pe.enabled ? '#ffffff' : 'rgba(255,255,255,0.35)',
+                                boxShadow: pe.enabled ? '0 0 10px rgba(250, 204, 21, 0.2)' : 'none',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              {pe.enabled ? <span style={{ color: '#facc15', marginRight: '3px' }}>✓</span> : ''}{pe.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Backstroke Section */}
+                      <div>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#facc15', marginBottom: '0.3rem', letterSpacing: '0.6px', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#facc15' }} />
+                          BACKSTROKE
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                          {presetEvents.filter(pe => pe.stroke === 'Backstroke').map(pe => (
+                            <button
+                              key={pe.id}
+                              type="button"
+                              onClick={() => togglePresetEvent(pe.id)}
+                              style={{
+                                padding: '0.25rem 0.65rem',
+                                borderRadius: '6px',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                border: pe.enabled ? '1.5px solid #facc15' : '1px solid rgba(255,255,255,0.12)',
+                                background: pe.enabled ? 'linear-gradient(135deg, rgba(250, 204, 21, 0.22) 0%, rgba(202, 138, 4, 0.15) 100%)' : 'rgba(255,255,255,0.02)',
+                                color: pe.enabled ? '#ffffff' : 'rgba(255,255,255,0.35)',
+                                boxShadow: pe.enabled ? '0 0 10px rgba(250, 204, 21, 0.2)' : 'none',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              {pe.enabled ? <span style={{ color: '#facc15', marginRight: '3px' }}>✓</span> : ''}{pe.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Breaststroke Section */}
+                      <div>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#facc15', marginBottom: '0.3rem', letterSpacing: '0.6px', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#facc15' }} />
+                          BREASTSTROKE
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                          {presetEvents.filter(pe => pe.stroke === 'Breaststroke').map(pe => (
+                            <button
+                              key={pe.id}
+                              type="button"
+                              onClick={() => togglePresetEvent(pe.id)}
+                              style={{
+                                padding: '0.25rem 0.65rem',
+                                borderRadius: '6px',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                border: pe.enabled ? '1.5px solid #facc15' : '1px solid rgba(255,255,255,0.12)',
+                                background: pe.enabled ? 'linear-gradient(135deg, rgba(250, 204, 21, 0.22) 0%, rgba(202, 138, 4, 0.15) 100%)' : 'rgba(255,255,255,0.02)',
+                                color: pe.enabled ? '#ffffff' : 'rgba(255,255,255,0.35)',
+                                boxShadow: pe.enabled ? '0 0 10px rgba(250, 204, 21, 0.2)' : 'none',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              {pe.enabled ? <span style={{ color: '#facc15', marginRight: '3px' }}>✓</span> : ''}{pe.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Butterfly Section */}
+                      <div>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#facc15', marginBottom: '0.3rem', letterSpacing: '0.6px', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#facc15' }} />
+                          BUTTERFLY
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                          {presetEvents.filter(pe => pe.stroke === 'Butterfly').map(pe => (
+                            <button
+                              key={pe.id}
+                              type="button"
+                              onClick={() => togglePresetEvent(pe.id)}
+                              style={{
+                                padding: '0.25rem 0.65rem',
+                                borderRadius: '6px',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                border: pe.enabled ? '1.5px solid #facc15' : '1px solid rgba(255,255,255,0.12)',
+                                background: pe.enabled ? 'linear-gradient(135deg, rgba(250, 204, 21, 0.22) 0%, rgba(202, 138, 4, 0.15) 100%)' : 'rgba(255,255,255,0.02)',
+                                color: pe.enabled ? '#ffffff' : 'rgba(255,255,255,0.35)',
+                                boxShadow: pe.enabled ? '0 0 10px rgba(250, 204, 21, 0.2)' : 'none',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              {pe.enabled ? <span style={{ color: '#facc15', marginRight: '3px' }}>✓</span> : ''}{pe.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Individual Medley Section */}
+                      <div>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#facc15', marginBottom: '0.3rem', letterSpacing: '0.6px', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#facc15' }} />
+                          INDIVIDUAL MEDLEY (IM)
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                          {presetEvents.filter(pe => pe.stroke === 'Individual Medley').map(pe => (
+                            <button
+                              key={pe.id}
+                              type="button"
+                              onClick={() => togglePresetEvent(pe.id)}
+                              style={{
+                                padding: '0.25rem 0.65rem',
+                                borderRadius: '6px',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                border: pe.enabled ? '1.5px solid #facc15' : '1px solid rgba(255,255,255,0.12)',
+                                background: pe.enabled ? 'linear-gradient(135deg, rgba(250, 204, 21, 0.22) 0%, rgba(202, 138, 4, 0.15) 100%)' : 'rgba(255,255,255,0.02)',
+                                color: pe.enabled ? '#ffffff' : 'rgba(255,255,255,0.35)',
+                                boxShadow: pe.enabled ? '0 0 10px rgba(250, 204, 21, 0.2)' : 'none',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              {pe.enabled ? <span style={{ color: '#facc15', marginRight: '3px' }}>✓</span> : ''}{pe.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="modal-footer" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.85rem', marginTop: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleCancelEditMeet}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+              >
+                {editingMeetId ? <Save size={16} /> : <Plus size={16} />} {editingMeetId ? 'Save Changes' : 'Create & Initialize Meet'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>,
+      document.body
+    )}
+
+    <SmartImportModal
+      isOpen={showImportModal}
+      onClose={() => setShowImportModal(false)}
+      activeMeetId={selectedMeetId}
+      onImportComplete={async () => {
+        await loadMeets(selectedMeetId || undefined);
+        if (selectedMeetId) {
+          await loadEvents(selectedMeetId);
+          await loadAllSwimmers(selectedMeetId);
+          await loadCompletedEvents();
+          if (expandedEventId) {
+            await loadHeatsAndAssignments(expandedEventId, expandedHeatNum);
+            await loadEligibleSwimmers(expandedEventId);
+          }
+        }
+      }}
+    />
   </>
   );
 }

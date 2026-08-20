@@ -6,6 +6,9 @@ export interface Meet {
   name: string;
   date: string;
   location: string;
+  poolType?: '50m' | '25m';
+  lanes?: number;
+  categoryPreset?: 'masters' | 'juniors' | 'open';
 }
 
 export type AgeGroup =
