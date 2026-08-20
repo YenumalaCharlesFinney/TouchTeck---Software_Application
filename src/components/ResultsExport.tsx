@@ -548,35 +548,35 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
       const rowsHtml = ag.rows.map(r => {
         const isRanked = r.rank !== 999;
         const rankDisplay = r.rank === 1 
-          ? `<span style="display: inline-block; min-width: 20px; padding: 1px 6px; border-radius: 4px; background: #fef08a; color: #854d0e; font-weight: 900; border: 1px solid #facc15;">1</span>`
+          ? `<span style="display: inline-block; min-width: 18px; padding: 1px 5px; border-radius: 3px; background: #fef08a; color: #854d0e; font-weight: 900; border: 1px solid #facc15; font-size: 8pt;">1</span>`
           : r.rank === 2
-          ? `<span style="display: inline-block; min-width: 20px; padding: 1px 6px; border-radius: 4px; background: #f1f5f9; color: #334155; font-weight: 900; border: 1px solid #cbd5e1;">2</span>`
+          ? `<span style="display: inline-block; min-width: 18px; padding: 1px 5px; border-radius: 3px; background: #f1f5f9; color: #334155; font-weight: 900; border: 1px solid #cbd5e1; font-size: 8pt;">2</span>`
           : r.rank === 3
-          ? `<span style="display: inline-block; min-width: 20px; padding: 1px 6px; border-radius: 4px; background: #fed7aa; color: #9a3412; font-weight: 900; border: 1px solid #fdba74;">3</span>`
-          : (isRanked ? `<span style="font-weight: 700; color: #334155;">${r.rank}</span>` : '--');
+          ? `<span style="display: inline-block; min-width: 18px; padding: 1px 5px; border-radius: 3px; background: #fed7aa; color: #9a3412; font-weight: 900; border: 1px solid #fdba74; font-size: 8pt;">3</span>`
+          : (isRanked ? `<span style="font-weight: 700; color: #334155; font-size: 8pt;">${r.rank}</span>` : '--');
         const methodBadge = r.status === 'OK' && r.finalTime > 0 
-          ? `<span style="font-weight: 700; padding: 2px 5px; border-radius: 3px; font-size: 10px; background: ${r.timingMethod === 'T2' ? '#fef3c7' : '#ecfeff'}; color: ${r.timingMethod === 'T2' ? '#b45309' : '#0891b2'}; border: 1px solid ${r.timingMethod === 'T2' ? '#fde68a' : '#a5f3fc'};">${r.timingMethod || 'T1'}</span>`
+          ? `<span style="font-weight: 700; padding: 1px 4px; border-radius: 3px; font-size: 8pt; background: ${r.timingMethod === 'T2' ? '#fef3c7' : '#ecfeff'}; color: ${r.timingMethod === 'T2' ? '#b45309' : '#0891b2'}; border: 1px solid ${r.timingMethod === 'T2' ? '#fde68a' : '#a5f3fc'};">${r.timingMethod || 'T1'}</span>`
           : '--';
         const t1Str = r.t1Time ? formatSecondsToTime(r.t1Time) : '--';
         const t2Str = r.t2Time ? formatSecondsToTime(r.t2Time) : '--';
         const cutoffStr = r.qualifyingTime ? formatSecondsToTime(r.qualifyingTime) : '--';
         const qStatusBadge = r.qualifyingTime && r.status === 'OK' && r.finalTime > 0
           ? (r.isQualified 
-              ? '<span style="font-weight: 900; color: #16a34a; background: #dcfce7; padding: 1px 6px; border-radius: 3px; border: 1px solid #86efac; font-size: 9px;">Q</span>' 
-              : '<span style="font-weight: 900; color: #dc2626; background: #fee2e2; padding: 1px 6px; border-radius: 3px; border: 1px solid #fca5a5; font-size: 9px;">NQ</span>')
+              ? '<span style="font-weight: 900; color: #16a34a; background: #dcfce7; padding: 1px 5px; border-radius: 3px; border: 1px solid #86efac; font-size: 8pt;">Q</span>' 
+              : '<span style="font-weight: 900; color: #dc2626; background: #fee2e2; padding: 1px 5px; border-radius: 3px; border: 1px solid #fca5a5; font-size: 8pt;">NQ</span>')
           : '--';
 
         return `
           <tr>
             <td style="text-align: center; font-weight: bold;">${rankDisplay}</td>
-            <td style="text-align: center;">L${r.laneNumber}</td>
-            <td><strong>${r.swimmerName}</strong></td>
-            <td>${r.club}</td>
-            <td style="text-align: center;">${r.ageGroup}</td>
-            ${showT1T2Flag ? `<td style="text-align: right; color: #0891b2; font-weight: bold;">${t1Str}</td>` : ''}
-            ${showT1T2Flag ? `<td style="text-align: right; color: #b45309; font-weight: bold;">${t2Str}</td>` : ''}
-            <td style="text-align: right; font-weight: bold; color: #0284c7;">${r.status === 'OK' ? formatSecondsToTime(r.finalTime) : r.status}</td>
-            ${hasAnyQT ? `<td style="text-align: right; color: #64748b; font-weight: 600;">${cutoffStr}</td><td style="text-align: center;">${qStatusBadge}</td>` : ''}
+            <td style="text-align: center; font-size: 8.5pt;">L${r.laneNumber}</td>
+            <td><strong style="font-size: 8.5pt;">${r.swimmerName}</strong></td>
+            <td style="font-size: 8pt;">${r.club}</td>
+            <td style="text-align: center; font-size: 8pt;">${r.ageGroup}</td>
+            ${showT1T2Flag ? `<td style="text-align: right; color: #0891b2; font-weight: bold; font-size: 8.5pt;">${t1Str}</td>` : ''}
+            ${showT1T2Flag ? `<td style="text-align: right; color: #b45309; font-weight: bold; font-size: 8.5pt;">${t2Str}</td>` : ''}
+            <td style="text-align: right; font-weight: bold; color: #0284c7; font-size: 8.5pt;">${r.status === 'OK' ? formatSecondsToTime(r.finalTime) : r.status}</td>
+            ${hasAnyQT ? `<td style="text-align: right; color: #64748b; font-weight: 600; font-size: 8pt;">${cutoffStr}</td><td style="text-align: center;">${qStatusBadge}</td>` : ''}
             <td style="text-align: center;">${methodBadge}</td>
           </tr>
         `;
@@ -671,13 +671,13 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
           <meta charset="utf-8">
           <title>${titleStr} - ${eventNameStr}</title>
           <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 10pt; color: #0f172a; margin: 0; padding: 12px 18px; line-height: 1.35; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 10pt; color: #0f172a; margin: 0; padding: 12px 18px; line-height: 1.35; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 9pt; }
-            th { background-color: #0f172a; color: #ffffff; font-weight: 700; text-align: left; padding: 5px 7px; border: 1px solid #0f172a; text-transform: uppercase; font-size: 8pt; }
+            th { background-color: #0f172a !important; color: #ffffff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; font-weight: 700; text-align: left; padding: 5px 7px; border: 1px solid #0f172a; text-transform: uppercase; font-size: 8pt; }
             td { padding: 4px 7px; border: 1px solid #cbd5e1; color: #334155; }
-            tr:nth-child(even) { background-color: #f8fafc; }
+            tr:nth-child(even) { background-color: #f8fafc !important; -webkit-print-color-adjust: exact !important; }
             @media print {
-              body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              body { padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
               @page { size: portrait; margin: 6mm 8mm; }
             }
           </style>
@@ -1208,25 +1208,34 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
                         <span>•</span>
                         <span>{tree.heats.length} Heat{tree.heats.length > 1 ? 's' : ''}</span>
                         {/* Interactive Heat Pills with Results Checkmarks */}
-                        <div className="flex items-center gap-1.5 ml-1">
+                        <div className="flex items-center gap-2 ml-2">
                           {tree.heats.map(h => {
                             const hasResults = h.ageGroups.some(ag => ag.rows.some(r => r.finalTime > 0));
                             return (
                               <button
                                 key={h.heatNumber}
                                 type="button"
-                                className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1 transition-all ${
-                                  hasResults 
-                                    ? 'bg-emerald-950/70 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-900/80' 
-                                    : 'bg-amber-950/70 text-amber-300 border border-amber-500/50 hover:bg-amber-900/80'
-                                }`}
+                                style={{
+                                  padding: '0.22rem 0.75rem',
+                                  borderRadius: '20px',
+                                  fontSize: '0.78rem',
+                                  fontWeight: 700,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.35rem',
+                                  border: hasResults ? '1.5px solid rgba(74, 222, 128, 0.6)' : '1.5px solid rgba(245, 158, 11, 0.6)',
+                                  backgroundColor: hasResults ? 'rgba(74, 222, 128, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                                  color: hasResults ? '#4ade80' : '#fcd34d',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s ease'
+                                }}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handlePrintSingleHeat(tree.event, h);
                                 }}
                                 title={hasResults ? `Click to print results for Heat ${h.heatNumber}` : `Heat ${h.heatNumber} (No timing results yet)`}
                               >
-                                {hasResults && <span>✓</span>}
+                                {hasResults && <span style={{ fontWeight: 900 }}>✓</span>}
                                 Heat {h.heatNumber}
                               </button>
                             );

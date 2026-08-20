@@ -34,6 +34,30 @@ export default function MeetManager({
 }: MeetManagerProps = {}) {
   const [meets, setMeets] = useState<Meet[]>([]);
   const [internalMeetId, setInternalMeetId] = useState<number | null>(null);
+
+  useEffect(() => {
+    loadMeets();
+  }, []);
+
+  const loadMeets = async () => {
+    try {
+      let list = await db.meets.toArray();
+      if (list.length === 0) {
+        await seedDatabase(true);
+        list = await db.meets.toArray();
+      }
+      setMeets(list);
+      if (list.length > 0) {
+        const targetId = (activeMeetId !== undefined && activeMeetId !== null) ? activeMeetId : list[0].id!;
+        setInternalMeetId(targetId);
+        if (setActiveMeetId && activeMeetId !== targetId) setActiveMeetId(targetId);
+        await loadEvents(targetId);
+        await loadAllSwimmers(targetId);
+      }
+    } catch (e) {
+      console.error('Error loading meets in MeetManager:', e);
+    }
+  };
   
   // Event & Heat States
   const [events, setEvents] = useState<Event[]>([]);
@@ -324,14 +348,6 @@ export default function MeetManager({
       setEligibleSwimmers([]);
     }
   }, [expandedEventId, expandedHeatNum]);
-
-  const loadMeets = async () => {
-    const list = await db.meets.toArray();
-    setMeets(list);
-    if (list.length > 0 && !selectedMeetId) {
-      setSelectedMeetId(list[0].id || null);
-    }
-  };
 
   const loadAllSwimmers = async (meetId: number) => {
     const list = await db.swimmers.filter(s => (s.meetId || 1) === meetId).toArray();
@@ -1181,16 +1197,17 @@ export default function MeetManager({
   };
 
   const handleResetDemoData = async () => {
-    if (window.confirm('Restore official 109 SFI registered swimmers data for "11th Telangana Masters IDSC 2026"?')) {
+    try {
       const newMeetId = await seedDatabase(true);
       const allMeets = await db.meets.toArray();
       setMeets(allMeets);
-      if (newMeetId) {
-        setSelectedMeetId(newMeetId);
-        if (setActiveMeetId) setActiveMeetId(newMeetId);
-        loadEvents(newMeetId);
-        loadAllSwimmers(newMeetId);
-      }
+      const targetId = newMeetId || allMeets[0]?.id || 1;
+      setSelectedMeetId(targetId);
+      if (setActiveMeetId) setActiveMeetId(targetId);
+      await loadEvents(targetId);
+      await loadAllSwimmers(targetId);
+    } catch (e) {
+      console.error('Error in handleResetDemoData:', e);
     }
   };
 

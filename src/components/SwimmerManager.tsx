@@ -37,9 +37,13 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
   const [sfiUid, setSfiUid] = useState('');
   const [name, setName] = useState('');
   const [gender, setGender] = useState<'M' | 'F'>('M');
-  const [birthYear, setBirthYear] = useState(new Date().getFullYear() - 15);
-  const [ageGroup, setAgeGroup] = useState<AgeGroup>('Group A');
-  const [club, setClub] = useState('');
+  const [birthYear, setBirthYear] = useState(1980);
+  const [ageGroup, setAgeGroup] = useState<AgeGroup>('75-79');
+  const [club, setClub] = useState('Hyderabad');
+  const [addSwimmerEvents, setAddSwimmerEvents] = useState<SwimmerEventState[]>([]);
+  const [activeAddTab, setActiveAddTab] = useState<'info' | 'events'>('info');
+  const [addEventSearchQuery, setAddEventSearchQuery] = useState<string>('');
+  const [addEventFilterMode, setAddEventFilterMode] = useState<'matching' | 'all'>('matching');
   
   // Edit Swimmer State
   const [editingSwimmer, setEditingSwimmer] = useState<Swimmer | null>(null);
@@ -98,6 +102,57 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
         }
       }
       heatNumber++;
+    }
+  };
+
+  const handleOpenAddModal = async () => {
+    setSfiUid('');
+    setName('');
+    setGender('M');
+    setBirthYear(1980);
+    setAgeGroup('75-79');
+    setClub('Hyderabad');
+    setActiveAddTab('info');
+    setAddEventSearchQuery('');
+    setAddEventFilterMode('matching');
+
+    const targetMeetId = activeMeetId || 1;
+    const meetEvents = await db.events.filter(e => (e.meetId || 1) === targetMeetId).toArray();
+    const eventStates: SwimmerEventState[] = meetEvents.map(ev => ({
+      eventId: ev.id!,
+      eventNo: ev.eventNo,
+      distance: ev.distance,
+      stroke: ev.stroke,
+      gender: ev.gender,
+      ageGroup: ev.ageGroup,
+      isParticipating: false,
+      heatNumber: 1,
+      laneNumber: 1
+    }));
+    eventStates.sort((a, b) => (a.eventNo || a.eventId) - (b.eventNo || b.eventId));
+    setAddSwimmerEvents(eventStates);
+    setIsModalOpen(true);
+  };
+
+  const handleToggleAddEventParticipation = async (eventId: number) => {
+    const target = addSwimmerEvents.find(e => e.eventId === eventId);
+    if (!target) return;
+
+    if (!target.isParticipating) {
+      const avail = await findAvailableHeatAndLane(eventId);
+      setAddSwimmerEvents(prev => prev.map(ev => {
+        if (ev.eventId === eventId) {
+          return { ...ev, isParticipating: true, heatNumber: avail.heatNumber, laneNumber: avail.laneNumber };
+        }
+        return ev;
+      }));
+    } else {
+      setAddSwimmerEvents(prev => prev.map(ev => {
+        if (ev.eventId === eventId) {
+          return { ...ev, isParticipating: false };
+        }
+        return ev;
+      }));
     }
   };
 
@@ -160,19 +215,31 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
     e.preventDefault();
     if (!name.trim() || !club.trim()) return;
 
-    await db.swimmers.add({
-      meetId: activeMeetId || 1,
+    const targetMeetId = activeMeetId || 1;
+    const newSwimmerId = (await db.swimmers.add({
+      meetId: targetMeetId,
       sfiUid: sfiUid.trim() || `SFI-2026-TS-${1000 + swimmers.length + 1}`,
       name: name.trim(),
       gender,
       birthYear: Number(birthYear),
       ageGroup,
       club: club.trim()
-    });
+    })) as number;
 
-    setSfiUid('');
-    setName('');
-    setClub('');
+    const participating = addSwimmerEvents.filter(ev => ev.isParticipating);
+    for (const ev of participating) {
+      await db.laneAssignments.add({
+        eventId: ev.eventId,
+        heatNumber: ev.heatNumber,
+        laneNumber: ev.laneNumber,
+        swimmerId: newSwimmerId
+      });
+    }
+
+    if (participating.length > 0) {
+      window.dispatchEvent(new CustomEvent('lane-assignments-updated'));
+    }
+
     setIsModalOpen(false);
     loadSwimmers();
   };
@@ -276,7 +343,7 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
           >
             <RotateCcw size={16} /> Sync Excel Data
           </button>
-          <button className="btn btn-yellow" onClick={() => setIsModalOpen(true)}>
+          <button className="btn btn-yellow" onClick={handleOpenAddModal}>
             <UserPlus size={18} /> Register Swimmer
           </button>
         </div>
@@ -405,97 +472,328 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
         </table>
       </div>
 
-      {/* Register Swimmer Modal */}
+      {/* Register Swimmer Modal with Dual Tabs (Profile + Participating Events) */}
       {isModalOpen && createPortal(
         <div className={`modal-overlay${isAddModalClosing ? ' modal-closing' : ''}`} style={{ zIndex: 99999 }}>
-          <div className={`modal-content${isAddModalClosing ? ' modal-closing' : ''}`}>
-            <div className="modal-header">
-              <h3>Register New Swimmer</h3>
+          <div className={`modal-content${isAddModalClosing ? ' modal-closing' : ''}`} style={{ maxWidth: '680px', width: '92vw' }}>
+            <div className="modal-header flex justify-between items-center" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--accent-yellow)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <UserPlus size={18} /> Register New Swimmer
+                </h3>
+                <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  {name.trim() || 'New Athlete'} • {club.trim() || 'No Club'} ({gender === 'M' ? 'Men' : 'Women'}, {ageGroup})
+                </p>
+              </div>
               <button
+                type="button"
                 className="btn btn-secondary"
                 style={{ padding: '0.2rem 0.5rem' }}
                 onClick={() => closeAddModal(() => setIsModalOpen(false))}
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
+
+            {/* Modal Navigation Tabs */}
+            <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', padding: '0.5rem 1rem 0 1rem', background: 'rgba(15, 23, 42, 0.5)' }}>
+              <button
+                type="button"
+                className={`btn ${activeAddTab === 'info' ? 'btn-yellow' : 'btn-secondary'}`}
+                style={{ padding: '0.4rem 0.85rem', fontSize: '0.82rem', fontWeight: 700, borderRadius: '6px 6px 0 0', borderBottom: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                onClick={() => setActiveAddTab('info')}
+              >
+                <User size={15} /> Swimmer Profile
+              </button>
+              <button
+                type="button"
+                className={`btn ${activeAddTab === 'events' ? 'btn-cyan' : 'btn-secondary'}`}
+                style={{ padding: '0.4rem 0.85rem', fontSize: '0.82rem', fontWeight: 700, borderRadius: '6px 6px 0 0', borderBottom: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                onClick={() => setActiveAddTab('events')}
+              >
+                <Activity size={15} /> Participating Events ({addSwimmerEvents.filter(e => e.isParticipating).length})
+              </button>
+            </div>
+
             <form onSubmit={handleAddSwimmer}>
-              <div className="modal-body">
-                <div className="form-group">
-                  <label className="form-label">SFI Registration UID</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="e.g. SFI-2026-TS-1001"
-                    value={sfiUid}
-                    onChange={(e) => setSfiUid(e.target.value)}
-                  />
-                </div>
+              <div className="modal-body" style={{ maxHeight: '60vh', overflowY: 'auto', padding: '1rem' }}>
+                {activeAddTab === 'info' ? (
+                  <>
+                    <div className="form-group">
+                      <label className="form-label">SFI REGISTRATION UID</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="e.g. SFI-2026-TS-1001"
+                        value={sfiUid}
+                        onChange={(e) => setSfiUid(e.target.value)}
+                      />
+                    </div>
 
-                <div className="form-group">
-                  <label className="form-label">Full Name</label>
-                  <input
-                    type="text"
-                    required
-                    className="form-control"
-                    placeholder="Enter full athlete name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                  />
-                </div>
+                    <div className="form-group">
+                      <label className="form-label">FULL NAME</label>
+                      <input
+                        type="text"
+                        required
+                        className="form-control"
+                        placeholder="Enter full athlete name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                      />
+                    </div>
 
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Gender</label>
-                    <CustomSelect
-                      options={[
-                        { value: 'M', label: 'Male' },
-                        { value: 'F', label: 'Female' }
-                      ]}
-                      value={gender}
-                      onChange={(val) => setGender(val as 'M' | 'F')}
-                    />
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label className="form-label">GENDER</label>
+                        <CustomSelect
+                          options={[
+                            { value: 'M', label: 'Male' },
+                            { value: 'F', label: 'Female' }
+                          ]}
+                          value={gender}
+                          onChange={(val) => setGender(val as 'M' | 'F')}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">BIRTH YEAR</label>
+                        <input
+                          type="number"
+                          required
+                          min={1930}
+                          max={new Date().getFullYear()}
+                          className="form-control"
+                          value={birthYear}
+                          onChange={(e) => setBirthYear(Number(e.target.value))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label className="form-label">AGE GROUP / CATEGORY</label>
+                        <CustomSelect
+                          options={ALL_AGE_GROUPS.map(ag => ({ value: ag, label: ag }))}
+                          value={ageGroup}
+                          onChange={(val) => setAgeGroup(val as AgeGroup)}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">DISTRICT / CLUB</label>
+                        <input
+                          type="text"
+                          required
+                          className="form-control"
+                          placeholder="e.g. HYD, RR, WGL, KNR"
+                          value={club}
+                          onChange={(e) => setClub(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {/* Category Filter & Prioritization Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 23, 42, 0.6)', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', fontWeight: 800, color: 'var(--accent-yellow)' }}>
+                        <Award size={15} /> Category: <span style={{ color: '#fff' }}>{gender === 'M' ? 'Men' : 'Women'} ({ageGroup})</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        <button
+                          type="button"
+                          className={`btn ${addEventFilterMode === 'matching' ? 'btn-yellow' : 'btn-secondary'}`}
+                          style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                          onClick={() => setAddEventFilterMode('matching')}
+                        >
+                          <Filter size={12} /> Category Only ({addSwimmerEvents.filter(e => e.gender === gender && e.ageGroup === ageGroup).length})
+                        </button>
+                        <button
+                          type="button"
+                          className={`btn ${addEventFilterMode === 'all' ? 'btn-cyan' : 'btn-secondary'}`}
+                          style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                          onClick={() => setAddEventFilterMode('all')}
+                        >
+                          All Events ({addSwimmerEvents.length})
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--accent-cyan)' }}>
+                        Select events to register {name.trim() || 'swimmer'}
+                      </span>
+                      <span className="pill-info" style={{ borderColor: 'rgba(6,182,212,0.4)', color: '#67e8f9', fontSize: '0.75rem' }}>
+                        {addSwimmerEvents.filter(e => e.isParticipating).length} Checked
+                      </span>
+                    </div>
+
+                    <div style={{ position: 'relative' }}>
+                      <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                      <input
+                        type="text"
+                        placeholder="Search events by stroke, distance..."
+                        className="form-control"
+                        style={{ paddingLeft: '34px', fontSize: '0.85rem' }}
+                        value={addEventSearchQuery}
+                        onChange={(e) => setAddEventSearchQuery(e.target.value)}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
+                      {(() => {
+                        const curGender = gender;
+                        const curAge = ageGroup;
+
+                        const filtered = addSwimmerEvents.filter(ev => {
+                          if (addEventSearchQuery) {
+                            const query = addEventSearchQuery.toLowerCase();
+                            const title = `Event #${ev.eventNo || ev.eventId}: ${ev.distance}m ${ev.stroke} ${ev.gender} ${ev.ageGroup}`.toLowerCase();
+                            if (!title.includes(query)) return false;
+                          }
+                          if (addEventFilterMode === 'matching' && !addEventSearchQuery) {
+                            return ev.isParticipating || (ev.gender === curGender && ev.ageGroup === curAge);
+                          }
+                          return true;
+                        });
+
+                        // Prioritize matching category & checked events right at the TOP!
+                        filtered.sort((a, b) => {
+                          const aIsMatch = (a.gender === curGender && a.ageGroup === curAge) ? 1 : 0;
+                          const bIsMatch = (b.gender === curGender && b.ageGroup === curAge) ? 1 : 0;
+                          const aCheck = a.isParticipating ? 1 : 0;
+                          const bCheck = b.isParticipating ? 1 : 0;
+
+                          const aWeight = (aCheck * 2) + aIsMatch;
+                          const bWeight = (bCheck * 2) + bIsMatch;
+
+                          if (aWeight !== bWeight) return bWeight - aWeight;
+                          return (a.eventNo || a.eventId) - (b.eventNo || b.eventId);
+                        });
+
+                        if (filtered.length === 0) {
+                          return (
+                            <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                              No matching events found. Click "All Events" to select from all categories.
+                            </div>
+                          );
+                        }
+
+                        return filtered.map(ev => {
+                          const isCategoryMatch = ev.gender === curGender && ev.ageGroup === curAge;
+                          return (
+                            <div
+                              key={ev.eventId}
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                padding: '0.6rem 0.8rem',
+                                borderRadius: '8px',
+                                border: ev.isParticipating 
+                                  ? '1px solid rgba(6, 182, 212, 0.6)' 
+                                  : isCategoryMatch 
+                                    ? '1px solid rgba(234, 179, 8, 0.5)' 
+                                    : '1px solid var(--border-color)',
+                                background: ev.isParticipating 
+                                  ? 'rgba(6, 182, 212, 0.12)' 
+                                  : isCategoryMatch 
+                                    ? 'rgba(234, 179, 8, 0.08)' 
+                                    : 'rgba(15, 23, 42, 0.4)',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              <label style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', cursor: 'pointer', flex: 1, margin: 0 }}>
+                                <input
+                                  type="checkbox"
+                                  checked={ev.isParticipating}
+                                  onChange={() => handleToggleAddEventParticipation(ev.eventId)}
+                                  style={{ width: '17px', height: '17px', accentColor: '#06b6d4', cursor: 'pointer' }}
+                                />
+                                <div>
+                                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: ev.isParticipating ? '#67e8f9' : 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                    Event #{ev.eventNo || ev.eventId}: {ev.distance}m {ev.stroke}
+                                    {isCategoryMatch && (
+                                      <span style={{ background: 'rgba(234, 179, 8, 0.2)', color: '#fde047', border: '1px solid rgba(234, 179, 8, 0.4)', padding: '1px 6px', borderRadius: '4px', fontSize: '0.68rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                                        <Award size={11} /> Category Match
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                    {ev.gender === 'M' ? 'Men' : 'Women'} ({ev.ageGroup})
+                                  </div>
+                                </div>
+                              </label>
+
+                              {ev.isParticipating && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                    <span>Heat:</span>
+                                    <select
+                                      className="form-control"
+                                      style={{ padding: '0.15rem 0.4rem', fontSize: '0.75rem', height: '26px', width: '55px' }}
+                                      value={ev.heatNumber}
+                                      onChange={(e) => {
+                                        const hNum = Number(e.target.value);
+                                        setAddSwimmerEvents(prev => prev.map(item => item.eventId === ev.eventId ? { ...item, heatNumber: hNum } : item));
+                                      }}
+                                    >
+                                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(h => (
+                                        <option key={h} value={h}>H{h}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                    <span>Lane:</span>
+                                    <select
+                                      className="form-control"
+                                      style={{ padding: '0.15rem 0.4rem', fontSize: '0.75rem', height: '26px', width: '55px' }}
+                                      value={ev.laneNumber}
+                                      onChange={(e) => {
+                                        const lNum = Number(e.target.value);
+                                        setAddSwimmerEvents(prev => prev.map(item => item.eventId === ev.eventId ? { ...item, laneNumber: lNum } : item));
+                                      }}
+                                    >
+                                      {[1, 2, 3, 4, 5, 6, 7, 8].map(l => (
+                                        <option key={l} value={l}>L{l}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    style={{ padding: '0.2rem 0.5rem', fontSize: '0.72rem', color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.4)' }}
+                                    onClick={() => handleToggleAddEventParticipation(ev.eventId)}
+                                    title="Remove swimmer from this event"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              )}
+
+                              {!ev.isParticipating && (
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary"
+                                  style={{ padding: '0.2rem 0.5rem', fontSize: '0.72rem', color: '#4ade80', borderColor: 'rgba(74, 222, 128, 0.4)', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                                  onClick={() => handleToggleAddEventParticipation(ev.eventId)}
+                                  title="Add swimmer to this event"
+                                >
+                                  <Plus size={13} /> Add Event
+                                </button>
+                              )}
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
                   </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Birth Year</label>
-                    <input
-                      type="number"
-                      required
-                      min={1930}
-                      max={new Date().getFullYear()}
-                      className="form-control"
-                      value={birthYear}
-                      onChange={(e) => setBirthYear(Number(e.target.value))}
-                    />
-                  </div>
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Age Group / Category</label>
-                    <CustomSelect
-                      options={ALL_AGE_GROUPS.map(ag => ({ value: ag, label: ag }))}
-                      value={ageGroup}
-                      onChange={(val) => setAgeGroup(val as AgeGroup)}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">District / Club</label>
-                    <input
-                      type="text"
-                      required
-                      className="form-control"
-                      placeholder="e.g. HYD, RR, WGL, KNR"
-                      value={club}
-                      onChange={(e) => setClub(e.target.value)}
-                    />
-                  </div>
-                </div>
+                )}
               </div>
 
-              <div className="modal-footer">
+              <div className="modal-footer" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem' }}>
                 <button
                   type="button"
                   className="btn btn-secondary"
@@ -503,8 +801,8 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-yellow">
-                  Register Swimmer
+                <button type="submit" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <Save size={16} /> Register Swimmer & Events
                 </button>
               </div>
             </form>

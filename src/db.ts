@@ -128,40 +128,36 @@ export async function seedDatabase(force = false) {
 
   console.log('Seeding official swimming data for Telangana Masters 2026 from seedData...');
   
-  await db.meets.clear();
-  await db.swimmers.clear();
-  await db.qualifyingTimes.clear();
-  await db.events.clear();
-  await db.laneAssignments.clear();
-  await db.results.clear();
+  await db.transaction('rw', [db.meets, db.swimmers, db.qualifyingTimes, db.events, db.laneAssignments, db.results], async () => {
+    await db.meets.clear();
+    await db.swimmers.clear();
+    await db.qualifyingTimes.clear();
+    await db.events.clear();
+    await db.laneAssignments.clear();
+    await db.results.clear();
 
-  // 1. Seed Meet
-  const mastersMeetId = await db.meets.add(INITIAL_MEET);
+    // 1. Seed Meet
+    const mastersMeetId = (await db.meets.put(INITIAL_MEET)) as number || 1;
 
-  // 2. Seed Swimmers with Official SFI UIDs from Excel
-  for (const s of INITIAL_SWIMMERS) {
-    await db.swimmers.add({
+    // 2. Seed Swimmers with Official SFI UIDs from Excel
+    await db.swimmers.bulkPut(INITIAL_SWIMMERS.map(s => ({
       ...s,
       gender: s.gender as 'M' | 'F',
       meetId: mastersMeetId
-    });
-  }
+    })));
 
-  // 3. Seed Official Events
-  for (const e of INITIAL_EVENTS) {
-    await db.events.add({
+    // 3. Seed Official Events
+    await db.events.bulkPut(INITIAL_EVENTS.map(e => ({
       ...e,
       stroke: e.stroke as Event['stroke'],
       gender: e.gender as 'M' | 'F',
       meetId: mastersMeetId
-    });
-  }
+    })));
 
-  // 4. Seed Official Lane Assignments
-  for (const a of INITIAL_ASSIGNMENTS) {
-    await db.laneAssignments.add(a);
-  }
+    // 4. Seed Official Lane Assignments
+    await db.laneAssignments.bulkPut(INITIAL_ASSIGNMENTS);
+  });
 
   console.log(`Seeding complete: ${INITIAL_SWIMMERS.length} Swimmers, ${INITIAL_EVENTS.length} Events & ${INITIAL_ASSIGNMENTS.length} Lane Assignments loaded.`);
-  return mastersMeetId;
+  return 1;
 }
