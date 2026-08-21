@@ -9,6 +9,7 @@ import SmartImportModal from './SmartImportModal';
 import { LOGO_BASE64 } from '../utils/logoBase64';
 import { TSA_LOGO_BASE64, SAT_LOGO_BASE64 } from '../utils/reportLogos';
 import { printHtmlDocument } from '../utils/printHelper';
+import { syncMeetEventsToDisk } from '../utils/eventStorage';
 
 interface MeetManagerProps {
   activeMeetId?: number | null;
@@ -20,9 +21,12 @@ interface MeetManagerProps {
 }
 
 const ALL_AGE_GROUPS: AgeGroup[] = [
+  'Group A (15-17)', 'Group B (12-14)', 'Group C (10-11)', 'Group D (8-9)',
   'Group A', 'Group B', 'Group C', 'Group D',
+  'Group I', 'Group II', 'Group III', 'Group IV',
   '25-29', '30-34', '35-39', '40-44', '45-49',
-  '50-54', '55-59', '60-64', '65-69', '70-74', '75-79', '80 & above'
+  '50-54', '55-59', '60-64', '65-69', '70-74', '75-79', '80 & above',
+  'All Age Groups'
 ];
 
 export interface PresetEventOption {
@@ -229,6 +233,7 @@ export default function MeetManager({
   const [meetPoolType, setMeetPoolType] = useState<'50m' | '25m'>('50m');
   const [meetLanes, setMeetLanes] = useState<number>(8); // Default is 8 lanes!
   const [meetCategoryPreset, setMeetCategoryPreset] = useState<'masters' | 'juniors' | 'open'>('masters');
+  const [meetAffiliationType, setMeetAffiliationType] = useState<'District' | 'State' | 'Club'>('District');
   const [meetAutoEvents, setMeetAutoEvents] = useState<boolean>(true);
   const [presetEvents, setPresetEvents] = useState<PresetEventOption[]>(DEFAULT_PRESET_EVENTS);
 
@@ -353,35 +358,29 @@ export default function MeetManager({
     }
 
     if (dbEvs.length > 0) {
-      const savedManual = typeof window !== 'undefined' ? localStorage.getItem('touchteck_manual_done_events') : null;
-      const manualDoneIds: number[] = savedManual ? JSON.parse(savedManual).map(Number) : [];
+      const isDoneEvent = (eId: number) => {
+        const evHeats = heatsListMap.get(eId) || [1];
+        // The core rule: An event is ONLY done when ALL of its heats have been swum/saved!
+        return evHeats.length > 0 && evHeats.every(h => heatKeys.has(`${eId}-${h}`));
+      };
 
-      const isDoneEvent = (eId: number) => doneIds.has(eId) || manualDoneIds.includes(eId);
+      // Find the first ongoing uncompleted event in strict schedule order
+      const firstOngoing = dbEvs.find(e => e.id && !isDoneEvent(e.id)) || dbEvs[0];
 
-      if (!selectedEventId) {
-        const firstOngoing = dbEvs.find(e => e.id && !isDoneEvent(e.id));
-        const targetEv = firstOngoing || dbEvs[0];
-        if (targetEv && targetEv.id) {
-          setSelectedEventId(targetEv.id);
-          const heats = heatsListMap.get(targetEv.id) || [1];
-          const firstUnsaved = heats.find(h => !heatKeys.has(`${targetEv.id}-${h}`)) || 1;
-          setSelectedHeatNum(firstUnsaved);
-        }
-      } else if (isDoneEvent(selectedEventId)) {
-        const firstOngoing = dbEvs.find(e => e.id && !isDoneEvent(e.id));
-        if (firstOngoing && firstOngoing.id) {
+      if (firstOngoing && firstOngoing.id) {
+        const firstOngoingIdx = dbEvs.findIndex(e => e.id === firstOngoing.id);
+        const currentSelectedIdx = selectedEventId ? dbEvs.findIndex(e => e.id === selectedEventId) : -1;
+
+        // If no selection, or current selection is done, or current selection jumped ahead of earlier uncompleted events:
+        if (!selectedEventId || isDoneEvent(selectedEventId) || (currentSelectedIdx > firstOngoingIdx)) {
           setSelectedEventId(firstOngoing.id);
           const heats = heatsListMap.get(firstOngoing.id) || [1];
           const firstUnsaved = heats.find(h => !heatKeys.has(`${firstOngoing.id}-${h}`)) || 1;
           setSelectedHeatNum(firstUnsaved);
-        }
-      } else {
-        const heats = heatsListMap.get(selectedEventId) || [1];
-        if (heatKeys.has(`${selectedEventId}-${selectedHeatNum}`)) {
-          const nextUnsaved = heats.find(h => !heatKeys.has(`${selectedEventId}-${h}`));
-          if (nextUnsaved) {
-            setSelectedHeatNum(nextUnsaved);
-          }
+        } else {
+          const heats = heatsListMap.get(selectedEventId) || [1];
+          const nextUnsaved = heats.find(h => !heatKeys.has(`${selectedEventId}-${h}`)) || heats[0];
+          setSelectedHeatNum(nextUnsaved);
         }
       }
     }
@@ -1120,6 +1119,7 @@ export default function MeetManager({
     setMeetPoolType(current.poolType || '50m');
     setMeetLanes(current.lanes || 8);
     setMeetCategoryPreset(current.categoryPreset || 'masters');
+    setMeetAffiliationType(current.affiliationType || 'District');
     setMeetAutoEvents(false);
     setIsCreatingMeet(true);
   };
@@ -1130,6 +1130,7 @@ export default function MeetManager({
     setMeetName('');
     setMeetLocation('');
     setMeetDate('');
+    setMeetAffiliationType('District');
   };
 
   const handleSaveMeet = async (e: React.FormEvent) => {
@@ -1143,7 +1144,8 @@ export default function MeetManager({
         location: meetLocation,
         poolType: meetPoolType,
         lanes: meetLanes,
-        categoryPreset: meetCategoryPreset
+        categoryPreset: meetCategoryPreset,
+        affiliationType: meetAffiliationType
       });
       setEditingMeetId(null);
     } else {
@@ -1153,7 +1155,8 @@ export default function MeetManager({
         location: meetLocation,
         poolType: meetPoolType,
         lanes: meetLanes,
-        categoryPreset: meetCategoryPreset
+        categoryPreset: meetCategoryPreset,
+        affiliationType: meetAffiliationType
       });
       const newMeetId = Number(id);
       setSelectedMeetId(newMeetId);
@@ -1204,39 +1207,67 @@ export default function MeetManager({
     }
   };
 
+  const [isDeletingMeet, setIsDeletingMeet] = useState<boolean>(false);
+
   const handleConfirmDeleteMeet = async () => {
-    if (!selectedMeetId) return;
-    await db.meets.delete(selectedMeetId);
-    const eventsToDelete = await db.events.where('meetId').equals(selectedMeetId).toArray();
-    for (const ev of eventsToDelete) {
-      if (ev.id) {
-        await db.laneAssignments.where('eventId').equals(ev.id).delete();
-        await db.results.where('eventId').equals(ev.id).delete();
-        await db.events.delete(ev.id);
-      }
-    }
-    await db.swimmers.where('meetId').equals(selectedMeetId).delete();
+    if (!selectedMeetId || isDeletingMeet) return;
+    const targetMeetId = selectedMeetId;
+    setIsDeletingMeet(true);
     setShowDeleteMeetConfirm(false);
-    setSelectedMeetId(null);
-    loadMeets();
+
+    try {
+      await db.meets.delete(targetMeetId);
+      const eventsToDelete = await db.events.where('meetId').equals(targetMeetId).toArray();
+      for (const ev of eventsToDelete) {
+        if (ev.id) {
+          await db.laneAssignments.where('eventId').equals(ev.id).delete();
+          await db.results.where('eventId').equals(ev.id).delete();
+          await db.events.delete(ev.id);
+        }
+      }
+      await db.swimmers.where('meetId').equals(targetMeetId).delete();
+      setSelectedMeetId(null);
+      setSelectedEventId(null);
+      setSelectedHeatNum(1);
+      await loadMeets();
+      window.dispatchEvent(new Event('lane-assignments-updated'));
+    } catch (err) {
+      console.error('Error deleting meet:', err);
+    } finally {
+      setIsDeletingMeet(false);
+    }
   };
 
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedMeetId) return;
 
+    const existingEvents = await db.events.where('meetId').equals(selectedMeetId).toArray();
+    const nextEventNo = existingEvents.length > 0 ? Math.max(...existingEvents.map(e => e.eventNo || 0)) + 1 : 1;
+
     const newId = await db.events.add({
       meetId: selectedMeetId,
+      eventNo: nextEventNo,
       distance: Number(distance),
       stroke,
       gender,
       ageGroup
     });
 
+    const laneCount = meets.find(m => m.id === selectedMeetId)?.lanes || 8;
+    for (let lane = 1; lane <= laneCount; lane++) {
+      await db.laneAssignments.add({
+        eventId: Number(newId),
+        heatNumber: 1,
+        laneNumber: lane,
+        swimmerId: undefined
+      });
+    }
+
     setIsCreatingEvent(false);
     await loadEvents(selectedMeetId);
-    setSelectedEventId(newId);
-    setSelectedHeatNum(1);
+    await loadCompletedEvents();
+    window.dispatchEvent(new CustomEvent('lane-assignments-updated'));
   };
 
   const handleConfirmDeleteEvent = async () => {
@@ -1274,9 +1305,25 @@ export default function MeetManager({
     window.dispatchEvent(new CustomEvent('lane-assignments-updated'));
   };
 
-  const addHeat = () => {
-    const nextHeat = heats.length > 0 ? Math.max(...heats) + 1 : 1;
+  const addHeat = async () => {
+    if (!expandedEventId) return;
+    const currentHeats = heats.length > 0 ? heats : (eventHeatsMap.get(expandedEventId) || [1]);
+    const nextHeat = Math.max(1, ...currentHeats) + 1;
+
+    // Persist 8 empty lanes for the new heat in db.laneAssignments so it is permanently saved in the database
+    for (let lane = 1; lane <= 8; lane++) {
+      await db.laneAssignments.add({
+        eventId: expandedEventId,
+        heatNumber: nextHeat,
+        laneNumber: lane,
+        swimmerId: undefined
+      });
+    }
+
     setExpandedHeatNum(nextHeat);
+    await loadHeatsAndAssignments(expandedEventId, nextHeat);
+    await loadCompletedEvents();
+    window.dispatchEvent(new CustomEvent('lane-assignments-updated'));
   };
 
   const handleClearAllLanes = async () => {
@@ -1421,8 +1468,11 @@ export default function MeetManager({
               type="button"
               className="btn btn-secondary"
               style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.35)', fontWeight: 700 }}
-              onClick={() => {
+              onClick={async () => {
                 const activeMeetObj = meets.find(m => m.id === selectedMeetId);
+                if (selectedMeetId) {
+                  await syncMeetEventsToDisk(selectedMeetId);
+                }
                 if (window.touchteckApp?.openDataFolder) {
                   window.touchteckApp.openDataFolder(activeMeetObj?.name);
                 }
@@ -1444,7 +1494,39 @@ export default function MeetManager({
               const activeEvObj = events.find(e => e.id === selectedEventId);
               const isMergedActive = activeEvObj ? (activeEvObj.ageGroup === 'All Age Groups' || activeEvObj.ageGroup?.toLowerCase().includes('merged') || (activeEvObj as any)?.isMerged) : false;
               const activeGenderVal = activeEvObj ? activeEvObj.gender : 'M';
-              const activeCategoryVal = activeEvObj ? (isMergedActive ? 'Merged' : activeEvObj.ageGroup) : 'Merged';
+              const activeCategoryVal = activeEvObj ? (isMergedActive ? 'Merged' : activeEvObj.ageGroup) : '';
+
+              // Collect all unique categories present in the meet's events
+              const meetEventCategories = Array.from(new Set(events.map(e => e.ageGroup).filter(Boolean)));
+              const allCategoriesList = Array.from(new Set([
+                ...meetEventCategories,
+                ...ALL_AGE_GROUPS
+              ]));
+
+              const categoryOptions = [
+                { value: 'Merged', label: 'Merged (All Categories)' },
+                ...allCategoriesList.map(ag => ({ value: ag, label: ag }))
+              ];
+
+              const onSchedulerGenderChange = (newGender: 'M' | 'F') => {
+                if (!newGender) return;
+                const match = events.find(e => e.gender === newGender && (activeCategoryVal ? e.ageGroup === activeCategoryVal : true))
+                  || events.find(e => e.gender === newGender);
+                if (match && match.id) {
+                  setSelectedEventId(match.id);
+                  setSelectedHeatNum(1);
+                }
+              };
+
+              const onSchedulerCategoryChange = (newCat: string) => {
+                if (!newCat) return;
+                const match = events.find(e => (newCat === 'Merged' ? (e.ageGroup === 'All Age Groups' || e.ageGroup?.toLowerCase().includes('merged')) : e.ageGroup === newCat) && (activeGenderVal ? e.gender === activeGenderVal : true))
+                  || events.find(e => newCat === 'Merged' ? (e.ageGroup === 'All Age Groups' || e.ageGroup?.toLowerCase().includes('merged')) : e.ageGroup === newCat);
+                if (match && match.id) {
+                  setSelectedEventId(match.id);
+                  setSelectedHeatNum(1);
+                }
+              };
 
               return (
                 <div className="form-row mb-3">
@@ -1456,19 +1538,17 @@ export default function MeetManager({
                         { value: 'F', label: 'Women' }
                       ]}
                       value={activeGenderVal}
-                      onChange={(val) => handleSchedulerGenderChange(val)}
+                      onChange={(val) => onSchedulerGenderChange(val as 'M' | 'F')}
                     />
                   </div>
 
                   <div className="form-group mb-0">
                     <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>CATEGORY / GROUP</label>
                     <CustomSelect
-                      options={[
-                        { value: 'Merged', label: `Merged (${ALL_AGE_GROUPS.join(', ')})` },
-                        ...ALL_AGE_GROUPS.map(ag => ({ value: ag, label: ag }))
-                      ]}
+                      options={categoryOptions}
                       value={activeCategoryVal}
-                      onChange={(val) => handleSchedulerCategoryChange(val)}
+                      placeholder="Select Category..."
+                      onChange={(val) => onSchedulerCategoryChange(val)}
                     />
                   </div>
                 </div>
@@ -1751,12 +1831,15 @@ export default function MeetManager({
               />
             </div>
 
-            <div className="form-group mb-0" style={{ width: '210px', flexShrink: 0 }}>
+            <div className="form-group mb-0" style={{ width: '220px', flexShrink: 0 }}>
               <CustomSelect
                 options={[
                   { value: 'All', label: 'All Categories' },
-                  { value: 'Merged', label: `Merged (${ALL_AGE_GROUPS.join(', ')})` },
-                  ...ALL_AGE_GROUPS.map(ag => ({ value: ag, label: ag }))
+                  { value: 'Merged', label: 'Merged Events' },
+                  ...Array.from(new Set([
+                    ...events.map(e => e.ageGroup).filter(Boolean),
+                    ...ALL_AGE_GROUPS
+                  ])).map(ag => ({ value: ag, label: ag }))
                 ]}
                 value={mainListCategory}
                 onChange={(val) => setMainListCategory(val)}
@@ -2169,7 +2252,10 @@ export default function MeetManager({
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.35rem', overflow: 'hidden' }}>
                         <span>{ev.gender === 'M' ? 'Men' : 'Women'} ({ev.ageGroup})</span>
                         {(() => {
-                          const evHeats = eventHeatsMap.get(Number(ev.id)) || (isSelected && heats.length > 0 ? heats : [1]);
+                          const storedHeats = eventHeatsMap.get(Number(ev.id)) || [];
+                          const activeSelectedHeats = (isSelected && heats.length > 0) ? heats : [];
+                          const evHeats = Array.from(new Set([...storedHeats, ...activeSelectedHeats])).sort((a, b) => a - b);
+                          if (evHeats.length === 0) evHeats.push(1);
                           return (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', marginLeft: '0.4rem' }}>
                               {evHeats.map(h => {
@@ -2248,9 +2334,16 @@ export default function MeetManager({
                         </button>
                       )}
 
-                      <span className="pill-info" style={{ borderColor: 'rgba(234, 179, 8, 0.4)', color: '#fde047', fontWeight: 700 }}>
-                        {heats.length > 0 && isSelected ? `${heats.length} Heat${heats.length > 1 ? 's' : ''}` : 'Tap to Expand'}
-                      </span>
+                      {(() => {
+                        const storedHeats = eventHeatsMap.get(Number(ev.id)) || [];
+                        const activeSelectedHeats = (isSelected && heats.length > 0) ? heats : [];
+                        const totalHeatsCount = Math.max(1, Array.from(new Set([...storedHeats, ...activeSelectedHeats])).length);
+                        return (
+                          <span className="pill-info" style={{ borderColor: 'rgba(234, 179, 8, 0.4)', color: '#fde047', fontWeight: 700 }}>
+                            {`${totalHeatsCount} Heat${totalHeatsCount > 1 ? 's' : ''}`}
+                          </span>
+                        );
+                      })()}
                       {isSelected ? <ChevronUp size={20} style={{ color: 'var(--accent-yellow)' }} /> : <ChevronDown size={20} style={{ color: 'var(--text-muted)' }} />}
                     </div>
                   </div>
@@ -2772,6 +2865,19 @@ export default function MeetManager({
                   ]}
                   value={meetCategoryPreset}
                   onChange={(val) => setMeetCategoryPreset(val as 'masters' | 'juniors' | 'open')}
+                />
+              </div>
+
+              <div className="form-group mb-3">
+                <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-yellow)' }}>AFFILIATION / LOCATION TYPE</label>
+                <CustomSelect
+                  options={[
+                    { value: 'District', label: 'District (Inter-District / State Championships)' },
+                    { value: 'State', label: 'State (Inter-State / National Championships)' },
+                    { value: 'Club', label: 'Club (Club Invitationals / School Meets)' }
+                  ]}
+                  value={meetAffiliationType}
+                  onChange={(val) => setMeetAffiliationType(val as 'District' | 'State' | 'Club')}
                 />
               </div>
 

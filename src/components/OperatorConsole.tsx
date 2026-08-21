@@ -169,36 +169,29 @@ export default function OperatorConsole({
   const advanceToNextHeatOrEvent = async () => {
     if (!activeEventId) return;
 
-    const assignments = await db.laneAssignments.where('eventId').equals(activeEventId).toArray();
-    const results = await db.results.where('eventId').equals(activeEventId).toArray();
+    const numEventId = Number(activeEventId);
+    // Find all lane assignments for this event across the database
+    const assignments = await db.laneAssignments.filter(a => Number(a.eventId) === numEventId).toArray();
+    const results = await db.results.filter(r => Number(r.eventId) === numEventId).toArray();
 
     const heatSet = new Set<number>();
-    assignments.forEach(a => { if (a.heatNumber) heatSet.add(a.heatNumber); });
-    results.forEach(r => { if (r.heatNumber) heatSet.add(r.heatNumber); });
-    availableHeats.forEach(h => heatSet.add(h));
+    assignments.forEach(a => { if (a.heatNumber) heatSet.add(Number(a.heatNumber)); });
+    results.forEach(r => { if (r.heatNumber) heatSet.add(Number(r.heatNumber)); });
+    availableHeats.forEach(h => heatSet.add(Number(h)));
 
     if (heatSet.size === 0) heatSet.add(1);
 
     const sortedHeats = Array.from(heatSet).sort((a, b) => a - b);
     const maxHeat = Math.max(1, ...sortedHeats);
+    const currentHeatNum = Number(activeHeatNum) || 1;
 
-    if (activeHeatNum < maxHeat) {
-      const nextHeat = activeHeatNum + 1;
+    // Check if there are remaining heats in THIS event
+    if (currentHeatNum < maxHeat) {
+      const nextHeat = currentHeatNum + 1;
       setActiveHeatNum(nextHeat);
-      setConsoleLogs(prev => [...prev, `[ADVANCE] Results saved for Heat ${activeHeatNum}. Advancing to Heat ${nextHeat}`]);
+      setConsoleLogs(prev => [...prev, `[ADVANCE] Results saved for Heat ${currentHeatNum}. Advancing to Heat ${nextHeat} of ${maxHeat}`]);
     } else {
-      // Current event completed! Save as DONE
-      if (typeof window !== 'undefined') {
-        try {
-          const savedManual = localStorage.getItem('touchteck_manual_done_events');
-          const currentDone: number[] = savedManual ? JSON.parse(savedManual) : [];
-          if (!currentDone.includes(activeEventId)) {
-            currentDone.push(activeEventId);
-            localStorage.setItem('touchteck_manual_done_events', JSON.stringify(currentDone));
-          }
-        } catch {}
-      }
-
+      // All heats of this event are completed!
       const meetId = selectedMeetId || activeMeetId;
       if (meetId) {
         const allEvs = await db.events.where('meetId').equals(meetId).toArray();
@@ -209,17 +202,12 @@ export default function OperatorConsole({
 
         if (currentIdx !== -1 && currentIdx + 1 < allEvs.length) {
           nextEv = allEvs[currentIdx + 1];
-        } else {
-          const doneResults = await db.results.toArray();
-          const doneIds = new Set(doneResults.map(r => r.eventId));
-          doneIds.add(activeEventId);
-          nextEv = allEvs.find(e => !doneIds.has(e.id!));
         }
 
         if (nextEv) {
           setActiveEventId(nextEv.id!);
           setActiveHeatNum(1);
-          setConsoleLogs(prev => [...prev, `[ADVANCE] Event completed. Advancing to Event #${nextEv.eventNo || nextEv.id}: ${nextEv.distance}m ${nextEv.stroke}, Heat 1`]);
+          setConsoleLogs(prev => [...prev, `[ADVANCE] All ${maxHeat} heats completed for Event #${numEventId}. Advancing to Event #${nextEv.eventNo || nextEv.id}: ${nextEv.distance}m ${nextEv.stroke}, Heat 1`]);
         } else {
           setConsoleLogs(prev => [...prev, `[ADVANCE] All events in the meet are completed!`]);
         }
@@ -250,9 +238,11 @@ export default function OperatorConsole({
     localStorage.setItem('touchteck_auto_save_advance', autoSaveAdvance ? 'true' : 'false');
   }, [autoSaveAdvance]);
 
-  // Auto-Save 10-Second Countdown Effect
+  // Auto-Save 10-Second Countdown Effect (Only triggers if race has recorded finishes/touches)
   useEffect(() => {
-    if (timerStatus === 'FINISHED' && autoSaveAdvance) {
+    const hasRecordedFinishes = lanes.some(l => (l.finalTime > 0 && l.status === 'OK') || (l.splits && l.splits.length > 0));
+
+    if (timerStatus === 'FINISHED' && autoSaveAdvance && hasRecordedFinishes) {
       setAutoSaveCountdown(10);
       if (autoSaveTimerRef.current) clearInterval(autoSaveTimerRef.current);
 
@@ -281,7 +271,7 @@ export default function OperatorConsole({
         autoSaveTimerRef.current = null;
       }
     };
-  }, [timerStatus, autoSaveAdvance]);
+  }, [timerStatus, autoSaveAdvance, lanes]);
 
   const handleCancelAutoSave = () => {
     if (autoSaveTimerRef.current) {
@@ -431,24 +421,36 @@ export default function OperatorConsole({
     setEvents(list);
 
     if (list.length > 0) {
-      const doneResults = await db.results.toArray();
-      const doneIds = new Set(doneResults.map(r => r.eventId));
-      if (typeof window !== 'undefined') {
-        try {
-          const savedManual = localStorage.getItem('touchteck_manual_done_events');
-          if (savedManual) {
-            JSON.parse(savedManual).forEach((id: number) => doneIds.add(id));
-          }
-        } catch {}
-      }
+      const allResults = await db.results.toArray();
+      const allAssignments = await db.laneAssignments.toArray();
 
-      // Respect existing activeEventId if valid; otherwise pick first uncompleted or first event
-      const isValidActive = activeEventId && list.some(e => e.id === activeEventId);
-      const targetId = isValidActive ? activeEventId! : (list.find(e => !doneIds.has(e.id!))?.id || list[0].id!);
+      const savedKeys = new Set(allResults.map(r => `${r.eventId}-${r.heatNumber}`));
+      const eventHeats = new Map<number, Set<number>>();
+      allAssignments.forEach(a => {
+        if (a.eventId && a.heatNumber) {
+          const eId = Number(a.eventId);
+          if (!eventHeats.has(eId)) eventHeats.set(eId, new Set());
+          eventHeats.get(eId)!.add(Number(a.heatNumber));
+        }
+      });
+
+      const isDone = (eId: number) => {
+        const hSet = eventHeats.get(Number(eId));
+        const hArray = hSet && hSet.size > 0 ? Array.from(hSet) : [1];
+        return hArray.every(h => savedKeys.has(`${eId}-${h}`));
+      };
+
+      // Respect existing activeEventId if valid and NOT finished; otherwise pick first uncompleted event
+      const isValidActive = activeEventId && list.some(e => e.id === activeEventId) && !isDone(activeEventId);
+      const firstOngoing = list.find(e => e.id && !isDone(e.id)) || list[0];
+      const targetId = isValidActive ? activeEventId! : (firstOngoing?.id || list[0].id!);
 
       if (!activeEventId || activeEventId !== targetId) {
         setActiveEventId(targetId);
-        setActiveHeatNum(1);
+        const hSet = eventHeats.get(Number(targetId));
+        const hArray = hSet && hSet.size > 0 ? Array.from(hSet).sort((a, b) => a - b) : [1];
+        const firstUnsavedHeat = hArray.find(h => !savedKeys.has(`${targetId}-${h}`)) || 1;
+        setActiveHeatNum(firstUnsavedHeat);
       }
     }
   };
@@ -931,8 +933,8 @@ export default function OperatorConsole({
 
         {/* Meet/Event/Heat Selectors */}
         <div className="glass-card" ref={eventSectionRef} style={{ position: 'relative', zIndex: 50 }}>
-          {/* Race Completed Banner & Action Bar (Shown whenever race timer is FINISHED) */}
-          {timerStatus === 'FINISHED' && (
+          {/* Race Completed Banner & Action Bar (Shown ONLY when race timer is FINISHED and touches/finishes are recorded) */}
+          {timerStatus === 'FINISHED' && lanes.some(l => (l.finalTime > 0 && l.status === 'OK') || (l.splits && l.splits.length > 0) || !!l.t1Time || !!l.t2Time) && (
             <div 
               style={{
                 display: 'flex',
@@ -2002,9 +2004,9 @@ export default function OperatorConsole({
 
 
       {/* 10-Second Auto Save & Advance Countdown Modal */}
-      {autoSaveCountdown !== null && (
+      {autoSaveCountdown !== null && createPortal(
         <div 
-          className="modal-backdrop fade-in"
+          className="modal-backdrop fade-in modal-overlay"
           style={{
             position: 'fixed',
             inset: 0,
@@ -2013,7 +2015,7 @@ export default function OperatorConsole({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 99999
+            zIndex: 999999
           }}
         >
           <div 
@@ -2081,7 +2083,8 @@ export default function OperatorConsole({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <SmartImportModal

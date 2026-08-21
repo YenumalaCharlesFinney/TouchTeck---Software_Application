@@ -686,40 +686,51 @@ export default function App() {
       }
 
       if (!restored) {
-        let restoredEv = false;
-        const savedEventStr = localStorage.getItem('touchteck_event_selection');
-        if (savedEventStr) {
-          try {
-            const savedEv = JSON.parse(savedEventStr);
-            if (savedEv.activeMeetId) setActiveMeetId(savedEv.activeMeetId);
-            if (savedEv.activeEventId) {
-              setActiveEventId(savedEv.activeEventId);
-              restoredEv = true;
-            }
-            if (savedEv.activeHeatNum) setActiveHeatNum(savedEv.activeHeatNum);
-            if (savedEv.isTestMode !== undefined) setIsTestMode(savedEv.isTestMode);
-            if (savedEv.bothEnds !== undefined) setBothEnds(savedEv.bothEnds);
-          } catch (e) {
-            // fallback below
-          }
-        }
+        try {
+          const savedEventStr = localStorage.getItem('touchteck_event_selection');
+          const savedEv = savedEventStr ? JSON.parse(savedEventStr) : null;
+          const meetsList = await db.meets.toArray();
+          const targetMeetId = savedEv?.activeMeetId || (meetsList.length > 0 ? meetsList[0].id : 1);
+          if (targetMeetId) setActiveMeetId(targetMeetId);
 
-        if (!restoredEv) {
-          try {
-            const meetsList = await db.meets.toArray();
-            if (meetsList.length > 0) {
-              const firstMeetId = meetsList[0].id || 1;
-              setActiveMeetId(firstMeetId);
-              const eventsList = await db.events.where('meetId').equals(firstMeetId).toArray();
-              eventsList.sort((a, b) => (a.eventNo || a.id || 0) - (b.eventNo || b.id || 0));
-              if (eventsList.length > 0) {
-                setActiveEventId(eventsList[0].id || 1);
-                setActiveHeatNum(1);
+          const eventsList = await db.events.where('meetId').equals(targetMeetId).toArray();
+          eventsList.sort((a, b) => (a.eventNo || a.id || 0) - (b.eventNo || b.id || 0));
+
+          if (eventsList.length > 0) {
+            const allResults = await db.results.toArray();
+            const allAssignments = await db.laneAssignments.toArray();
+
+            const savedKeys = new Set(allResults.map(r => `${r.eventId}-${r.heatNumber}`));
+            const eventHeats = new Map<number, Set<number>>();
+            allAssignments.forEach(a => {
+              if (a.eventId && a.heatNumber) {
+                const eNum = Number(a.eventId);
+                if (!eventHeats.has(eNum)) eventHeats.set(eNum, new Set());
+                eventHeats.get(eNum)!.add(Number(a.heatNumber));
               }
+            });
+
+            const isDone = (eId: number) => {
+              const hSet = eventHeats.get(Number(eId));
+              const hArray = hSet && hSet.size > 0 ? Array.from(hSet) : [1];
+              return hArray.every(h => savedKeys.has(`${eId}-${h}`));
+            };
+
+            // First event in order that has any uncompleted heats
+            const firstOngoing = eventsList.find(e => e.id && !isDone(e.id)) || eventsList[0];
+
+            if (firstOngoing && firstOngoing.id) {
+              setActiveEventId(firstOngoing.id);
+              const hSet = eventHeats.get(Number(firstOngoing.id));
+              const hArray = hSet && hSet.size > 0 ? Array.from(hSet).sort((a, b) => a - b) : [1];
+              const firstUnsavedHeat = hArray.find(h => !savedKeys.has(`${firstOngoing.id}-${h}`)) || 1;
+              setActiveHeatNum(firstUnsavedHeat);
             }
-          } catch (e) {
-            console.error('Error reading meets list:', e);
           }
+          if (savedEv?.isTestMode !== undefined) setIsTestMode(savedEv.isTestMode);
+          if (savedEv?.bothEnds !== undefined) setBothEnds(savedEv.bothEnds);
+        } catch (e) {
+          console.error('Error initializing active event:', e);
         }
       }
     };
@@ -1330,12 +1341,14 @@ export default function App() {
       const uniqueHeats = Array.from(new Set(assignments.map(a => Number(a.heatNumber))));
       const maxHeat = uniqueHeats.length > 0 ? Math.max(...uniqueHeats) : 1;
 
-      setSaveSuccessInfo({
-        isOpen: true,
-        heatNum: numHeatNum,
-        nextHeatNum: numHeatNum < maxHeat ? numHeatNum + 1 : null,
-        hasAnyTouch
-      });
+      if (activeTabRef.current !== 'operator') {
+        setSaveSuccessInfo({
+          isOpen: true,
+          heatNum: numHeatNum,
+          nextHeatNum: numHeatNum < maxHeat ? numHeatNum + 1 : null,
+          hasAnyTouch
+        });
+      }
     } catch (err) {
       console.error('Error saving results:', err);
     } finally {

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { db, Swimmer, AgeGroup, seedDatabase } from '../db';
-import { UserPlus, Trash2, Edit, Search, RotateCcw, Plus, X, Award, CheckSquare, Square, Calendar, User, Activity, Filter, Save, Check, AlertTriangle, CheckCheck, GitMerge, Zap, ArrowRight, ShieldCheck, UploadCloud, FolderOpen } from 'lucide-react';
+import { db, Swimmer, AgeGroup, seedDatabase, Event as MeetDbEvent } from '../db';
+import { UserPlus, Trash2, Edit, Search, RotateCcw, Plus, X, Award, CheckSquare, Square, Calendar, User, Activity, Filter, Save, Check, AlertTriangle, CheckCheck, GitMerge, Zap, ArrowRight, ShieldCheck, UploadCloud, FolderOpen, ChevronDown, ChevronUp } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import CustomSelect from './CustomSelect';
 import SmartImportModal from './SmartImportModal';
@@ -99,7 +99,30 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
   const [filterGroup, setFilterGroup] = useState<string>('All');
   const [filterClub, setFilterClub] = useState<string>('All');
   const [clubsList, setClubsList] = useState<string[]>([]);
+  const [meetAffiliation, setMeetAffiliation] = useState<'District' | 'State' | 'Club' | null>(null);
   
+  const affiliationLabel = useMemo(() => {
+    if (meetAffiliation) return meetAffiliation;
+    if (!meetName) return 'District';
+    const lower = meetName.toLowerCase();
+    if (lower.includes('district')) return 'District';
+    if (lower.includes('national') || (lower.includes('state') && !lower.includes('district'))) return 'State';
+    if (lower.includes('club') || lower.includes('invitational')) return 'Club';
+    return 'District';
+  }, [meetAffiliation, meetName]);
+
+  const [swimmerEventsMap, setSwimmerEventsMap] = useState<Map<number, Array<{ eventNo?: number; distance: number; stroke: string; heatNumber: number; laneNumber: number }>>>(new Map());
+  const [expandedSwimmerIds, setExpandedSwimmerIds] = useState<Set<number>>(new Set());
+
+  const toggleSwimmerExpand = (swimmerId: number) => {
+    setExpandedSwimmerIds(prev => {
+      const next = new Set(prev);
+      if (next.has(swimmerId)) next.delete(swimmerId);
+      else next.add(swimmerId);
+      return next;
+    });
+  };
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deleteSwimmerId, setDeleteSwimmerId] = useState<number | null>(null);
   const [eventFilterMode, setEventFilterMode] = useState<'matching' | 'all'>('matching');
@@ -112,7 +135,10 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
   const loadSwimmers = async () => {
     const targetMeetId = activeMeetId || 1;
     const meet = await db.meets.get(targetMeetId);
-    if (meet) setMeetName(meet.name);
+    if (meet) {
+      setMeetName(meet.name);
+      if (meet.affiliationType) setMeetAffiliation(meet.affiliationType);
+    }
 
     // Auto-migrate legacy unassigned swimmers to Meet 1
     const all = await db.swimmers.toArray();
@@ -130,10 +156,33 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
 
     const clubs = Array.from(new Set(meetSwimmers.map(s => s.club).filter(Boolean)));
     setClubsList(clubs);
+
+    // Load assigned events map for all swimmers in this meet
+    const meetEvents = await db.events.filter(e => (e.meetId || 1) === targetMeetId).toArray();
+    const eventMap = new Map<number, MeetDbEvent>();
+    meetEvents.forEach(e => { if (e.id) eventMap.set(e.id, e); });
+
+    const assigns = await db.laneAssignments.toArray();
+    const map = new Map<number, Array<{ eventNo?: number; distance: number; stroke: string; heatNumber: number; laneNumber: number }>>();
+    for (const a of assigns) {
+      if (a.swimmerId && eventMap.has(a.eventId)) {
+        const ev = eventMap.get(a.eventId)!;
+        const list = map.get(a.swimmerId) || [];
+        list.push({
+          eventNo: ev.eventNo,
+          distance: ev.distance,
+          stroke: ev.stroke,
+          heatNumber: a.heatNumber,
+          laneNumber: a.laneNumber
+        });
+        map.set(a.swimmerId, list);
+      }
+    }
+    setSwimmerEventsMap(map);
   };
 
   const findAvailableHeatAndLane = async (eventId: number): Promise<{ heatNumber: number; laneNumber: number }> => {
-    const assignments = await db.laneAssignments.where('eventId').equals(eventId).toArray();
+    const assignments = await db.laneAssignments.filter(a => Number(a.eventId) === Number(eventId) && !!a.swimmerId).toArray();
     let heatNumber = 1;
     while (true) {
       const heatAssigns = assignments.filter(a => Number(a.heatNumber) === heatNumber);
@@ -659,7 +708,6 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
           </div>
         </div>
       )}
-
       {/* Filter Toolbar */}
       <div className="flex gap-4 items-center mb-4 mt-4" style={{ flexWrap: 'wrap' }}>
         <div className="form-group mb-0" style={{ flex: 1, minWidth: '200px' }}>
@@ -667,7 +715,7 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
             <Search size={18} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input
               type="text"
-              placeholder="Search by SFI UID, name or district..."
+              placeholder={`Search by SFI UID, name or ${affiliationLabel.toLowerCase()}...`}
               className="form-control"
               style={{ paddingLeft: '36px' }}
               value={searchQuery}
@@ -702,7 +750,7 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
         <div className="form-group mb-0" style={{ minWidth: '170px' }}>
           <CustomSelect
             options={[
-              { value: 'All', label: 'All Districts / Clubs' },
+              { value: 'All', label: `All ${affiliationLabel}s` },
               ...clubsList.map(c => ({ value: c, label: c }))
             ]}
             value={filterClub}
@@ -722,62 +770,111 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
               <th>Gender</th>
               <th>Birth Year</th>
               <th>Age Group</th>
-              <th>District / Club</th>
+              <th>{affiliationLabel.toUpperCase()}</th>
+              <th>EVENTS</th>
               <th style={{ textAlign: 'center' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredSwimmers.length === 0 ? (
               <tr>
-                <td colSpan={8} className="text-center" style={{ color: 'var(--text-muted)', padding: '2rem' }}>
+                <td colSpan={9} className="text-center" style={{ color: 'var(--text-muted)', padding: '2rem' }}>
                   No registered swimmers found matching search criteria.
                 </td>
               </tr>
             ) : (
-              filteredSwimmers.map((swimmer, idx) => (
-                <tr 
-                  key={swimmer.id}
-                  onDoubleClick={() => handleOpenEditModal(swimmer)}
-                  style={{ cursor: 'pointer' }}
-                  title="Double-click row to edit swimmer details & participating events"
-                >
-                  <td style={{ fontWeight: 700, color: 'var(--text-muted)' }}>#{idx + 1}</td>
-                  <td>
-                    <span className="pill-info" style={{ borderColor: 'rgba(6,182,212,0.4)', color: '#67e8f9', fontWeight: 700 }}>
-                      {swimmer.sfiUid || `SFI-2026-TS-${1001 + idx}`}
-                    </span>
-                  </td>
-                  <td style={{ fontWeight: 700, color: '#f8fafc' }}>{swimmer.name}</td>
-                  <td>{swimmer.gender === 'M' ? 'Male' : 'Female'}</td>
-                  <td>{swimmer.birthYear}</td>
-                  <td>
-                    <span className="pill-info" style={{ borderColor: 'var(--accent-blue)', color: '#93c5fd' }}>
-                      {swimmer.ageGroup}
-                    </span>
-                  </td>
-                  <td className="text-cyan">{swimmer.club}</td>
-                  <td style={{ textAlign: 'center' }}>
-                    <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
-                      <button
-                        className="btn btn-secondary"
-                        style={{ padding: '0.3rem 0.55rem', color: '#60a5fa', borderColor: 'rgba(96,165,250,0.3)' }}
-                        onClick={() => handleOpenEditModal(swimmer)}
-                        title="Edit Swimmer Details & Participating Events"
-                      >
-                        <Edit size={15} /> Edit
-                      </button>
-                      <button
-                        className="btn btn-secondary"
-                        style={{ padding: '0.3rem 0.55rem', color: 'var(--accent-red)', borderColor: 'rgba(239,68,68,0.3)' }}
-                        onClick={() => swimmer.id && requestDeleteSwimmer(swimmer.id)}
-                        title="Delete Swimmer"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+              filteredSwimmers.map((swimmer, idx) => {
+                const swEvents = (swimmer.id ? swimmerEventsMap.get(swimmer.id) : undefined) || [];
+                const isExpanded = swimmer.id ? expandedSwimmerIds.has(swimmer.id) : false;
+                const totalEvents = swEvents.length;
+
+                return (
+                  <tr 
+                    key={swimmer.id}
+                    onDoubleClick={() => swimmer.id && toggleSwimmerExpand(swimmer.id)}
+                    style={{ cursor: 'pointer' }}
+                    title="Click or double-click to view all assigned events"
+                  >
+                    <td style={{ fontWeight: 700, color: 'var(--text-muted)' }}>#{idx + 1}</td>
+                    <td>
+                      <span className="pill-info" style={{ borderColor: 'rgba(6,182,212,0.4)', color: '#67e8f9', fontWeight: 700 }}>
+                        {swimmer.sfiUid || `SFI-2026-TS-${1001 + idx}`}
+                      </span>
+                    </td>
+                    <td style={{ fontWeight: 700, color: '#f8fafc' }}>{swimmer.name}</td>
+                    <td>{swimmer.gender === 'M' ? 'Male' : 'Female'}</td>
+                    <td>{swimmer.birthYear}</td>
+                    <td>
+                      <span className="pill-info" style={{ borderColor: 'var(--accent-blue)', color: '#93c5fd' }}>
+                        {swimmer.ageGroup}
+                      </span>
+                    </td>
+                    <td className="text-cyan">{swimmer.club}</td>
+                    <td>
+                      {totalEvents === 0 ? (
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>No events</span>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                          <div>
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              style={{
+                                padding: '0.2rem 0.65rem',
+                                fontSize: '0.74rem',
+                                background: isExpanded ? 'rgba(250, 204, 21, 0.22)' : 'rgba(250, 204, 21, 0.12)',
+                                borderColor: isExpanded ? 'rgba(250, 204, 21, 0.5)' : 'rgba(250, 204, 21, 0.35)',
+                                color: '#facc15',
+                                fontWeight: 800,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.35rem'
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (swimmer.id) toggleSwimmerExpand(swimmer.id);
+                              }}
+                              title={isExpanded ? 'Click to collapse events' : 'Click to see all events'}
+                            >
+                              {totalEvents} Events {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                            </button>
+                          </div>
+
+                          {isExpanded && (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))', gap: '0.3rem', marginTop: '0.35rem', background: 'rgba(0, 0, 0, 0.3)', padding: '0.45rem', borderRadius: '6px', border: '1px solid rgba(250, 204, 21, 0.2)' }}>
+                              {swEvents.map((a, aIdx) => (
+                                <span key={aIdx} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem', padding: '0.12rem 0.4rem', borderRadius: '4px', background: 'rgba(250, 204, 21, 0.12)', border: '1px solid rgba(250, 204, 21, 0.3)', color: '#fef08a', fontSize: '0.72rem', fontWeight: 700 }}>
+                                  #{a.eventNo || '?'}: {a.distance}m (H{a.heatNumber}/L{a.laneNumber})
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
+                        <button
+                          className="btn btn-secondary"
+                          style={{ padding: '0.3rem 0.55rem', color: '#60a5fa', borderColor: 'rgba(96,165,250,0.3)' }}
+                          onClick={() => handleOpenEditModal(swimmer)}
+                          title="Edit Swimmer Details & Participating Events"
+                        >
+                          <Edit size={15} /> Edit
+                        </button>
+                        <button
+                          className="btn btn-secondary"
+                          style={{ padding: '0.3rem 0.55rem', color: 'var(--accent-red)', borderColor: 'rgba(239,68,68,0.3)' }}
+                          onClick={() => swimmer.id && requestDeleteSwimmer(swimmer.id)}
+                          title="Delete Swimmer"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -918,28 +1015,13 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
                   </>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    {/* Category Filter & Prioritization Header */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 23, 42, 0.6)', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', fontWeight: 800, color: 'var(--accent-yellow)' }}>
-                        <Award size={15} /> Category: <span style={{ color: '#fff' }}>{gender === 'M' ? 'Men' : 'Women'} ({ageGroup})</span>
+                    {/* Category Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 23, 42, 0.6)', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', fontWeight: 800, color: 'var(--accent-yellow)' }}>
+                        <Award size={16} /> Category: <span style={{ color: '#fff' }}>{gender === 'M' ? 'Men' : 'Women'} ({ageGroup})</span>
                       </div>
-                      <div style={{ display: 'flex', gap: '0.4rem' }}>
-                        <button
-                          type="button"
-                          className={`btn ${addEventFilterMode === 'matching' ? 'btn-yellow' : 'btn-secondary'}`}
-                          style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                          onClick={() => setAddEventFilterMode('matching')}
-                        >
-                          <Filter size={12} /> Category Only ({addSwimmerEvents.filter(e => e.gender === gender && e.ageGroup === ageGroup).length})
-                        </button>
-                        <button
-                          type="button"
-                          className={`btn ${addEventFilterMode === 'all' ? 'btn-cyan' : 'btn-secondary'}`}
-                          style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                          onClick={() => setAddEventFilterMode('all')}
-                        >
-                          All Events ({addSwimmerEvents.length})
-                        </button>
+                      <div className="pill-info" style={{ borderColor: 'rgba(234, 179, 8, 0.45)', color: '#fde047', fontSize: '0.75rem', fontWeight: 700 }}>
+                        {addSwimmerEvents.filter(e => e.gender === gender && e.ageGroup === ageGroup).length} Events in Category
                       </div>
                     </div>
 
@@ -956,7 +1038,7 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
                       <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                       <input
                         type="text"
-                        placeholder="Search events by stroke, distance..."
+                        placeholder={`Search ${gender === 'M' ? "men's" : "women's"} (${ageGroup}) events by stroke, distance...`}
                         className="form-control"
                         style={{ paddingLeft: '34px', fontSize: '0.85rem' }}
                         value={addEventSearchQuery}
@@ -970,13 +1052,11 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
                         const curAge = ageGroup;
 
                         const filtered = addSwimmerEvents.filter(ev => {
+                          if (ev.gender !== curGender || ev.ageGroup !== curAge) return false;
                           if (addEventSearchQuery) {
                             const query = addEventSearchQuery.toLowerCase();
-                            const title = `Event #${ev.eventNo || ev.eventId}: ${ev.distance}m ${ev.stroke} ${ev.gender} ${ev.ageGroup}`.toLowerCase();
+                            const title = `Event #${ev.eventNo || ev.eventId}: ${ev.distance}m ${ev.stroke}`.toLowerCase();
                             if (!title.includes(query)) return false;
-                          }
-                          if (addEventFilterMode === 'matching' && !addEventSearchQuery) {
-                            return ev.isParticipating || (ev.gender === curGender && ev.ageGroup === curAge);
                           }
                           return true;
                         });
@@ -1266,28 +1346,13 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
                   </>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    {/* Category Filter & Prioritization Header */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 23, 42, 0.6)', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', fontWeight: 800, color: 'var(--accent-yellow)' }}>
-                        <Award size={15} /> Category: <span style={{ color: '#fff' }}>{editingSwimmer.gender === 'M' ? 'Men' : 'Women'} ({editingSwimmer.ageGroup})</span>
+                    {/* Category Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 23, 42, 0.6)', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', fontWeight: 800, color: 'var(--accent-yellow)' }}>
+                        <Award size={16} /> Category: <span style={{ color: '#fff' }}>{editingSwimmer.gender === 'M' ? 'Men' : 'Women'} ({editingSwimmer.ageGroup})</span>
                       </div>
-                      <div style={{ display: 'flex', gap: '0.4rem' }}>
-                        <button
-                          type="button"
-                          className={`btn ${eventFilterMode === 'matching' ? 'btn-yellow' : 'btn-secondary'}`}
-                          style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                          onClick={() => setEventFilterMode('matching')}
-                        >
-                          <Filter size={12} /> Category Only ({swimmerEvents.filter(e => e.gender === editingSwimmer.gender && e.ageGroup === editingSwimmer.ageGroup).length})
-                        </button>
-                        <button
-                          type="button"
-                          className={`btn ${eventFilterMode === 'all' ? 'btn-cyan' : 'btn-secondary'}`}
-                          style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                          onClick={() => setEventFilterMode('all')}
-                        >
-                          All Events ({swimmerEvents.length})
-                        </button>
+                      <div className="pill-info" style={{ borderColor: 'rgba(234, 179, 8, 0.45)', color: '#fde047', fontSize: '0.75rem', fontWeight: 700 }}>
+                        {swimmerEvents.filter(e => e.gender === editingSwimmer.gender && e.ageGroup === editingSwimmer.ageGroup).length} Events in Category
                       </div>
                     </div>
 
@@ -1304,7 +1369,7 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
                       <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                       <input
                         type="text"
-                        placeholder="Search events by stroke, distance..."
+                        placeholder={`Search ${editingSwimmer.gender === 'M' ? "men's" : "women's"} (${editingSwimmer.ageGroup}) events by stroke, distance...`}
                         className="form-control"
                         style={{ paddingLeft: '34px', fontSize: '0.85rem' }}
                         value={eventSearchQuery}
@@ -1318,13 +1383,11 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
                         const curAge = editingSwimmer.ageGroup;
 
                         const filtered = swimmerEvents.filter(ev => {
+                          if (ev.gender !== curGender || ev.ageGroup !== curAge) return false;
                           if (eventSearchQuery) {
                             const query = eventSearchQuery.toLowerCase();
-                            const title = `Event #${ev.eventNo || ev.eventId}: ${ev.distance}m ${ev.stroke} ${ev.gender} ${ev.ageGroup}`.toLowerCase();
+                            const title = `Event #${ev.eventNo || ev.eventId}: ${ev.distance}m ${ev.stroke}`.toLowerCase();
                             if (!title.includes(query)) return false;
-                          }
-                          if (eventFilterMode === 'matching' && !eventSearchQuery) {
-                            return ev.isParticipating || (ev.gender === curGender && ev.ageGroup === curAge);
                           }
                           return true;
                         });

@@ -175,6 +175,49 @@ export async function exportEventJsonFile(eventId: number): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
+export async function syncMeetEventsToDisk(meetId: number): Promise<void> {
+  try {
+    const meet = await db.meets.get(meetId);
+    if (!meet) return;
+
+    const cleanMeetName = meet.name || 'Championship_Meet';
+    const events = await db.events.where('meetId').equals(meetId).toArray();
+    const swimmers = await db.swimmers.where('meetId').equals(meetId).toArray();
+
+    // 1. Write each event JSON file
+    for (const ev of events) {
+      if (ev.id) {
+        const payload = await buildEventDataPayload(ev.id);
+        if (payload && window.touchteckApp?.writeEventFile) {
+          const fileName = getEventFileName(ev);
+          await window.touchteckApp.writeEventFile(cleanMeetName, fileName, JSON.stringify(payload, null, 2));
+        }
+      }
+    }
+
+    // 2. Write Swimmers Registry JSON
+    if (window.touchteckApp?.writeEventFile && swimmers.length > 0) {
+      const swimmerExport = {
+        meetName: meet.name,
+        date: meet.date,
+        totalSwimmers: swimmers.length,
+        swimmers: swimmers.map(s => ({
+          id: s.id,
+          sfiUid: s.sfiUid || '',
+          name: s.name,
+          gender: s.gender,
+          birthYear: s.birthYear,
+          ageGroup: s.ageGroup,
+          affiliation: s.club || 'Unattached'
+        }))
+      };
+      await window.touchteckApp.writeEventFile(cleanMeetName, 'Swimmers_Registry.json', JSON.stringify(swimmerExport, null, 2));
+    }
+  } catch (err) {
+    console.error('Failed to sync meet events to disk:', err);
+  }
+}
+
 export async function exportEventCsvFile(eventId: number): Promise<void> {
   const payload = await buildEventDataPayload(eventId);
   if (!payload) return;
@@ -184,7 +227,7 @@ export async function exportEventCsvFile(eventId: number): Promise<void> {
     ['Event', `#${payload.event.eventNo || payload.event.id}: ${payload.event.distance}m ${payload.event.stroke} (${payload.event.gender === 'M' ? 'Men' : 'Women'}, ${payload.event.ageGroup})`],
     ['Exported At', payload.exportedAt],
     [],
-    ['Heat', 'Lane', 'SFI UID', 'Swimmer Name', 'Club / District', 'Official Time (s)', 'Status']
+    ['Heat', 'Lane', 'SFI UID', 'Swimmer Name', 'District / State / Club', 'Official Time (s)', 'Status']
   ];
 
   for (const h of payload.heats) {
@@ -215,3 +258,5 @@ export async function exportEventCsvFile(eventId: number): Promise<void> {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+

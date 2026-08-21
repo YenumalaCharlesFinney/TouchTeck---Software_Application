@@ -9,6 +9,7 @@ export interface Meet {
   poolType?: '50m' | '25m';
   lanes?: number;
   categoryPreset?: 'masters' | 'juniors' | 'open';
+  affiliationType?: 'District' | 'State' | 'Club';
 }
 
 export type AgeGroup =

@@ -62,6 +62,14 @@ function setAppMenu() {
 function createWindow(initialTab?: string) {
   const isSecondary = Boolean(initialTab);
 
+  const appIcon = process.platform === 'win32'
+    ? (fs.existsSync(path.join(__dirname, '../build/icon.ico'))
+        ? path.join(__dirname, '../build/icon.ico')
+        : path.join(__dirname, '../public/favicon.ico'))
+    : (fs.existsSync(path.join(__dirname, '../build/icon.icns'))
+        ? path.join(__dirname, '../build/icon.icns')
+        : path.join(__dirname, '../public/logo.png'));
+
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -71,7 +79,7 @@ function createWindow(initialTab?: string) {
     backgroundColor: '#0b0f19',
     show: false,
     autoHideMenuBar: true,
-    icon: path.join(__dirname, '../build/icon.ico'),
+    icon: appIcon,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

@@ -20,6 +20,7 @@ files:
   - dist/**/*
   - dist-electron/**/*
   - bridge/**/*
+  - build/**/*
   - package.json
 
 # The bridge is fork()'d from a real file path and its native serial binding
