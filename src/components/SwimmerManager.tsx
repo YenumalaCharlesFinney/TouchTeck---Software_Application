@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { db, Swimmer, AgeGroup, seedDatabase, Event as MeetDbEvent } from '../db';
+import { db, Swimmer, Meet, AgeGroup, seedDatabase, Event as MeetDbEvent } from '../db';
 import { UserPlus, Trash2, Edit, Search, RotateCcw, Plus, X, Award, CheckSquare, Square, Calendar, User, Activity, Filter, Save, Check, AlertTriangle, CheckCheck, GitMerge, Zap, ArrowRight, ShieldCheck, UploadCloud, FolderOpen, ChevronDown, ChevronUp } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import CustomSelect from './CustomSelect';
@@ -9,6 +9,7 @@ import { useModalClose } from '../hooks/useModalClose';
 
 interface SwimmerManagerProps {
   activeMeetId?: number | null;
+  onMeetChange?: (meetId: number) => void;
 }
 
 interface SwimmerEventState {
@@ -64,8 +65,10 @@ function computeSimilarity(a: string, b: string): number {
   return intersection / union;
 }
 
-export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
+export default function SwimmerManager({ activeMeetId, onMeetChange }: SwimmerManagerProps) {
   const [swimmers, setSwimmers] = useState<Swimmer[]>([]);
+  const [allMeets, setAllMeets] = useState<Meet[]>([]);
+  const [selectedMeetId, setSelectedMeetId] = useState<number | null>(activeMeetId || null);
   const [meetName, setMeetName] = useState<string>('');
   const [mergeCandidates, setMergeCandidates] = useState<MergeCandidate[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -132,24 +135,75 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
     loadSwimmers();
   }, [activeMeetId]);
 
-  const loadSwimmers = async () => {
-    const targetMeetId = activeMeetId || 1;
-    const meet = await db.meets.get(targetMeetId);
+  useEffect(() => {
+    const handleMeetSync = (e: any) => {
+      const newMeetId = e?.detail?.meetId;
+      if (newMeetId && newMeetId !== selectedMeetId) {
+        setSelectedMeetId(newMeetId);
+        loadSwimmers(newMeetId);
+      }
+    };
+    window.addEventListener('touchteck-active-meet-changed', handleMeetSync);
+    window.addEventListener('lane-assignments-updated', () => loadSwimmers());
+    return () => {
+      window.removeEventListener('touchteck-active-meet-changed', handleMeetSync);
+      window.removeEventListener('lane-assignments-updated', () => loadSwimmers());
+    };
+  }, [selectedMeetId]);
+
+  const handleMeetChange = (newMeetId: number) => {
+    setSelectedMeetId(newMeetId);
+    if (onMeetChange) onMeetChange(newMeetId);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('touchteck_active_meet_id', String(newMeetId));
+      window.dispatchEvent(new CustomEvent('touchteck-active-meet-changed', { detail: { meetId: newMeetId } }));
+    }
+    loadSwimmers(newMeetId);
+  };
+
+  const loadSwimmers = async (meetIdToLoad?: number) => {
+    const rawMeets = await db.meets.toArray();
+    const uniqueMeetMap = new Map<string, Meet>();
+    rawMeets.forEach(m => {
+      const normKey = m.name.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (!uniqueMeetMap.has(normKey)) uniqueMeetMap.set(normKey, m);
+    });
+    const loadedMeets = Array.from(uniqueMeetMap.values());
+    setAllMeets(loadedMeets);
+
+    let targetMeetId = meetIdToLoad || activeMeetId || selectedMeetId;
+    if (!targetMeetId || !loadedMeets.some(m => m.id === targetMeetId)) {
+      const meetStats = await Promise.all(loadedMeets.map(async m => ({
+        id: m.id!,
+        swimmerCount: await db.swimmers.filter(s => (s.meetId || 1) === m.id).count()
+      })));
+      const best = meetStats.find(ms => ms.swimmerCount > 0) || meetStats[meetStats.length - 1];
+      targetMeetId = best ? best.id : 1;
+    } else if (!meetIdToLoad) {
+      const curCount = await db.swimmers.filter(s => (s.meetId || 1) === targetMeetId).count();
+      if (curCount === 0) {
+        const meetStats = await Promise.all(loadedMeets.map(async m => ({
+          id: m.id!,
+          swimmerCount: await db.swimmers.filter(s => (s.meetId || 1) === m.id).count()
+        })));
+        const best = meetStats.find(ms => ms.swimmerCount > 0);
+        if (best) targetMeetId = best.id;
+      }
+    }
+
+    setSelectedMeetId(targetMeetId);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('touchteck_active_meet_id', String(targetMeetId));
+    }
+
+    const meet = loadedMeets.find(m => m.id === targetMeetId) || await db.meets.get(targetMeetId);
     if (meet) {
       setMeetName(meet.name);
       if (meet.affiliationType) setMeetAffiliation(meet.affiliationType);
     }
 
-    // Auto-migrate legacy unassigned swimmers to Meet 1
-    const all = await db.swimmers.toArray();
-    for (const s of all) {
-      if (!s.meetId && s.id) {
-        await db.swimmers.update(s.id, { meetId: 1 });
-      }
-    }
-
     const meetSwimmers = await db.swimmers
-      .filter(s => s.meetId === targetMeetId)
+      .filter(s => (s.meetId || 1) === targetMeetId)
       .toArray();
 
     setSwimmers(meetSwimmers);
@@ -157,12 +211,21 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
     const clubs = Array.from(new Set(meetSwimmers.map(s => s.club).filter(Boolean)));
     setClubsList(clubs);
 
-    // Load assigned events map for all swimmers in this meet
+    // Fast indexed query for events and lane assignments
     const meetEvents = await db.events.filter(e => (e.meetId || 1) === targetMeetId).toArray();
     const eventMap = new Map<number, MeetDbEvent>();
-    meetEvents.forEach(e => { if (e.id) eventMap.set(e.id, e); });
+    const eventIds: number[] = [];
+    meetEvents.forEach(e => {
+      if (e.id) {
+        eventMap.set(e.id, e);
+        eventIds.push(e.id);
+      }
+    });
 
-    const assigns = await db.laneAssignments.toArray();
+    const assigns = eventIds.length > 0 
+      ? await db.laneAssignments.where('eventId').anyOf(eventIds).toArray()
+      : [];
+
     const map = new Map<number, Array<{ eventNo?: number; distance: number; stroke: string; heatNumber: number; laneNumber: number }>>();
     for (const a of assigns) {
       if (a.swimmerId && eventMap.has(a.eventId)) {
@@ -538,29 +601,46 @@ export default function SwimmerManager({ activeMeetId }: SwimmerManagerProps) {
     setMergeCandidates([]);
   };
 
-  const filteredSwimmers = swimmers.filter(swimmer => {
-    const matchesSearch = swimmer.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          (swimmer.sfiUid && swimmer.sfiUid.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                          swimmer.club.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesGender = filterGender === 'All' || swimmer.gender === filterGender;
-    const matchesGroup = filterGroup === 'All' || swimmer.ageGroup === filterGroup;
-    const matchesClub = filterClub === 'All' || swimmer.club === filterClub;
+  const filteredSwimmers = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    return swimmers.filter(swimmer => {
+      const matchesSearch = !q ||
+        swimmer.name.toLowerCase().includes(q) || 
+        (swimmer.sfiUid && swimmer.sfiUid.toLowerCase().includes(q)) ||
+        swimmer.club.toLowerCase().includes(q);
+      const matchesGender = filterGender === 'All' || swimmer.gender === filterGender;
+      const matchesGroup = filterGroup === 'All' || swimmer.ageGroup === filterGroup;
+      const matchesClub = filterClub === 'All' || swimmer.club === filterClub;
 
-    return matchesSearch && matchesGender && matchesGroup && matchesClub;
-  });
+      return matchesSearch && matchesGender && matchesGroup && matchesClub;
+    });
+  }, [swimmers, searchQuery, filterGender, filterGroup, filterClub]);
 
   return (
     <div className="glass-card">
-      <div className="card-header flex justify-between items-center mb-4">
+      <div className="card-header flex justify-between items-center mb-4" style={{ flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h2 className="card-title" style={{ borderBottom: 'none', marginBottom: 0, paddingBottom: 0 }}>
             Swimmer Registry
           </h2>
-          {meetName && (
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-cyan)', fontWeight: 600 }}>
-              Active Swim Meet: {meetName} ({swimmers.length} Registered Swimmers)
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginTop: '0.4rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 800 }}>
+              ACTIVE MEET:
             </span>
-          )}
+            <div style={{ minWidth: '320px', maxWidth: '440px' }}>
+              <CustomSelect
+                options={allMeets.map(m => ({ value: String(m.id), label: m.name }))}
+                value={String(selectedMeetId || (allMeets.length > 0 ? allMeets[0].id : ''))}
+                onChange={(val) => {
+                  const id = Number(val);
+                  handleMeetChange(id);
+                }}
+              />
+            </div>
+            <span className="pill-info" style={{ borderColor: 'rgba(6,182,212,0.4)', color: '#67e8f9', fontWeight: 800, fontSize: '0.78rem' }}>
+              {swimmers.length} Registered Athletes
+            </span>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button

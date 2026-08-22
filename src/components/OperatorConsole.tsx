@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { db, Meet, type Event } from '../db';
 import { serialDriver, simulator, TimingEvent } from '../serialDriver';
 import { ScoreboardDisplayConfig, DEFAULT_SCOREBOARD_CONFIG, ScoreboardResolution } from '../types';
-import { Terminal, Cpu, Play, Square, RotateCcw, Save, ShieldAlert, Radio, HelpCircle, CheckCircle2, Plus, Activity, ShieldCheck, Power, Copy, Check, Loader2, Zap, GitMerge, FileText, Download, FolderOpen, RefreshCw, UploadCloud } from 'lucide-react';
+import { Terminal, Cpu, Play, Square, RotateCcw, Save, ShieldAlert, Radio, HelpCircle, CheckCircle2, Plus, Activity, ShieldCheck, Power, Copy, Check, Loader2, Zap, GitMerge, FileText, Download, FolderOpen, RefreshCw, UploadCloud, X } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import CustomSelect from './CustomSelect';
 import SmartImportModal from './SmartImportModal';
@@ -105,11 +105,25 @@ export default function OperatorConsole({
   const [showImportModal, setShowImportModal] = useState<boolean>(false);
 
   useEffect(() => {
-    if (activeMeetId && activeMeetId !== selectedMeetId) {
-      setSelectedMeetId(activeMeetId);
-      loadEvents(activeMeetId);
-    }
+    loadMeets();
   }, [activeMeetId]);
+
+  useEffect(() => {
+    const syncMeetFromActiveEvent = async () => {
+      if (activeEventId) {
+        const ev = await db.events.get(activeEventId);
+        if (ev && ev.meetId) {
+          if (ev.meetId !== selectedMeetId) {
+            setSelectedMeetId(ev.meetId);
+            loadEvents(ev.meetId);
+          }
+          const allM = await db.meets.toArray();
+          setMeets(allM);
+        }
+      }
+    };
+    syncMeetFromActiveEvent();
+  }, [activeEventId]);
 
   useEffect(() => {
     if (activeEventId) {
@@ -233,30 +247,83 @@ export default function OperatorConsole({
   });
   const [autoSaveCountdown, setAutoSaveCountdown] = useState<number | null>(null);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownSecsRef = useRef<number>(10);
+  const isSavingInProgressRef = useRef<boolean>(false);
+
+  const callbacksRef = useRef({
+    handleSaveResults,
+    handleResetTimer,
+    advanceToNextHeatOrEvent
+  });
+
+  useEffect(() => {
+    callbacksRef.current = {
+      handleSaveResults,
+      handleResetTimer,
+      advanceToNextHeatOrEvent
+    };
+  });
 
   useEffect(() => {
     localStorage.setItem('touchteck_auto_save_advance', autoSaveAdvance ? 'true' : 'false');
   }, [autoSaveAdvance]);
 
-  // Auto-Save 10-Second Countdown Effect (Only triggers if race has recorded finishes/touches)
+  const triggerAutoSaveAndAdvance = async () => {
+    if (isSavingInProgressRef.current) return;
+    isSavingInProgressRef.current = true;
+
+    if (autoSaveTimerRef.current) {
+      clearInterval(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+    setAutoSaveCountdown(null);
+
+    try {
+      await callbacksRef.current.handleSaveResults();
+      setIsResultsSaved(true);
+      callbacksRef.current.handleResetTimer(false);
+      await callbacksRef.current.advanceToNextHeatOrEvent();
+    } catch (err) {
+      console.error('Error during auto-save and advance:', err);
+    } finally {
+      isSavingInProgressRef.current = false;
+    }
+  };
+
+  const handleCancelAutoSave = () => {
+    if (autoSaveTimerRef.current) {
+      clearInterval(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+    setAutoSaveCountdown(null);
+    setConsoleLogs(prev => [...prev, '[AUTO-SAVE] Auto-save countdown paused by operator. Click Save & Next when ready.']);
+  };
+
+  // Robust Auto-Save 10-Second Countdown Effect
   useEffect(() => {
-    const hasRecordedFinishes = lanes.some(l => (l.finalTime > 0 && l.status === 'OK') || (l.splits && l.splits.length > 0));
+    const hasRecordedFinishes = lanes.some(l => (l.finalTime > 0 && l.status === 'OK') || (l.splits && l.splits.length > 0) || !!l.t1Time || !!l.t2Time);
 
     if (timerStatus === 'FINISHED' && autoSaveAdvance && hasRecordedFinishes) {
-      setAutoSaveCountdown(10);
-      if (autoSaveTimerRef.current) clearInterval(autoSaveTimerRef.current);
+      if (!autoSaveTimerRef.current) {
+        countdownSecsRef.current = 10;
+        setAutoSaveCountdown(10);
 
-      autoSaveTimerRef.current = setInterval(() => {
-        setAutoSaveCountdown(prev => {
-          if (prev === null || prev <= 1) {
-            if (autoSaveTimerRef.current) clearInterval(autoSaveTimerRef.current);
-            autoSaveTimerRef.current = null;
+        autoSaveTimerRef.current = setInterval(() => {
+          countdownSecsRef.current -= 1;
+          const currentCount = countdownSecsRef.current;
+
+          if (currentCount <= 0) {
+            if (autoSaveTimerRef.current) {
+              clearInterval(autoSaveTimerRef.current);
+              autoSaveTimerRef.current = null;
+            }
+            setAutoSaveCountdown(null);
             triggerAutoSaveAndAdvance();
-            return null;
+          } else {
+            setAutoSaveCountdown(currentCount);
           }
-          return prev - 1;
-        });
-      }, 1000);
+        }, 1000);
+      }
     } else {
       if (autoSaveTimerRef.current) {
         clearInterval(autoSaveTimerRef.current);
@@ -266,32 +333,14 @@ export default function OperatorConsole({
     }
 
     return () => {
-      if (autoSaveTimerRef.current) {
-        clearInterval(autoSaveTimerRef.current);
-        autoSaveTimerRef.current = null;
+      if (timerStatus !== 'FINISHED') {
+        if (autoSaveTimerRef.current) {
+          clearInterval(autoSaveTimerRef.current);
+          autoSaveTimerRef.current = null;
+        }
       }
     };
-  }, [timerStatus, autoSaveAdvance, lanes]);
-
-  const handleCancelAutoSave = () => {
-    if (autoSaveTimerRef.current) {
-      clearInterval(autoSaveTimerRef.current);
-      autoSaveTimerRef.current = null;
-    }
-    setAutoSaveCountdown(null);
-    setConsoleLogs(prev => [...prev, '[AUTO-SAVE] Auto save cancelled by operator. Remaining on current heat.']);
-  };
-
-  const triggerAutoSaveAndAdvance = async () => {
-    if (autoSaveTimerRef.current) {
-      clearInterval(autoSaveTimerRef.current);
-      autoSaveTimerRef.current = null;
-    }
-    await handleSaveResults();
-    setIsResultsSaved(true);
-    handleResetTimer(false);
-    await advanceToNextHeatOrEvent();
-  };
+  }, [timerStatus, autoSaveAdvance]);
   const [simRunning, setSimRunning] = useState<boolean>(false);
   const [isCopied, setIsCopied] = useState<boolean>(false);
 
@@ -395,15 +444,25 @@ export default function OperatorConsole({
   }, [activeEventId, activeHeatNum, timerStatus]);
 
   useEffect(() => {
-    const handleUpdate = () => {
+    const handleUpdate = async () => {
       loadDoneEvents();
+      const allM = await db.meets.toArray();
+      setMeets(allM);
+      if (activeEventId) {
+        const ev = await db.events.get(activeEventId);
+        if (ev && ev.meetId) {
+          setSelectedMeetId(ev.meetId);
+          loadEvents(ev.meetId);
+          return;
+        }
+      }
       if (selectedMeetId) {
         loadEvents(selectedMeetId);
       }
     };
     window.addEventListener('lane-assignments-updated', handleUpdate);
     return () => window.removeEventListener('lane-assignments-updated', handleUpdate);
-  }, [selectedMeetId]);
+  }, [selectedMeetId, activeEventId]);
 
   const loadMeets = async () => {
     const list = await db.meets.toArray();
@@ -933,36 +992,72 @@ export default function OperatorConsole({
 
         {/* Meet/Event/Heat Selectors */}
         <div className="glass-card" ref={eventSectionRef} style={{ position: 'relative', zIndex: 50 }}>
-          {/* Race Completed Banner & Action Bar (Shown ONLY when race timer is FINISHED and touches/finishes are recorded) */}
+          {/* Race Completed Banner & Action Bar */}
           {timerStatus === 'FINISHED' && lanes.some(l => (l.finalTime > 0 && l.status === 'OK') || (l.splits && l.splits.length > 0) || !!l.t1Time || !!l.t2Time) && (
             <div 
               style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                padding: '0.85rem 1.2rem',
+                padding: '0.9rem 1.25rem',
                 marginBottom: '1rem',
                 borderRadius: '12px',
                 background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(6, 182, 212, 0.15) 100%)',
                 border: '1.5px solid rgba(34, 197, 94, 0.5)',
                 boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
                 flexWrap: 'wrap',
-                gap: '0.75rem'
+                gap: '0.75rem',
+                position: 'relative',
+                overflow: 'hidden'
               }}
             >
+              {/* Animated Progress Bar along the bottom of the banner */}
+              {autoSaveCountdown !== null && (
+                <div 
+                  style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    left: 0,
+                    height: '4px',
+                    width: `${((10 - autoSaveCountdown) / 10) * 100}%`,
+                    backgroundColor: '#facc15',
+                    boxShadow: '0 0 10px #facc15',
+                    transition: 'width 1s linear'
+                  }}
+                />
+              )}
+
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <CheckCircle2 size={28} style={{ color: '#4ade80', flexShrink: 0 }} />
                 <div>
-                  <div style={{ fontSize: '1rem', fontWeight: 900, color: '#4ade80', letterSpacing: '0.02em' }}>
-                    RACE COMPLETED — Clock Stopped & Details Frozen!
+                  <div style={{ fontSize: '1rem', fontWeight: 900, color: '#4ade80', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span>RACE COMPLETED — Clock Stopped & Details Frozen!</span>
+                    {autoSaveCountdown !== null && (
+                      <span style={{ fontSize: '0.78rem', background: '#facc15', color: '#0f172a', padding: '0.15rem 0.55rem', borderRadius: '20px', fontWeight: 900 }}>
+                        Auto-Saving in {autoSaveCountdown}s
+                      </span>
+                    )}
                   </div>
                   <div style={{ fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.85)' }}>
-                    Review swimmer finish times and splits below. Click Save & Next Heat when ready.
+                    {autoSaveCountdown !== null 
+                      ? `Saving official finish times & splits in ${autoSaveCountdown} seconds. Click Pause or Save Now below.` 
+                      : 'Review swimmer finish times and splits below. Click Save & Next Heat when ready.'}
                   </div>
                 </div>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                {autoSaveCountdown !== null && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ padding: '0.55rem 0.9rem', fontSize: '0.85rem', fontWeight: 700, borderColor: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                    onClick={handleCancelAutoSave}
+                  >
+                    <X size={15} /> Pause
+                  </button>
+                )}
+
                 <button
                   type="button"
                   className="btn btn-yellow"
@@ -971,7 +1066,7 @@ export default function OperatorConsole({
                     await triggerAutoSaveAndAdvance();
                   }}
                 >
-                  <Save size={18} /> Save & Load Next Heat / Event ➔
+                  <Save size={18} /> {autoSaveCountdown !== null ? 'Save Now ➔' : 'Save & Load Next Heat / Event ➔'}
                 </button>
               </div>
             </div>

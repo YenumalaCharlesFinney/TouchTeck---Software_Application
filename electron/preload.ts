@@ -28,6 +28,24 @@ contextBridge.exposeInMainWorld('touchteckApp', {
   writeEventFile: (meetName: string, fileName: string, content: string): Promise<string | null> =>
     ipcRenderer.invoke('touchteck:write-event-file', meetName, fileName, content),
 
+  writeMeetFile: (meetName: string, subPath: string, content: string): Promise<string | null> =>
+    ipcRenderer.invoke('touchteck:write-meet-file', meetName, subPath, content),
+
+  listDiskMeets: (): Promise<any[]> =>
+    ipcRenderer.invoke('touchteck:list-disk-meets'),
+
+  readDiskMeetEvents: (folderName: string): Promise<any[]> =>
+    ipcRenderer.invoke('touchteck:read-disk-meet-events', folderName),
+
+  moveMeetToRecoveryBin: (meetName: string): Promise<string | null> =>
+    ipcRenderer.invoke('touchteck:move-meet-to-recovery-bin', meetName),
+
+  archiveDeletedResults: (meetName: string, eventName: string, resultsJson: string): Promise<string | null> =>
+    ipcRenderer.invoke('touchteck:archive-deleted-results', meetName, eventName, resultsJson),
+
+  writeBatchMeetFiles: (meetName: string, files: Array<{ subPath: string; content: string }>): Promise<boolean> =>
+    ipcRenderer.invoke('touchteck:write-batch-meet-files', meetName, files),
+
   // Send a sync message to every other window.
   sendSync: (message: unknown) => ipcRenderer.send('touchteck:sync', message),
 

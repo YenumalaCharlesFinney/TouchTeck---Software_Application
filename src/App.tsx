@@ -299,6 +299,142 @@ export default function App() {
   });
 
   useEffect(() => {
+    const warmUpDatabaseAndMeets = async () => {
+      try {
+        // Auto-discover and index disk meets immediately on Home Screen launch
+        if (window.touchteckApp?.listDiskMeets) {
+          const diskMeets = await window.touchteckApp.listDiskMeets();
+          const currentDbMeets = await db.meets.toArray();
+
+          for (const dm of diskMeets) {
+            if (dm.folderName.includes('_deleted_')) continue;
+            const exists = currentDbMeets.find(m => 
+              m.name.trim().toLowerCase() === dm.displayName.trim().toLowerCase() ||
+              m.name.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase() === dm.folderName.toLowerCase()
+            );
+
+            if (!exists) {
+              const newMeetId = await db.meets.add({
+                name: dm.displayName,
+                date: dm.date || new Date().toISOString().split('T')[0],
+                location: dm.location || '',
+                poolType: dm.poolType || '50m',
+                lanes: dm.lanes || 8,
+                categoryPreset: 'masters',
+                affiliationType: 'District'
+              });
+
+              if (window.touchteckApp?.readDiskMeetEvents) {
+                const diskEvents = await window.touchteckApp.readDiskMeetEvents(dm.folderName);
+                const swimmersMap = new Map<string, number>();
+                const assignmentsToInsert: LaneAssignment[] = [];
+                const resultsToInsert: any[] = [];
+
+                for (let eIdx = 0; eIdx < diskEvents.length; eIdx++) {
+                  const dev = diskEvents[eIdx];
+                  if (dev.event) {
+                    const tempEvNo = dev.event.eventNo || (eIdx + 1);
+                    const newEvId = await db.events.add({
+                      meetId: Number(newMeetId),
+                      eventNo: tempEvNo,
+                      distance: dev.event.distance,
+                      stroke: dev.event.stroke,
+                      gender: dev.event.gender,
+                      ageGroup: dev.event.ageGroup
+                    });
+
+                    if (dev.heats && Array.isArray(dev.heats)) {
+                      for (const h of dev.heats) {
+                        for (const l of h.lanes || []) {
+                          let swimmerId: number | undefined;
+                          if (l.swimmer && l.swimmer.name) {
+                            const swKey = `${l.swimmer.name.toLowerCase().trim()}_${l.swimmer.sfiUid || ''}`;
+                            if (!swimmersMap.has(swKey)) {
+                              const sId = await db.swimmers.add({
+                                meetId: Number(newMeetId),
+                                sfiUid: l.swimmer.sfiUid || '',
+                                name: l.swimmer.name,
+                                club: l.swimmer.club || 'Unattached',
+                                gender: l.swimmer.gender || dev.event.gender,
+                                ageGroup: l.swimmer.ageGroup || dev.event.ageGroup,
+                                birthYear: l.swimmer.birthYear
+                              });
+                              swimmerId = Number(sId);
+                              swimmersMap.set(swKey, swimmerId);
+                            } else {
+                              swimmerId = swimmersMap.get(swKey);
+                            }
+                          }
+
+                          assignmentsToInsert.push({
+                            eventId: Number(newEvId),
+                            heatNumber: h.heatNumber,
+                            laneNumber: l.laneNumber,
+                            swimmerId
+                          });
+
+                          if (l.result && l.result.officialTime > 0) {
+                            resultsToInsert.push({
+                              eventId: Number(newEvId),
+                              heatNumber: h.heatNumber,
+                              laneNumber: l.laneNumber,
+                              swimmerId,
+                              finalTime: l.result.officialTime,
+                              splits: l.result.splits || [],
+                              status: l.result.status || 'OK',
+                              recordedAt: l.result.recordedAt || Date.now()
+                            });
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+
+                if (assignmentsToInsert.length > 0) await db.laneAssignments.bulkAdd(assignmentsToInsert);
+                if (resultsToInsert.length > 0) await db.results.bulkAdd(resultsToInsert);
+              }
+            }
+          }
+        }
+
+        // Lock in active championship meet with registered swimmers
+        const allMeets = await db.meets.toArray();
+        if (allMeets.length > 0) {
+          const meetStats = await Promise.all(allMeets.map(async m => ({
+            id: m.id!,
+            name: m.name,
+            swimmerCount: await db.swimmers.filter(s => (s.meetId || 1) === m.id).count(),
+            eventCount: await db.events.where('meetId').equals(m.id!).count()
+          })));
+
+          const bestMeet = meetStats.find(ms => ms.swimmerCount > 0 && ms.eventCount > 0)
+            || meetStats.find(ms => ms.eventCount > 0)
+            || meetStats[meetStats.length - 1];
+
+          let targetMeetId = (activeMeetId && meetStats.some(m => m.id === activeMeetId && (m.swimmerCount > 0 || m.eventCount > 0)))
+            ? activeMeetId
+            : bestMeet.id;
+
+          setActiveMeetId(targetMeetId);
+          localStorage.setItem('touchteck_active_meet_id', String(targetMeetId));
+
+          const evs = await db.events.where('meetId').equals(targetMeetId).toArray();
+          if (evs.length > 0) {
+            evs.sort((a, b) => (a.eventNo || a.id || 0) - (b.eventNo || b.id || 0));
+            if (!activeEventId || !evs.some(e => e.id === activeEventId)) {
+              setActiveEventId(evs[0].id!);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Home screen warmup note:', e);
+      }
+    };
+    warmUpDatabaseAndMeets();
+  }, []);
+
+  useEffect(() => {
     if (activeMeetId !== null) localStorage.setItem('touchteck_active_meet_id', String(activeMeetId));
   }, [activeMeetId]);
 
@@ -2024,7 +2160,7 @@ export default function App() {
 
         {activeTab === 'swimmer-registry' && (
           <div key="swimmer-registry-panel" className="tab-panel-enter">
-            <SwimmerManager activeMeetId={activeMeetId} />
+            <SwimmerManager activeMeetId={activeMeetId} onMeetChange={setActiveMeetId} />
           </div>
         )}
 

@@ -122,23 +122,26 @@ if (typeof window !== 'undefined') {
 }
 
 export async function seedDatabase(force = false) {
+  const meetsCount = await db.meets.count();
   const swimmersCount = await db.swimmers.count();
   const eventsCount = await db.events.count();
-  const existingMasters = await db.meets.filter(m => m.name.includes('Telangana Masters')).first();
 
-  if (existingMasters && swimmersCount === INITIAL_SWIMMERS.length && eventsCount === INITIAL_EVENTS.length && !force) {
-    return existingMasters.id;
+  if (!force && (meetsCount > 0 || swimmersCount > 0 || eventsCount > 0)) {
+    const existing = await db.meets.toArray();
+    return existing[0]?.id || 1;
   }
 
-  console.log('Seeding official swimming data for Telangana Masters 2026 from seedData...');
+  console.log('Seeding official swimming data from seedData...');
   
   await db.transaction('rw', [db.meets, db.swimmers, db.qualifyingTimes, db.events, db.laneAssignments, db.results], async () => {
-    await db.meets.clear();
-    await db.swimmers.clear();
-    await db.qualifyingTimes.clear();
-    await db.events.clear();
-    await db.laneAssignments.clear();
-    await db.results.clear();
+    if (force) {
+      await db.meets.clear();
+      await db.swimmers.clear();
+      await db.qualifyingTimes.clear();
+      await db.events.clear();
+      await db.laneAssignments.clear();
+      await db.results.clear();
+    }
 
     // 1. Seed Meet
     const mastersMeetId = (await db.meets.put(INITIAL_MEET)) as number || 1;

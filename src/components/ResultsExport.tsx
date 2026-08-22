@@ -481,6 +481,16 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
     if (!deleteTargetId) return;
     setIsDeleting(true);
     try {
+      // Archive single result before deleting
+      const targetRes = await db.results.get(deleteTargetId);
+      if (targetRes && window.touchteckApp?.archiveDeletedResults) {
+        const ev = await db.events.get(targetRes.eventId);
+        const meet = selectedMeetId ? await db.meets.get(selectedMeetId) : null;
+        const meetName = meet?.name || 'Championship';
+        const evName = ev ? `Event_${ev.eventNo || ev.id}_${ev.distance}m_${ev.stroke}` : `Event_${targetRes.eventId}`;
+        await window.touchteckApp.archiveDeletedResults(meetName, evName, JSON.stringify({ deletedAt: new Date().toISOString(), results: [targetRes] }, null, 2));
+      }
+
       await db.results.delete(deleteTargetId);
       await loadResultsTree();
       setDeleteTargetId(null);
@@ -496,7 +506,16 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
     if (selectedEventIdsForPrint.length === 0) return;
     setIsBatchDeleting(true);
     try {
+      const meet = selectedMeetId ? await db.meets.get(selectedMeetId) : null;
+      const meetName = meet?.name || 'Championship';
+
       for (const evId of selectedEventIdsForPrint) {
+        const evResults = await db.results.where('eventId').equals(evId).toArray();
+        if (evResults.length > 0 && window.touchteckApp?.archiveDeletedResults) {
+          const ev = await db.events.get(evId);
+          const evName = ev ? `Event_${ev.eventNo || ev.id}_${ev.distance}m_${ev.stroke}` : `Event_${evId}`;
+          await window.touchteckApp.archiveDeletedResults(meetName, evName, JSON.stringify({ deletedAt: new Date().toISOString(), results: evResults }, null, 2));
+        }
         await db.results.where('eventId').equals(evId).delete();
       }
       const nextPrinted = new Set(printedEventIds);
@@ -507,7 +526,7 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
       }
       await loadResultsTree();
       setShowBatchDeleteConfirm(false);
-      showNotice('Results Deleted', `Successfully deleted all timing results for ${selectedEventIdsForPrint.length} selected event(s).`);
+      showNotice('Results Deleted', `Successfully archived to Recovery Bin and removed timing results for ${selectedEventIdsForPrint.length} selected event(s).`);
     } catch (err) {
       console.error('Batch delete error:', err);
       showNotice('Delete Error', 'Failed to delete timing results for selected events.');
@@ -519,18 +538,31 @@ export default function ResultsExport({ activeMeetId, activeEventId }: ResultsEx
   const confirmClearAllResults = async () => {
     setIsClearingAll(true);
     try {
+      const meet = selectedMeetId ? await db.meets.get(selectedMeetId) : null;
+      const meetName = meet?.name || 'Championship';
+
       if (selectedMeetId) {
         const evList = await db.events.where('meetId').equals(selectedMeetId).toArray();
         const evIds = evList.map(e => e.id!).filter(Boolean);
         for (const id of evIds) {
+          const evResults = await db.results.where('eventId').equals(id).toArray();
+          if (evResults.length > 0 && window.touchteckApp?.archiveDeletedResults) {
+            const ev = evList.find(e => e.id === id);
+            const evName = ev ? `Event_${ev.eventNo || ev.id}_${ev.distance}m_${ev.stroke}` : `Event_${id}`;
+            await window.touchteckApp.archiveDeletedResults(meetName, evName, JSON.stringify({ deletedAt: new Date().toISOString(), results: evResults }, null, 2));
+          }
           await db.results.where('eventId').equals(id).delete();
         }
       } else {
+        const allResults = await db.results.toArray();
+        if (allResults.length > 0 && window.touchteckApp?.archiveDeletedResults) {
+          await window.touchteckApp.archiveDeletedResults(meetName, 'All_Results', JSON.stringify({ deletedAt: new Date().toISOString(), results: allResults }, null, 2));
+        }
         await db.results.clear();
       }
       await loadResultsTree();
       setShowClearConfirm(false);
-      showNotice('Results Cleared', 'Timing results have been successfully cleared.');
+      showNotice('Results Cleared', 'Timing results have been safely archived in Recovery Bin and cleared from the live view.');
     } catch (err) {
       console.error('Clear results error:', err);
       showNotice('Clear Error', 'Failed to clear timing results.');

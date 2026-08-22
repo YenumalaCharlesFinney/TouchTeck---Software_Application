@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { db, Meet, type Event, Swimmer, LaneAssignment, seedDatabase, AgeGroup } from '../db';
+import { db, Meet, type Event, Swimmer, LaneAssignment, Result, seedDatabase, AgeGroup } from '../db';
 import { Calendar, Plus, Users, Award, ShieldAlert, UserX, Trash2, Edit, Save, RotateCcw, ChevronDown, ChevronUp, Search, ListFilter, PlayCircle, CheckCircle2, Clock, GitMerge, Layers, Printer, Zap, Download, CheckSquare, Square, GripVertical, ArrowUp, ArrowDown, ListChecks, X, Waves, UploadCloud, FolderOpen } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import CustomSelect from './CustomSelect';
@@ -81,9 +81,154 @@ export default function MeetManager({
     loadMeets();
   }, []);
 
+  const [deleteProgress, setDeleteProgress] = useState<{ isOpen: boolean; percent: number; stepText: string }>({ isOpen: false, percent: 0, stepText: '' });
+
   const loadMeets = async (preferredMeetId?: number) => {
     try {
-      let list = await db.meets.toArray();
+      // 0. Immediate 0ms UI Hydration from local database
+      const initialDbMeets = await db.meets.toArray();
+      if (initialDbMeets.length > 0) {
+        const uniqueInitMap = new Map<string, Meet>();
+        initialDbMeets.forEach(m => {
+          const normKey = m.name.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (!uniqueInitMap.has(normKey)) uniqueInitMap.set(normKey, m);
+        });
+        const dedupedInit = Array.from(uniqueInitMap.values());
+        setMeets(dedupedInit);
+        const initialTargetId = preferredMeetId !== undefined 
+          ? preferredMeetId 
+          : ((selectedMeetId && dedupedInit.some(m => m.id === selectedMeetId)) 
+            ? selectedMeetId 
+            : ((activeMeetId !== undefined && activeMeetId !== null && dedupedInit.some(m => m.id === activeMeetId)) ? activeMeetId : dedupedInit[dedupedInit.length - 1].id!));
+        setSelectedMeetId(initialTargetId);
+        loadEvents(initialTargetId);
+        loadAllSwimmers(initialTargetId);
+      }
+
+      // 1. Auto-discover meets from TouchTeck_Data/Meets on Windows hard drive
+      if (window.touchteckApp?.listDiskMeets) {
+        try {
+          const diskMeets = await window.touchteckApp.listDiskMeets();
+          const currentDbMeets = await db.meets.toArray();
+
+          for (const dm of diskMeets) {
+            // Skip temporary or already deleted directories
+            if (dm.folderName.includes('_deleted_')) continue;
+
+            const exists = currentDbMeets.find(m => 
+              m.name.trim().toLowerCase() === dm.displayName.trim().toLowerCase() ||
+              m.name.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase() === dm.folderName.toLowerCase()
+            );
+
+            if (!exists) {
+              const newMeetId = await db.meets.add({
+                name: dm.displayName,
+                date: dm.date || new Date().toISOString().split('T')[0],
+                location: dm.location || '',
+                poolType: dm.poolType || '50m',
+                lanes: dm.lanes || 8,
+                categoryPreset: 'masters',
+                affiliationType: 'District'
+              });
+
+              if (window.touchteckApp?.readDiskMeetEvents) {
+                const diskEvents = await window.touchteckApp.readDiskMeetEvents(dm.folderName);
+                const swimmersMap = new Map<string, number>();
+                const assignmentsToInsert: LaneAssignment[] = [];
+                const resultsToInsert: Result[] = [];
+
+                for (let eIdx = 0; eIdx < diskEvents.length; eIdx++) {
+                  const dev = diskEvents[eIdx];
+                  if (dev.event) {
+                    const tempEvNo = dev.event.eventNo || (eIdx + 1);
+                    const newEvId = await db.events.add({
+                      meetId: Number(newMeetId),
+                      eventNo: tempEvNo,
+                      distance: dev.event.distance,
+                      stroke: dev.event.stroke,
+                      gender: dev.event.gender,
+                      ageGroup: dev.event.ageGroup
+                    });
+
+                    if (dev.heats && Array.isArray(dev.heats)) {
+                      for (const h of dev.heats) {
+                        for (const l of h.lanes || []) {
+                          let swimmerId: number | undefined;
+                          if (l.swimmer && l.swimmer.name) {
+                            const swKey = `${l.swimmer.name.toLowerCase().trim()}_${l.swimmer.sfiUid || ''}`;
+                            if (!swimmersMap.has(swKey)) {
+                              const sId = await db.swimmers.add({
+                                meetId: Number(newMeetId),
+                                sfiUid: l.swimmer.sfiUid || '',
+                                name: l.swimmer.name,
+                                club: l.swimmer.club || 'Unattached',
+                                gender: l.swimmer.gender || dev.event.gender,
+                                ageGroup: l.swimmer.ageGroup || dev.event.ageGroup,
+                                birthYear: l.swimmer.birthYear
+                              });
+                              swimmerId = Number(sId);
+                              swimmersMap.set(swKey, swimmerId);
+                            } else {
+                              swimmerId = swimmersMap.get(swKey);
+                            }
+                          }
+
+                          assignmentsToInsert.push({
+                            eventId: Number(newEvId),
+                            heatNumber: h.heatNumber,
+                            laneNumber: l.laneNumber,
+                            swimmerId
+                          });
+
+                          if (l.result && l.result.officialTime > 0) {
+                            resultsToInsert.push({
+                              eventId: Number(newEvId),
+                              heatNumber: h.heatNumber,
+                              laneNumber: l.laneNumber,
+                              swimmerId,
+                              finalTime: l.result.officialTime,
+                              splits: l.result.splits || [],
+                              status: l.result.status || 'OK',
+                              recordedAt: l.result.recordedAt || Date.now()
+                            });
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+
+                if (assignmentsToInsert.length > 0) {
+                  await db.laneAssignments.bulkAdd(assignmentsToInsert);
+                }
+                if (resultsToInsert.length > 0) {
+                  await db.results.bulkAdd(resultsToInsert);
+                }
+              }
+            }
+          }
+        } catch (scanErr) {
+          console.warn('Disk meet auto-discovery note:', scanErr);
+        }
+      }
+
+      const rawList = await db.meets.toArray();
+
+      // Deduplicate db.meets so each championship name only appears once!
+      const uniqueMeetMap = new Map<string, Meet>();
+      for (const m of rawList) {
+        const normKey = m.name.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (!uniqueMeetMap.has(normKey)) {
+          uniqueMeetMap.set(normKey, m);
+        } else {
+          // Extra duplicate found -> delete it
+          if (m.id) {
+            await db.meets.delete(m.id);
+          }
+        }
+      }
+
+      let list = Array.from(uniqueMeetMap.values());
       if (list.length === 0) {
         await seedDatabase(true);
         list = await db.meets.toArray();
@@ -190,7 +335,24 @@ export default function MeetManager({
   const setSelectedMeetId = (id: number | null) => {
     setInternalMeetId(id);
     setActiveMeetId?.(id);
+    if (id !== null && typeof window !== 'undefined') {
+      localStorage.setItem('touchteck_active_meet_id', String(id));
+      window.dispatchEvent(new CustomEvent('touchteck-active-meet-changed', { detail: { meetId: id } }));
+    }
   };
+
+  useEffect(() => {
+    const handleMeetSync = (e: any) => {
+      const newMeetId = e?.detail?.meetId;
+      if (newMeetId && newMeetId !== selectedMeetId) {
+        setInternalMeetId(newMeetId);
+        loadEvents(newMeetId);
+        loadAllSwimmers(newMeetId);
+      }
+    };
+    window.addEventListener('touchteck-active-meet-changed', handleMeetSync);
+    return () => window.removeEventListener('touchteck-active-meet-changed', handleMeetSync);
+  }, [selectedMeetId]);
 
   const setSelectedEventId = (id: number | null) => {
     setInternalEventId(id);
@@ -456,6 +618,7 @@ export default function MeetManager({
     if (!uniqueHeats.includes(heatNum)) {
       uniqueHeats.push(heatNum);
     }
+    if (uniqueHeats.length === 0) uniqueHeats.push(1);
     setHeats(uniqueHeats.sort((a, b) => a - b));
 
     const assignedIds = new Set<number>();
@@ -1212,10 +1375,24 @@ export default function MeetManager({
   const handleConfirmDeleteMeet = async () => {
     if (!selectedMeetId || isDeletingMeet) return;
     const targetMeetId = selectedMeetId;
+    const targetMeet = meets.find(m => m.id === targetMeetId);
     setIsDeletingMeet(true);
     setShowDeleteMeetConfirm(false);
+    setDeleteProgress({ isOpen: true, percent: 10, stepText: 'Preparing meet archive...' });
 
     try {
+      await new Promise(r => setTimeout(r, 120));
+      setDeleteProgress({ isOpen: true, percent: 35, stepText: 'Safely moving certificates & meet files to Recovery Bin...' });
+
+      // 1. Safely move the entire meet folder (including Certificates, Results, Reports, Events, Swimmers) to TouchTeck_Data/Recovery_Bin/
+      if (targetMeet && window.touchteckApp?.moveMeetToRecoveryBin) {
+        await window.touchteckApp.moveMeetToRecoveryBin(targetMeet.name);
+      }
+
+      setDeleteProgress({ isOpen: true, percent: 70, stepText: 'Clearing active heats, lanes & results from workspace...' });
+      await new Promise(r => setTimeout(r, 120));
+
+      // 2. Clear from active UI runtime database
       await db.meets.delete(targetMeetId);
       const eventsToDelete = await db.events.where('meetId').equals(targetMeetId).toArray();
       for (const ev of eventsToDelete) {
@@ -1226,15 +1403,21 @@ export default function MeetManager({
         }
       }
       await db.swimmers.where('meetId').equals(targetMeetId).delete();
+
+      setDeleteProgress({ isOpen: true, percent: 90, stepText: 'Finalizing meet list...' });
       setSelectedMeetId(null);
       setSelectedEventId(null);
       setSelectedHeatNum(1);
       await loadMeets();
       window.dispatchEvent(new Event('lane-assignments-updated'));
+
+      setDeleteProgress({ isOpen: true, percent: 100, stepText: 'Meet Deleted & Safely Archived in Recovery Bin!' });
+      await new Promise(r => setTimeout(r, 500));
     } catch (err) {
       console.error('Error deleting meet:', err);
     } finally {
       setIsDeletingMeet(false);
+      setDeleteProgress({ isOpen: false, percent: 0, stepText: '' });
     }
   };
 
@@ -1255,13 +1438,15 @@ export default function MeetManager({
     });
 
     const laneCount = meets.find(m => m.id === selectedMeetId)?.lanes || 8;
-    for (let lane = 1; lane <= laneCount; lane++) {
-      await db.laneAssignments.add({
-        eventId: Number(newId),
-        heatNumber: 1,
-        laneNumber: lane,
-        swimmerId: undefined
-      });
+    for (let h = 1; h <= 2; h++) {
+      for (let lane = 1; lane <= laneCount; lane++) {
+        await db.laneAssignments.add({
+          eventId: Number(newId),
+          heatNumber: h,
+          laneNumber: lane,
+          swimmerId: undefined
+        });
+      }
     }
 
     setIsCreatingEvent(false);
@@ -2252,7 +2437,7 @@ export default function MeetManager({
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.35rem', overflow: 'hidden' }}>
                         <span>{ev.gender === 'M' ? 'Men' : 'Women'} ({ev.ageGroup})</span>
                         {(() => {
-                          const storedHeats = eventHeatsMap.get(Number(ev.id)) || [];
+                          const storedHeats = eventHeatsMap.get(Number(ev.id)) || [1];
                           const activeSelectedHeats = (isSelected && heats.length > 0) ? heats : [];
                           const evHeats = Array.from(new Set([...storedHeats, ...activeSelectedHeats])).sort((a, b) => a - b);
                           if (evHeats.length === 0) evHeats.push(1);
@@ -2335,7 +2520,7 @@ export default function MeetManager({
                       )}
 
                       {(() => {
-                        const storedHeats = eventHeatsMap.get(Number(ev.id)) || [];
+                        const storedHeats = eventHeatsMap.get(Number(ev.id)) || [1];
                         const activeSelectedHeats = (isSelected && heats.length > 0) ? heats : [];
                         const totalHeatsCount = Math.max(1, Array.from(new Set([...storedHeats, ...activeSelectedHeats])).length);
                         return (
@@ -3118,6 +3303,64 @@ export default function MeetManager({
         }
       }}
     />
+
+    {/* Deleting Progress Bar Modal (0% -> 100%) */}
+    {deleteProgress.isOpen && createPortal(
+      <div className="modal-overlay" style={{ zIndex: 100000 }}>
+        <div className="modal-content" style={{ maxWidth: '440px', textAlign: 'center', padding: '2.2rem 2rem', background: '#0f172a', border: '2px solid rgba(239, 68, 68, 0.4)', borderRadius: '20px', boxShadow: '0 25px 60px rgba(0,0,0,0.9), 0 0 30px rgba(239,68,68,0.2)' }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+            border: '2px solid #ef4444',
+            color: '#ef4444',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 1.25rem',
+            boxShadow: '0 0 20px rgba(239, 68, 68, 0.3)'
+          }}>
+            <Trash2 size={30} className={deleteProgress.percent < 100 ? 'animate-pulse' : ''} />
+          </div>
+
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#fff', marginBottom: '0.5rem' }}>
+            {deleteProgress.percent < 100 ? 'Archiving & Deleting Meet...' : 'Meet Successfully Deleted!'}
+          </h3>
+
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', minHeight: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {deleteProgress.stepText}
+          </p>
+
+          {/* Glowing Percentage Progress Bar */}
+          <div style={{
+            width: '100%',
+            height: '10px',
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            borderRadius: '10px',
+            overflow: 'hidden',
+            position: 'relative',
+            marginBottom: '0.75rem',
+            border: '1px solid rgba(255, 255, 255, 0.15)'
+          }}>
+            <div style={{
+              height: '100%',
+              width: `${deleteProgress.percent}%`,
+              background: deleteProgress.percent === 100 ? 'linear-gradient(90deg, #22c55e, #4ade80)' : 'linear-gradient(90deg, #ef4444, #f59e0b)',
+              borderRadius: '10px',
+              transition: 'width 0.3s ease',
+              boxShadow: deleteProgress.percent === 100 ? '0 0 12px #22c55e' : '0 0 12px #ef4444'
+            }} />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 800, color: deleteProgress.percent === 100 ? '#4ade80' : '#f87171' }}>
+            <span>Progress</span>
+            <span>{deleteProgress.percent}%</span>
+          </div>
+        </div>
+      </div>,
+      document.body
+    )}
   </>
   );
 }

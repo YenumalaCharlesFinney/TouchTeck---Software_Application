@@ -47,6 +47,7 @@ export interface StagedEvent {
 }
 
 const ALL_AGE_GROUPS: AgeGroup[] = [
+  'Group A (15-17)', 'Group B (12-14)', 'Group C (10-11)', 'Group D (8-9)',
   'Group A', 'Group B', 'Group C', 'Group D',
   'Group I', 'Group II', 'Group III', 'Group IV',
   '25-29', '30-34', '35-39', '40-44', '45-49',
@@ -665,9 +666,28 @@ export const SmartImportModal: React.FC<SmartImportModalProps> = ({
       await new Promise(r => setTimeout(r, 30));
       if (isCancelledRef.current) return;
 
-      // 4. Register Swimmers and prepare Lane Assignments
+      // 4. Register Swimmers and prepare Lane Assignments (Pre-seeding at least 2 Heats per event)
       const totalSw = stagedSwimmers.length;
-      const assignmentsToInsert: Array<LaneAssignment> = [];
+      const assignmentsMap = new Map<string, LaneAssignment>();
+      const totalLanesPerHeat = stagedMeetConfig?.lanes || 8;
+
+      // Pre-seed Heat 1 and Heat 2 (16 lanes) for every event
+      for (const ev of stagedEvents) {
+        const evId = eventKeyToDbId.get(ev.eventKey);
+        if (!evId) continue;
+        for (let h = 1; h <= 2; h++) {
+          for (let l = 1; l <= totalLanesPerHeat; l++) {
+            const key = `${evId}_${h}_${l}`;
+            assignmentsMap.set(key, {
+              eventId: evId,
+              heatNumber: h,
+              laneNumber: l,
+              swimmerId: undefined
+            });
+          }
+        }
+      }
+
       const batchSize = Math.max(1, Math.floor(totalSw / 10));
 
       for (let i = 0; i < totalSw; i++) {
@@ -686,10 +706,13 @@ export const SmartImportModal: React.FC<SmartImportModalProps> = ({
         for (const a of sw.assignments) {
           const evId = eventKeyToDbId.get(a.eventKey);
           if (evId && swDbId) {
-            assignmentsToInsert.push({
+            const hNum = a.heatNumber || 1;
+            const lNum = a.laneNumber || 1;
+            const key = `${evId}_${hNum}_${lNum}`;
+            assignmentsMap.set(key, {
               eventId: evId,
-              heatNumber: a.heatNumber,
-              laneNumber: a.laneNumber,
+              heatNumber: hNum,
+              laneNumber: lNum,
               swimmerId: Number(swDbId)
             });
           }
@@ -706,10 +729,11 @@ export const SmartImportModal: React.FC<SmartImportModalProps> = ({
       if (isCancelledRef.current) return;
 
       // 5. Bulk add lane assignments
+      const finalAssignments = Array.from(assignmentsMap.values());
       setProgressPercent(85);
-      setProgressStatus(`Seeding ${assignmentsToInsert.length} Lane & Heat Assignments...`);
-      if (assignmentsToInsert.length > 0) {
-        await db.laneAssignments.bulkAdd(assignmentsToInsert);
+      setProgressStatus(`Seeding ${finalAssignments.length} Lane & Heat Assignments (Heats 1 & 2)...`);
+      if (finalAssignments.length > 0) {
+        await db.laneAssignments.bulkAdd(finalAssignments);
       }
       await new Promise(r => setTimeout(r, 40));
       if (isCancelledRef.current) return;
@@ -1226,7 +1250,7 @@ export const SmartImportModal: React.FC<SmartImportModalProps> = ({
                     <div className="form-group">
                       <label className="form-label">AGE GROUP / CATEGORY</label>
                       <CustomSelect
-                        options={ALL_AGE_GROUPS.map(ag => ({ value: ag, label: ag }))}
+                        options={Array.from(new Set([editingSwimmer.ageGroup, ...ALL_AGE_GROUPS].filter(Boolean))).map(ag => ({ value: ag, label: ag }))}
                         value={editingSwimmer.ageGroup}
                         onChange={(val) => setEditingSwimmer({ ...editingSwimmer, ageGroup: val as AgeGroup })}
                       />

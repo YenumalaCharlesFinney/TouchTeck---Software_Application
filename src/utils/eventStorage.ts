@@ -181,22 +181,104 @@ export async function syncMeetEventsToDisk(meetId: number): Promise<void> {
     if (!meet) return;
 
     const cleanMeetName = meet.name || 'Championship_Meet';
-    const events = await db.events.where('meetId').equals(meetId).toArray();
-    const swimmers = await db.swimmers.where('meetId').equals(meetId).toArray();
+    const [events, swimmers, allAssigns, allResults] = await Promise.all([
+      db.events.where('meetId').equals(meetId).toArray(),
+      db.swimmers.where('meetId').equals(meetId).toArray(),
+      db.laneAssignments.toArray(),
+      db.results.toArray()
+    ]);
 
-    // 1. Write each event JSON file
+    const swimmerMap = new Map<number, Swimmer>();
+    swimmers.forEach(s => { if (s.id) swimmerMap.set(s.id, s); });
+
+    const totalLanes = meet.lanes || 8;
+    const fileBatch: Array<{ subPath: string; content: string }> = [];
+
+    // 1. Build each event JSON payload in memory fast
     for (const ev of events) {
-      if (ev.id) {
-        const payload = await buildEventDataPayload(ev.id);
-        if (payload && window.touchteckApp?.writeEventFile) {
-          const fileName = getEventFileName(ev);
-          await window.touchteckApp.writeEventFile(cleanMeetName, fileName, JSON.stringify(payload, null, 2));
+      if (!ev.id) continue;
+      const evId = ev.id;
+      const assignments = allAssigns.filter(a => Number(a.eventId) === evId);
+      const results = allResults.filter(r => Number(r.eventId) === evId);
+
+      const heatSet = new Set<number>();
+      assignments.forEach(a => heatSet.add(a.heatNumber));
+      results.forEach(r => heatSet.add(r.heatNumber));
+      if (heatSet.size === 0) heatSet.add(1);
+
+      const sortedHeats = Array.from(heatSet).sort((a, b) => a - b);
+      const heatsData: EventDataFilePayload['heats'] = [];
+
+      for (const h of sortedHeats) {
+        const heatAssigns = assignments.filter(a => a.heatNumber === h);
+        const heatResults = results.filter(r => r.heatNumber === h);
+        const lanesData: EventDataFilePayload['heats'][0]['lanes'] = [];
+
+        for (let l = 1; l <= totalLanes; l++) {
+          const assign = heatAssigns.find(a => a.laneNumber === l);
+          const res = heatResults.find(r => r.laneNumber === l);
+          const sId = assign?.swimmerId || res?.swimmerId;
+          const sw = sId ? swimmerMap.get(sId) : undefined;
+
+          lanesData.push({
+            laneNumber: l,
+            swimmer: sw ? {
+              id: sw.id,
+              sfiUid: sw.sfiUid,
+              name: sw.name,
+              club: sw.club,
+              gender: sw.gender,
+              ageGroup: sw.ageGroup,
+              birthYear: sw.birthYear
+            } : undefined,
+            result: res ? {
+              officialTime: res.finalTime || 0,
+              splits: res.splits || [],
+              status: res.status || 'OK',
+              t1Time: res.t1Time,
+              t2Time: res.t2Time,
+              recordedAt: res.recordedAt
+            } : undefined
+          });
         }
+
+        heatsData.push({
+          heatNumber: h,
+          lanes: lanesData
+        });
       }
+
+      const payload: EventDataFilePayload = {
+        version: '1.0',
+        exportedAt: new Date().toISOString(),
+        meet: {
+          id: meet.id,
+          name: meet.name,
+          date: meet.date,
+          location: meet.location,
+          poolType: meet.poolType || '50m',
+          lanes: meet.lanes || 8
+        },
+        event: {
+          id: ev.id,
+          eventNo: ev.eventNo,
+          distance: ev.distance,
+          stroke: ev.stroke,
+          gender: ev.gender,
+          ageGroup: ev.ageGroup
+        },
+        heats: heatsData
+      };
+
+      const fileName = getEventFileName(ev);
+      fileBatch.push({
+        subPath: `events/${fileName}`,
+        content: JSON.stringify(payload, null, 2)
+      });
     }
 
-    // 2. Write Swimmers Registry JSON
-    if (window.touchteckApp?.writeEventFile && swimmers.length > 0) {
+    // 2. Swimmers Registry JSON
+    if (swimmers.length > 0) {
       const swimmerExport = {
         meetName: meet.name,
         date: meet.date,
@@ -211,7 +293,30 @@ export async function syncMeetEventsToDisk(meetId: number): Promise<void> {
           affiliation: s.club || 'Unattached'
         }))
       };
-      await window.touchteckApp.writeEventFile(cleanMeetName, 'Swimmers_Registry.json', JSON.stringify(swimmerExport, null, 2));
+      fileBatch.push({
+        subPath: 'Swimmers_Registry.json',
+        content: JSON.stringify(swimmerExport, null, 2)
+      });
+    }
+
+    // 3. Meet Info JSON
+    const meetInfo = {
+      id: meet.id,
+      name: meet.name,
+      date: meet.date,
+      location: meet.location,
+      poolType: meet.poolType || '50m',
+      lanes: meet.lanes || 8,
+      categoryPreset: meet.categoryPreset,
+      affiliationType: meet.affiliationType
+    };
+    fileBatch.push({
+      subPath: 'meet_info.json',
+      content: JSON.stringify(meetInfo, null, 2)
+    });
+
+    if (window.touchteckApp?.writeBatchMeetFiles) {
+      await window.touchteckApp.writeBatchMeetFiles(cleanMeetName, fileBatch);
     }
   } catch (err) {
     console.error('Failed to sync meet events to disk:', err);

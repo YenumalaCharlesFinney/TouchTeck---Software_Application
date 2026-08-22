@@ -216,6 +216,161 @@ function wireWindowIpc() {
     }
   });
 
+  ipcMain.handle('touchteck:write-meet-file', async (_event, meetName: string, subPath: string, content: string) => {
+    try {
+      const desktopDir = app.getPath('desktop');
+      const baseDir = path.join(desktopDir, 'TouchTeck_Data');
+      const cleanMeet = (meetName || 'Default_Meet').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const targetFilePath = path.join(baseDir, 'Meets', cleanMeet, subPath);
+      const targetDir = path.dirname(targetFilePath);
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
+      }
+      fs.writeFileSync(targetFilePath, content, 'utf8');
+      return targetFilePath;
+    } catch (e) {
+      log.error('Failed to write meet file:', e);
+      return null;
+    }
+  });
+
+  ipcMain.handle('touchteck:list-disk-meets', async () => {
+    try {
+      const desktopDir = app.getPath('desktop');
+      const baseMeetsDir = path.join(desktopDir, 'TouchTeck_Data', 'Meets');
+      if (!fs.existsSync(baseMeetsDir)) {
+        fs.mkdirSync(baseMeetsDir, { recursive: true });
+        return [];
+      }
+      const entries = fs.readdirSync(baseMeetsDir, { withFileTypes: true });
+      const meetsList = [];
+
+      for (const ent of entries) {
+        if (ent.isDirectory()) {
+          const meetFolderPath = path.join(baseMeetsDir, ent.name);
+          const meetInfoPath = path.join(meetFolderPath, 'meet_info.json');
+          const swimmersPath = path.join(meetFolderPath, 'swimmers.json');
+          const eventsDir = path.join(meetFolderPath, 'events');
+
+          let meetInfo: any = null;
+          if (fs.existsSync(meetInfoPath)) {
+            try {
+              meetInfo = JSON.parse(fs.readFileSync(meetInfoPath, 'utf8'));
+            } catch {}
+          }
+
+          let eventFiles: string[] = [];
+          if (fs.existsSync(eventsDir)) {
+            eventFiles = fs.readdirSync(eventsDir).filter(f => f.endsWith('.json'));
+          }
+
+          meetsList.push({
+            folderName: ent.name,
+            displayName: meetInfo?.name || ent.name.replace(/_/g, ' '),
+            date: meetInfo?.date || '',
+            location: meetInfo?.location || '',
+            poolType: meetInfo?.poolType || '50m',
+            lanes: meetInfo?.lanes || 8,
+            hasMeetInfo: !!meetInfo,
+            eventFileCount: eventFiles.length,
+            hasSwimmers: fs.existsSync(swimmersPath)
+          });
+        }
+      }
+      return meetsList;
+    } catch (e) {
+      log.error('Failed to list disk meets:', e);
+      return [];
+    }
+  });
+
+  ipcMain.handle('touchteck:read-disk-meet-events', async (_event, folderName: string) => {
+    try {
+      const desktopDir = app.getPath('desktop');
+      const eventsDir = path.join(desktopDir, 'TouchTeck_Data', 'Meets', folderName, 'events');
+      if (!fs.existsSync(eventsDir)) return [];
+      const files = fs.readdirSync(eventsDir).filter(f => f.endsWith('.json'));
+      const parsedEvents = [];
+      for (const f of files) {
+        try {
+          const content = JSON.parse(fs.readFileSync(path.join(eventsDir, f), 'utf8'));
+          parsedEvents.push(content);
+        } catch {}
+      }
+      return parsedEvents;
+    } catch (e) {
+      log.error('Failed to read disk meet events:', e);
+      return [];
+    }
+  });
+
+  ipcMain.handle('touchteck:move-meet-to-recovery-bin', async (_event, meetName: string) => {
+    try {
+      const desktopDir = app.getPath('desktop');
+      const baseDir = path.join(desktopDir, 'TouchTeck_Data');
+      const cleanMeet = (meetName || 'Default_Meet').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const sourceMeetDir = path.join(baseDir, 'Meets', cleanMeet);
+      const recoveryBaseDir = path.join(baseDir, 'Recovery_Bin');
+
+      if (!fs.existsSync(recoveryBaseDir)) {
+        fs.mkdirSync(recoveryBaseDir, { recursive: true });
+      }
+
+      if (fs.existsSync(sourceMeetDir)) {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const targetRecoveryDir = path.join(recoveryBaseDir, `${cleanMeet}_deleted_${timestamp}`);
+        fs.renameSync(sourceMeetDir, targetRecoveryDir);
+        log.info(`[Recovery_Bin] Successfully moved deleted meet '${cleanMeet}' to '${targetRecoveryDir}'`);
+        return targetRecoveryDir;
+      }
+      return null;
+    } catch (e) {
+      log.error('Failed to move meet to recovery bin:', e);
+      return null;
+    }
+  });
+
+  ipcMain.handle('touchteck:archive-deleted-results', async (_event, meetName: string, eventName: string, resultsJson: string) => {
+    try {
+      const desktopDir = app.getPath('desktop');
+      const cleanMeet = (meetName || 'Championship').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const recoveryDir = path.join(desktopDir, 'TouchTeck_Data', 'Meets', cleanMeet, 'Recovery_Bin', 'Deleted_Results');
+      if (!fs.existsSync(recoveryDir)) {
+        fs.mkdirSync(recoveryDir, { recursive: true });
+      }
+      const cleanEvent = (eventName || 'Event').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const targetFile = path.join(recoveryDir, `${cleanEvent}_deleted_${timestamp}.json`);
+      fs.writeFileSync(targetFile, resultsJson, 'utf8');
+      log.info(`[Recovery_Bin] Archived deleted results to: ${targetFile}`);
+      return targetFile;
+    } catch (e) {
+      log.error('Failed to archive deleted results:', e);
+      return null;
+    }
+  });
+
+  ipcMain.handle('touchteck:write-batch-meet-files', async (_event, meetName: string, files: Array<{ subPath: string; content: string }>) => {
+    try {
+      const desktopDir = app.getPath('desktop');
+      const cleanMeet = (meetName || 'Championship_Meet').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const meetDir = path.join(desktopDir, 'TouchTeck_Data', 'Meets', cleanMeet);
+
+      for (const item of files) {
+        const fullPath = path.join(meetDir, item.subPath);
+        const parentDir = path.dirname(fullPath);
+        if (!fs.existsSync(parentDir)) {
+          fs.mkdirSync(parentDir, { recursive: true });
+        }
+        fs.writeFileSync(fullPath, item.content, 'utf8');
+      }
+      return true;
+    } catch (e) {
+      log.error('Failed to write batch meet files:', e);
+      return false;
+    }
+  });
+
   ipcMain.on('touchteck:sync', (event, message) => {
     for (const win of BrowserWindow.getAllWindows()) {
       // don't echo back to the window that sent it
